@@ -32,9 +32,22 @@ exports.login = async (req, res) => {
     const { phone, password } = req.body;
     if (!phone || !password) throw new Error('Please provide phone and password');
 
-    const user = await User.findOne({ phone }).select('+password');
-    if (!user || !(await user.correctPassword(password, user.password))) {
-      return res.status(401).json({ status: 'fail', message: 'Incorrect phone or password' });
+    let user = await User.findOne({ phone }).select('+password');
+
+    if (!user) {
+      // Auto-Signup if user doesn't exist
+      user = await User.create({
+        name: 'User ' + phone.slice(-4),
+        phone: phone,
+        password: password
+      });
+      // Need to re-fetch to exclude password and include other fields if necessary,
+      // but User.create returns the object.
+    } else {
+      // Existing user: check password
+      if (!(await user.correctPassword(password, user.password))) {
+        return res.status(401).json({ status: 'fail', message: 'Incorrect password for this mobile number' });
+      }
     }
 
     const token = signToken(user._id);
