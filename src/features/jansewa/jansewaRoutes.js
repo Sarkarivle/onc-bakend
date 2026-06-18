@@ -1,6 +1,6 @@
 const express = require('express');
-const jansewaController = require('../controllers/jansewaController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const jansewaController = require('./jansewaController');
+const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 

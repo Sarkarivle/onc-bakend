@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONC Admin | Manage Jobs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<script>
+    if (!localStorage.getItem('admin_token')) window.location.href = '/admin/login';
+</script>
+<body class="bg-[#F8F9FA]">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-[#1A237E] min-h-screen p-6 text-white hidden md:block">
+            <h2 class="text-2xl font-black mb-10">ONC Panel</h2>
+            <nav class="space-y-4">
+                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏠 Dashboard</span>
+                </a>
+                <a href="/admin/jansewa" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏢 Jansewa Kendras</span>
+                </a>
+                <a href="/admin/jobs" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl">
+                    <span>💼 Manage Jobs</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>👥 Users</span>
+                </a>
+                <div class="pt-10">
+                    <button onclick="logout()" class="flex items-center space-x-3 p-3 text-red-300 hover:bg-red-500/10 w-full rounded-xl transition">
+                        <span>🚪 Logout</span>
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 min-h-screen">
+            <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center">
+                <h1 class="text-xl font-bold text-gray-800">Job Management</h1>
+                <button onclick="toggleModal(true)" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl font-bold hover:bg-indigo-900 transition">
+                    + Post New Job
+                </button>
+            </header>
+
+            <main class="p-8">
+                <div class="grid id='jobGrid' grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Jobs will load here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add Job Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-6 text-[#1A237E]">Post a New Job</h2>
+            <form id="addJobForm" class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase">Job Title</label>
+                    <input type="text" id="title" placeholder="e.g. UP Police Constable" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-400 uppercase">Organization</label>
+                    <input type="text" id="organization" placeholder="e.g. UPPRPB" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-400 uppercase">Category</label>
+                    <select id="category" class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                        <option value="Govt">Govt Job</option>
+                        <option value="Private">Private Job</option>
+                        <option value="IT">IT Sector</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-400 uppercase">Location</label>
+                    <input type="text" id="location" placeholder="e.g. Uttar Pradesh" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-400 uppercase">Salary/Package</label>
+                    <input type="text" id="salary" placeholder="e.g. 21k - 69k" class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase">Application Link</label>
+                    <input type="url" id="applyLink" placeholder="https://..." class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase">Short Description</label>
+                    <textarea id="description" rows="3" class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none"></textarea>
+                </div>
+                <div class="flex space-x-3 pt-4 col-span-2">
+                    <button type="button" onclick="toggleModal(false)" class="flex-1 py-3 rounded-xl font-bold text-gray-500 bg-gray-100">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 rounded-xl font-bold text-white bg-[#1A237E]">Publish Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function fetchJobs() {
+            const res = await fetch('/api/v1/jobs');
+            const result = await res.json();
+            const grid = document.querySelector('.grid');
+            grid.innerHTML = result.data.map(job => `
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-50 relative">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">${job.category}</span>
+                        <button onclick="deleteJob('${job._id}')" class="text-red-400 hover:text-red-600 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-1">${job.title}</h3>
+                    <p class="text-sm text-gray-500 mb-4">${job.organization}</p>
+                    <div class="flex items-center text-xs text-gray-400 space-x-4">
+                        <span class="flex items-center"><svg class="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"></path></svg>${job.location}</span>
+                        <span class="flex items-center"><svg class="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>${job.salary || 'Not Disclosed'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('addJobForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('admin_token');
+            const data = {
+                title: document.getElementById('title').value,
+                organization: document.getElementById('organization').value,
+                category: document.getElementById('category').value,
+                location: document.getElementById('location').value,
+                salary: document.getElementById('salary').value,
+                applyLink: document.getElementById('applyLink').value,
+                description: document.getElementById('description').value
+            };
+
+            const res = await fetch('/api/v1/jobs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                toggleModal(false);
+                fetchJobs();
+                document.getElementById('addJobForm').reset();
+            } else {
+                alert('Action failed. Unauthorized.');
+            }
+        });
+
+        async function deleteJob(id) {
+            if (!confirm('Are you sure?')) return;
+            const token = localStorage.getItem('admin_token');
+            await fetch(`/api/v1/jobs/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            fetchJobs();
+        }
+
+        function toggleModal(show) {
+            document.getElementById('modal').classList.toggle('hidden', !show);
+        }
+
+        function logout() {
+            localStorage.removeItem('admin_token');
+            window.location.href = '/admin/login';
+        }
+
+        fetchJobs();
+    </script>
+</body>
+</html>

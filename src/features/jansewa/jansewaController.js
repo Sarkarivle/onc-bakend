@@ -1,4 +1,4 @@
-const Jansewa = require('../models/jansewaModel');
+const Jansewa = require('./jansewaModel');
 
 exports.getAllKendras = async (req, res) => {
   try {

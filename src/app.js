@@ -7,8 +7,10 @@ const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const path = require('path');
 
-const authRoutes = require('./routes/authRoutes');
-const jansewaRoutes = require('./routes/jansewaRoutes');
+// Feature-Based Routes
+const authRoutes = require('./features/auth/authRoutes');
+const jansewaRoutes = require('./features/jansewa/jansewaRoutes');
+const jobRoutes = require('./features/jobs/jobRoutes');
 
 const app = express();
 
@@ -34,6 +36,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // 2. ROUTES
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/jansewa', jansewaRoutes);
+app.use('/api/v1/jobs', jobRoutes);
 
 // Web Admin Pages
 app.get('/admin/login', (req, res) => {
@@ -44,6 +47,9 @@ app.get('/admin/dashboard', (req, res) => {
 });
 app.get('/admin/jansewa', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/jansewa.html'));
+});
+app.get('/admin/jobs', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/jobs.html'));
 });
 app.get('/', (req, res) => res.redirect('/admin/login'));
 
