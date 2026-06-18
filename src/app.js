@@ -42,6 +42,9 @@ app.get('/admin/login', (req, res) => {
 app.get('/admin/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/dashboard.html'));
 });
+app.get('/admin/jansewa', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/jansewa.html'));
+});
 app.get('/', (req, res) => res.redirect('/admin/login'));
 
 module.exports = app;
