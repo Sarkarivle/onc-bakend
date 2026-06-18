@@ -8,13 +8,17 @@ const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
 // 1. GLOBAL MIDDLEWARES (Security First)
-app.use(helmet()); // Set security HTTP headers
-app.use(morgan('dev')); // Development logging
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabling CSP for easier CDN usage in this example
+}));
+app.use(morgan('dev'));
+app.use(express.static('public')); // Serve static files from public folder
 
 // Rate Limiting: Prevent Brute Force Attacks
 const limiter = rateLimit({
@@ -148,6 +152,20 @@ app.get('/api/v1/admin/stats', protect, restrictTo('admin'), (req, res) => {
     status: 'success',
     data: { stats: 'Ultra secure admin data reached!' }
   });
+});
+
+// --- WEB ADMIN ROUTES ---
+app.get('/admin/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/admin/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// Redirect root to user app or login
+app.get('/', (req, res) => {
+    res.redirect('/admin/login');
 });
 
 // 6. SERVER START

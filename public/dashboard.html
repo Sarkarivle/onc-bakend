@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONC Admin | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<script>
+    // Security Check: Redirect to login if no token
+    if (!localStorage.getItem('admin_token')) {
+        window.location.href = '/admin/login';
+    }
+</script>
+<body class="bg-[#F8F9FA]">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-[#1A237E] min-h-screen p-6 text-white hidden md:block">
+            <h2 class="text-2xl font-black mb-10">ONC Panel</h2>
+            <nav class="space-y-4">
+                <a href="#" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl">
+                    <span>🏠 Dashboard</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏢 Jansewa Kendras</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>👥 Users</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>📊 Reports</span>
+                </a>
+                <div class="pt-10">
+                    <button onclick="logout()" class="flex items-center space-x-3 p-3 text-red-300 hover:bg-red-500/10 w-full rounded-xl transition">
+                        <span>🚪 Logout</span>
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 min-h-screen">
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center">
+                <h1 class="text-xl font-bold text-gray-800">Admin Dashboard</h1>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-500">Welcome, <span id="adminName" class="font-bold text-[#1A237E]">Admin</span></span>
+                    <div class="w-10 h-10 bg-indigo-100 rounded-full"></div>
+                </div>
+            </header>
+
+            <main class="p-8">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-50">
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Kendras</p>
+                        <h3 class="text-2xl font-black text-[#1A237E] mt-2">124</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-50">
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider">New Users</p>
+                        <h3 class="text-2xl font-black text-orange-500 mt-2">1,250</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-50">
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider">Active Apps</p>
+                        <h3 class="text-2xl font-black text-purple-500 mt-2">45</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-50">
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider">Revenue</p>
+                        <h3 class="text-2xl font-black text-green-500 mt-2">₹45,200</h3>
+                    </div>
+                </div>
+
+                <!-- Recent Table -->
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 border-b border-gray-50 flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-gray-800">Recent Jansewa Kendra Requests</h2>
+                        <button class="text-[#1A237E] text-sm font-bold">View All</button>
+                    </div>
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-gray-400 text-xs uppercase">
+                            <tr>
+                                <th class="p-4">Kendra Name</th>
+                                <th class="p-4">Location</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            <tr>
+                                <td class="p-4 font-semibold">Aditya Digital Center</td>
+                                <td class="p-4 text-gray-500 text-sm">Shahjahanpur</td>
+                                <td class="p-4"><span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-xs font-bold">Active</span></td>
+                                <td class="p-4"><button class="text-indigo-600 font-bold text-sm">Edit</button></td>
+                            </tr>
+                            <tr>
+                                <td class="p-4 font-semibold">Sharma Help Point</td>
+                                <td class="p-4 text-gray-500 text-sm">Lucknow</td>
+                                <td class="p-4"><span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs font-bold">Pending</span></td>
+                                <td class="p-4"><button class="text-indigo-600 font-bold text-sm">Approve</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('adminName').textContent = localStorage.getItem('admin_name') || 'Admin';
+
+        function logout() {
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('admin_name');
+            window.location.href = '/admin/login';
+        }
+    </script>
+</body>
+</html>
