@@ -7,6 +7,18 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   role: { type: String, enum: ['user', 'admin', 'expert'], default: 'user' },
   isVerified: { type: Boolean, default: false },
+
+  // Personalization Fields
+  gender: { type: String, enum: ['Male', 'Female', 'Other'] },
+  category: { type: String, enum: ['General', 'OBC', 'SC', 'ST', 'EWS'], default: 'General' },
+  dob: { type: Date }, // Date of Birth for age calculation
+  education: { type: String }, // e.g. 10th, 12th, Graduate
+  height: { type: Number }, // in cm
+  weight: { type: Number }, // in kg
+  certificates: [{ type: String }], // e.g. ['CCC', 'NCC-B', 'O-Level']
+  domicileState: { type: String, default: 'Uttar Pradesh' },
+  city: { type: String },
+
   createdAt: { type: Date, default: Date.now }
 });
 
