@@ -1,4 +1,5 @@
 const Job = require('./jobModel');
+const Settings = require('../settings/settingsModel');
 const https = require('https');
 
 exports.getAllJobs = async (req, res) => {
@@ -48,7 +49,10 @@ exports.getAiMatchAdvice = async (req, res) => {
 
     if (!job) throw new Error('Job not found');
 
-    const apiKey = process.env.GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY';
+    // Get API Key from database
+    const geminiSetting = await Settings.findOne({ key: 'GEMINI_API_KEY' });
+    const apiKey = geminiSetting ? geminiSetting.value : (process.env.GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY');
+
     const prompt = `
       Act as a Career Expert. Give a personalized, helpful, and friendly advice in HINGLISH for the user based on their profile and job requirements.
 

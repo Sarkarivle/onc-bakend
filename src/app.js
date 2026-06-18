@@ -11,6 +11,7 @@ const path = require('path');
 const authRoutes = require('./features/auth/authRoutes');
 const jansewaRoutes = require('./features/jansewa/jansewaRoutes');
 const jobRoutes = require('./features/jobs/jobRoutes');
+const settingsRoutes = require('./features/settings/settingsRoutes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/jansewa', jansewaRoutes);
 app.use('/api/v1/jobs', jobRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 
 // Web Admin Pages
 app.get('/admin/login', (req, res) => {
@@ -50,6 +52,9 @@ app.get('/admin/jansewa', (req, res) => {
 });
 app.get('/admin/jobs', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/jobs.html'));
+});
+app.get('/admin/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/settings.html'));
 });
 app.get('/', (req, res) => res.redirect('/admin/login'));
 

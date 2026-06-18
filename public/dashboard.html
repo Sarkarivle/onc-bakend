@@ -37,6 +37,9 @@
                 <a href="#" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
                     <span>📊 Reports</span>
                 </a>
+                <a href="/admin/settings" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>⚙️ Settings</span>
+                </a>
                 <div class="pt-10">
                     <button onclick="logout()" class="flex items-center space-x-3 p-3 text-red-300 hover:bg-red-500/10 w-full rounded-xl transition">
                         <span>🚪 Logout</span>
@@ -77,6 +80,57 @@
                     </div>
                 </div>
 
+                <!-- API Key Configuration -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-50 mb-10">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">System Configuration</h2>
+                            <p class="text-gray-500 text-sm">Manage your external service API keys here.</p>
+                        </div>
+                        <div class="bg-indigo-50 p-2 rounded-lg">
+                            <span class="text-[#1A237E] text-xs font-bold uppercase">Security Mode</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Google Maps API Key -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-bold text-gray-700">Google Maps / Cloud API Key</label>
+                            <div class="flex gap-2">
+                                <input type="password" id="API_KEY" placeholder="Enter Google Maps Key"
+                                    class="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition">
+                                <button onclick="saveSetting('API_KEY')" class="bg-[#1A237E] text-white px-4 py-3 rounded-xl font-bold text-sm hover:bg-[#1A237E]/90 transition">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Gemini AI API Key -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-bold text-gray-700">Gemini AI API Key</label>
+                            <div class="flex gap-2">
+                                <input type="password" id="GEMINI_API_KEY" placeholder="Enter Gemini Key"
+                                    class="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition">
+                                <button onclick="saveSetting('GEMINI_API_KEY')" class="bg-[#1A237E] text-white px-4 py-3 rounded-xl font-bold text-sm hover:bg-[#1A237E]/90 transition">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Msg91 API Key -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-bold text-gray-700">Msg91 (OTP) API Key</label>
+                            <div class="flex gap-2">
+                                <input type="password" id="MSG91_API_KEY" placeholder="Enter Msg91 Key"
+                                    class="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition">
+                                <button onclick="saveSetting('MSG91_API_KEY')" class="bg-[#1A237E] text-white px-4 py-3 rounded-xl font-bold text-sm hover:bg-[#1A237E]/90 transition">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Recent Table -->
                 <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 border-b border-gray-50 flex justify-between items-center">
@@ -114,6 +168,52 @@
 
     <script>
         document.getElementById('adminName').textContent = localStorage.getItem('admin_name') || 'Admin';
+
+        // Load all settings on page load
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/v1/settings', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (data.status === 'success' && data.settings) {
+                    for (const [key, value] of Object.entries(data.settings)) {
+                        const input = document.getElementById(key);
+                        if (input) input.value = value;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load settings:', err);
+            }
+        }
+        loadSettings();
+
+        async function saveSetting(key) {
+            const value = document.getElementById(key).value;
+            if (!value) return alert('Please enter a value');
+
+            try {
+                const response = await fetch('/api/v1/settings/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+                    },
+                    body: JSON.stringify({ key, value })
+                });
+
+                if (response.ok) {
+                    alert(`✅ ${key} updated successfully!`);
+                } else {
+                    alert('❌ Failed to update setting');
+                }
+            } catch (err) {
+                console.error('Error saving setting:', err);
+                alert('An error occurred while saving.');
+            }
+        }
 
         function logout() {
             localStorage.removeItem('admin_token');
