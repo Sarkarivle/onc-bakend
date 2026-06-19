@@ -71,7 +71,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         const jobInfo = latestJobs.map(j => `- ${j.title} in ${j.location}`).join("\n");
 
         // 2. RunPod AI (Ollama) ko Request bhejna
-        const runpodUrl = "https://kcs6dhu2rr49l6-11434.proxy.runpod.net/api/generate";
+        const runpodUrl = "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
         const aiResponse = await axios.post(runpodUrl, {
             model: "onc-ai",
