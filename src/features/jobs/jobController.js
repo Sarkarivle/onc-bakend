@@ -22,6 +22,8 @@ exports.addJobFromJson = async (req, res) => {
 
     const jobData = {
       ...parsedData,
+      totalVacancy: parsedData.totalVacancy || parsedData.vacancy || parsedData.totalPost || parsedData.total_vacancy || parsedData.vacancy_count || 'N/A',
+      salary: parsedData.salary || parsedData.package || 'Not Disclosed',
       category: category || parsedData.category || 'General',
     };
 
