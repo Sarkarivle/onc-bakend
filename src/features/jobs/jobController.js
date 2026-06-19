@@ -75,46 +75,38 @@ exports.getAiMatchAdvice = async (req, res) => {
     const userAge = calculateAge(user.dob);
 
     const prompt = `
-      Act as a Career Expert. Give a HIGHLY PERSONALIZED, helpful, and friendly advice in HINGLISH (Hindi + English) for the user based on their profile and job requirements.
+      Act as a Career Expert. Analyze this job for the user and return a JSON object.
 
       User Details:
-      - Name: ${user.name}
-      - Current Age: ${userAge}
-      - Education Qualification: ${user.education || 'Not Specified'}
-      - Physical: Height ${user.height || 'N/A'}cm, Weight ${user.weight || 'N/A'}kg
-      - Category/Caste: ${user.category || 'General'}
-      - Skills/Certificates: ${user.certificates?.length > 0 ? user.certificates.join(', ') : 'None'}
-      - Resident of: ${user.domicileState || 'Uttar Pradesh'}
+      - Name: ${user.name}, Age: ${userAge}, Education: ${user.education || 'Not Specified'}
+      - Category: ${user.category || 'General'}, State: ${user.domicileState || 'Uttar Pradesh'}
 
       Job Details:
-      - Job Title: ${job.title}
-      - Organization: ${job.organization}
-      - Vacancies: ${job.totalVacancy || 'N/A'}
+      - Title: ${job.title}, Org: ${job.organization}
       - Required Education: ${job.eligibility?.education || 'Check Notification'}
       - Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
-      - Closing Date: ${job.importantDates?.applicationLastDate || 'N/A'}
+      - Fees: ${JSON.stringify(job.applicationFee)}
 
-      Instructions:
-      1. MUST START with a personalized greeting: "Hi ${user.name}, ".
-      2. ANALYZE if they are a good fit. Mention their specific education (${user.education}) or age if it's relevant to the job.
-      3. Use a motivating tone like an elder brother or career guide.
-      4. Use Hinglish naturally (e.g., "Aapki education qualification is job ke liye perfect hai...").
-      5. Keep the response between 3-4 lines maximum.
-      6. End with one specific actionable advice.
+      Return ONLY a JSON object with these keys:
+      1. "advice": A 3-line Hinglish advice starting with "Hi ${user.name}, ".
+      2. "age_status": A short text like "Fit", "Over Age", or "Limit par".
+      3. "edu_status": Short text like "Perfect Match", "Not Match", or "Need Degree".
+      4. "fee_text": The exact fee amount for this user's category (${user.category}).
+      5. "urgency": Urgency based on last date (${job.importantDates?.applicationLastDate}).
+
+      Example: {"advice": "...", "age_status": "Fit", "edu_status": "Match", "fee_text": "₹500", "urgency": "2 Din Bache"}
     `;
 
     const requestData = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { response_mime_type: "application/json" }
     });
 
-    // Use v1beta for better compatibility if v1 fails, or vice versa
     const options = {
       hostname: 'generativelanguage.googleapis.com',
       path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     };
 
     const request = https.request(options, response => {
@@ -123,27 +115,14 @@ exports.getAiMatchAdvice = async (req, res) => {
       response.on('end', () => {
         try {
           const jsonBody = JSON.parse(body);
-
-          if (jsonBody.error) {
-            console.error('Gemini API Error:', jsonBody.error);
-            return res.status(200).json({
-                status: 'success',
-                advice: null
-            });
-          }
-
-          if (jsonBody.candidates && jsonBody.candidates[0] && jsonBody.candidates[0].content) {
-            const advice = jsonBody.candidates[0].content.parts[0].text;
-            res.status(200).json({ status: 'success', advice });
+          if (jsonBody.candidates && jsonBody.candidates[0]) {
+            const result = JSON.parse(jsonBody.candidates[0].content.parts[0].text);
+            res.status(200).json({ status: 'success', ...result });
           } else {
-            throw new Error('No candidates in response');
+            res.status(200).json({ status: 'success', advice: null });
           }
         } catch (e) {
-          console.error('AI Processing Error:', e.message);
-          res.status(200).json({
-            status: 'success',
-            advice: null
-          });
+          res.status(200).json({ status: 'success', advice: null });
         }
       });
     });
