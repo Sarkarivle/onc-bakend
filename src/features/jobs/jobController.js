@@ -87,6 +87,7 @@ exports.getAiMatchAdvice = async (req, res) => {
       Job Details:
       Title: ${job.title}
       Organization: ${job.organization}
+      Total Vacancy: ${job.totalVacancy || 'N/A'}
       Requirements: ${job.eligibility?.education || 'Check Notification'}
       Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
       Last Date: ${job.importantDates?.applicationLastDate || 'N/A'}

@@ -74,7 +74,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         ]);
 
         const jobInfo = latestJobs.length > 0
-            ? latestJobs.map(j => `- ${j.title} in ${j.location}`).join("\n")
+            ? latestJobs.map(j => `- ${j.title} in ${j.location} (Total Vacancy: ${j.totalVacancy || 'Not Specified'})`).join("\n")
             : "Abhi koi nayi job update nahi hai.";
 
         const kendraInfo = kendras.length > 0
