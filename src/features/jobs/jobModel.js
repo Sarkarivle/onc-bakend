@@ -5,6 +5,7 @@ const jobSchema = new mongoose.Schema({
   organization: { type: String, required: true },
   location: { type: String, default: 'India' },
   totalVacancy: { type: String },
+  salary: { type: String }, // Purane data ke liye wapas add kiya
   jobType: { type: String, enum: ['Full-time', 'Part-time', 'Contract'], default: 'Full-time' },
   category: { type: String, required: true },
   description: { type: String },
