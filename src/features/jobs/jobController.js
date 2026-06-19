@@ -75,31 +75,32 @@ exports.getAiMatchAdvice = async (req, res) => {
     const userAge = calculateAge(user.dob);
 
     const prompt = `
-      Act as a Career Expert. Give a personalized, helpful, and friendly advice in HINGLISH for the user based on their profile and job requirements.
+      Act as a Career Expert. Give a HIGHLY PERSONALIZED, helpful, and friendly advice in HINGLISH (Hindi + English) for the user based on their profile and job requirements.
 
-      User Profile:
-      Name: ${user.name}
-      Age: ${userAge}
-      Education: ${user.education || '12th Pass'}
-      Height: ${user.height || '170'}cm
-      Category: ${user.category || 'General'}
-      Certificates: ${user.certificates?.length > 0 ? user.certificates.join(', ') : 'None'}
-      State: ${user.domicileState || 'Uttar Pradesh'}
+      User Details:
+      - Name: ${user.name}
+      - Current Age: ${userAge}
+      - Education Qualification: ${user.education || 'Not Specified'}
+      - Physical: Height ${user.height || 'N/A'}cm, Weight ${user.weight || 'N/A'}kg
+      - Category/Caste: ${user.category || 'General'}
+      - Skills/Certificates: ${user.certificates?.length > 0 ? user.certificates.join(', ') : 'None'}
+      - Resident of: ${user.domicileState || 'Uttar Pradesh'}
 
       Job Details:
-      Title: ${job.title}
-      Organization: ${job.organization}
-      Total Vacancy: ${job.totalVacancy || 'N/A'}
-      Requirements: ${job.eligibility?.education || 'Check Notification'}
-      Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
-      Last Date: ${job.importantDates?.applicationLastDate || 'N/A'}
+      - Job Title: ${job.title}
+      - Organization: ${job.organization}
+      - Vacancies: ${job.totalVacancy || 'N/A'}
+      - Required Education: ${job.eligibility?.education || 'Check Notification'}
+      - Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
+      - Closing Date: ${job.importantDates?.applicationLastDate || 'N/A'}
 
       Instructions:
-      1. Use Hinglish (Hindi + English).
-      2. Keep it friendly and motivating.
-      3. Focus on how the user's profile matches this specific job.
-      4. Suggest one clear next step (e.g. "Documents ready rakho", "Syllabus check karo").
-      5. Start with "Hi ${user.name}, ".
+      1. MUST START with a personalized greeting: "Hi ${user.name}, ".
+      2. ANALYZE if they are a good fit. Mention their specific education (${user.education}) or age if it's relevant to the job.
+      3. Use a motivating tone like an elder brother or career guide.
+      4. Use Hinglish naturally (e.g., "Aapki education qualification is job ke liye perfect hai...").
+      5. Keep the response between 3-4 lines maximum.
+      6. End with one specific actionable advice.
     `;
 
     const requestData = JSON.stringify({
