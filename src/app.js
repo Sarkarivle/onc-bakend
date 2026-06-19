@@ -6,6 +6,9 @@ const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const path = require('path');
+const axios = require('axios');
+const Job = require('./features/jobs/jobModel');
+
 
 // Feature-Based Routes
 const authRoutes = require('./features/auth/authRoutes');
@@ -26,7 +29,7 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '100kb' }));
 app.use(mongoSanitize());
 app.use(xss());
 app.use(cors());
@@ -58,4 +61,38 @@ app.get('/admin/settings', (req, res) => {
 });
 app.get('/', (req, res) => res.redirect('/admin/login'));
 
+// 3. AI ASSISTANT ROUTE (Connected to RunPod)
+app.post('/api/v1/ai/ask', async (req, res) => {
+    try {
+        const { question } = req.body;
+
+        // 1. Database se Latest Jobs uthana
+        const latestJobs = await Job.find().sort({ _id: -1 }).limit(5);
+        const jobInfo = latestJobs.map(j => `- ${j.title} in ${j.location}`).join("\n");
+
+        // 2. RunPod AI (Ollama) ko Request bhejna
+        const runpodUrl = "https://kcs6dhu2rr49l6-11434.proxy.runpod.net/api/generate";
+
+        const aiResponse = await axios.post(runpodUrl, {
+            model: "onc-ai",
+            prompt: `Database Data:\n${jobInfo}\n\nUser Question: ${question}\n\nAssistant:`,
+            stream: false
+        });
+
+        // 3. Jawab wapas bhej dena
+        res.json({
+            success: true,
+            answer: aiResponse.data.response
+        });
+
+    } catch (error) {
+        console.error("AI Error:", error.message);
+        res.status(500).json({
+            success: false,
+            answer: "Bhai, AI abhi busy hai, thodi der mein try karna!"
+        });
+    }
+});
+
 module.exports = app;
+
