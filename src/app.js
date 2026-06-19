@@ -69,28 +69,53 @@ app.post('/api/v1/ai/ask', async (req, res) => {
 
         // 1. Database se Jobs aur Jansewa ka data nikalna
         const [latestJobs, kendras] = await Promise.all([
-            Job.find().sort({ _id: -1 }).limit(3),
-            Jansewa.find().limit(2)
+            Job.find().sort({ _id: -1 }).limit(5),
+            Jansewa.find().limit(3)
         ]);
 
-        const jobInfo = latestJobs.map(j => `- ${j.title} (${j.location})`).join("\n");
-        const kendraInfo = kendras.map(k => `- ${k.name} in ${k.address}`).join("\n");
+        const jobInfo = latestJobs.length > 0
+            ? latestJobs.map(j => `- ${j.title} in ${j.location}`).join("\n")
+            : "Abhi koi nayi job update nahi hai.";
+
+        const kendraInfo = kendras.length > 0
+            ? kendras.map(k => `- ${k.name} (${k.address})`).join("\n")
+            : "Jansewa kendra ki jankari jald hi update hogi.";
 
         // 2. RunPod AI (Ollama) ko Request bhejna
         const runpodUrl = "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-        const systemPrompt = `User Name: ${userName || 'Dost'}, Location: ${userLocation || 'UP'}.
-        Niche di gayi jankari ko padhein:
+        // SAKHT (STRICT) SYSTEM PROMPT
+        const systemInstruction = `
+        Aap ONC (Online Nagrik Center) App ke expert assistant hain. Aapko Himanshu Kashyap ne banaya hai.
+
+        SAKHT NIYAM (STRICT RULES):
+        1. Aapka naam ONC-Dost hai.
+        2. Aap sirf Jansewa, Sarkari Jobs, aur Yojnao ke baare mein baat karenge.
+        3. Agar user ONC ke baare mein pooche, toh batayein ye UP ke logo ki madad ke liye hai.
+        4. Agar koi faltu sawal pooche (jaise Khana, Cricket, ya Movies), toh politely bolo: "Bhai main sirf Jobs aur Yojnao mein help kar sakta hoon."
+        5. Faltu gyaan ya "OncoApp" jaisi baatein BILKUL NAHI karni.
+        6. Jawab hamesha Hinglish mein aur doston ki tarah (Bhai, Dost) hona chahiye.
+
+        USER CONTEXT:
+        - User Name: ${userName || 'Dost'}
+        - User Location: ${userLocation || 'UP'}
+
+        LIVE DATA SE JAWAB DEIN:
         LATEST JOBS:
         ${jobInfo}
 
         JANSEWA KENDRAS:
-        ${kendraInfo}`;
+        ${kendraInfo}
+        `;
 
         const aiResponse = await axios.post(runpodUrl, {
             model: "onc-ai",
-            prompt: `${systemPrompt}\n\nUser Question: ${question}\n\nAssistant:`,
-            stream: false
+            prompt: `${systemInstruction}\n\nUser Question: ${question}\n\nAssistant Jawab:`,
+            stream: false,
+            options: {
+                temperature: 0.5, // Logic tight karne ke liye temperature kam kiya
+                stop: ["User:", "Question:"]
+            }
         });
 
         res.json({
