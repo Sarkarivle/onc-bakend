@@ -128,7 +128,7 @@ exports.getAiMatchAdvice = async (req, res) => {
             console.error('Gemini API Error:', jsonBody.error);
             return res.status(200).json({
                 status: 'success',
-                advice: `Hi ${user.name}, aapki profile is job se kaafi match karti hai! Ek baar eligibility check karke apply zaroor karein.`
+                advice: null
             });
           }
 
@@ -142,7 +142,7 @@ exports.getAiMatchAdvice = async (req, res) => {
           console.error('AI Processing Error:', e.message);
           res.status(200).json({
             status: 'success',
-            advice: `Hi ${user.name}, ye job aapke liye ek accha mauka ho sakta hai. Don't miss the deadline!`
+            advice: null
           });
         }
       });
@@ -152,7 +152,7 @@ exports.getAiMatchAdvice = async (req, res) => {
       console.error('HTTPS Request Error:', e);
       res.status(200).json({
         status: 'success',
-        advice: `Hi ${user.name}, server connectivity issue hai, par ye job aapke career ke liye acchi lag rahi hai.`
+        advice: null
       });
     });
 
