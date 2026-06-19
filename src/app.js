@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const path = require('path');
 const axios = require('axios');
 const Job = require('./features/jobs/jobModel');
+const Jansewa = require('./features/jansewa/jansewaModel');
 
 
 // Feature-Based Routes
@@ -61,25 +62,37 @@ app.get('/admin/settings', (req, res) => {
 });
 app.get('/', (req, res) => res.redirect('/admin/login'));
 
-// 3. AI ASSISTANT ROUTE (Connected to RunPod)
+// 3. AI ASSISTANT ROUTE (Personalized & Data-Rich)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
-        const { question } = req.body;
+        const { question, userName, userLocation } = req.body;
 
-        // 1. Database se Latest Jobs uthana
-        const latestJobs = await Job.find().sort({ _id: -1 }).limit(5);
-        const jobInfo = latestJobs.map(j => `- ${j.title} in ${j.location}`).join("\n");
+        // 1. Database se Jobs aur Jansewa ka data nikalna
+        const [latestJobs, kendras] = await Promise.all([
+            Job.find().sort({ _id: -1 }).limit(3),
+            Jansewa.find().limit(2)
+        ]);
+
+        const jobInfo = latestJobs.map(j => `- ${j.title} (${j.location})`).join("\n");
+        const kendraInfo = kendras.map(k => `- ${k.name} in ${k.address}`).join("\n");
 
         // 2. RunPod AI (Ollama) ko Request bhejna
         const runpodUrl = "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
+        const systemPrompt = `User Name: ${userName || 'Dost'}, Location: ${userLocation || 'UP'}.
+        Niche di gayi jankari ko padhein:
+        LATEST JOBS:
+        ${jobInfo}
+
+        JANSEWA KENDRAS:
+        ${kendraInfo}`;
+
         const aiResponse = await axios.post(runpodUrl, {
             model: "onc-ai",
-            prompt: `Database Data:\n${jobInfo}\n\nUser Question: ${question}\n\nAssistant:`,
+            prompt: `${systemPrompt}\n\nUser Question: ${question}\n\nAssistant:`,
             stream: false
         });
 
-        // 3. Jawab wapas bhej dena
         res.json({
             success: true,
             answer: aiResponse.data.response
