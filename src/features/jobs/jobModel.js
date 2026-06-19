@@ -4,7 +4,7 @@ const jobSchema = new mongoose.Schema({
   title: { type: String, required: true },
   organization: { type: String, required: true },
   location: { type: String, default: 'India' },
-  salary: { type: String },
+  totalVacancy: { type: String },
   jobType: { type: String, enum: ['Full-time', 'Part-time', 'Contract'], default: 'Full-time' },
   category: { type: String, required: true },
   description: { type: String },
