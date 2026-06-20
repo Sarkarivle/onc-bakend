@@ -90,7 +90,14 @@ app.post('/api/v1/ai/ask', async (req, res) => {
 
         // RUNPOD AI (Ollama) Request
         const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        const runpodUrl = (runpodSetting && runpodSetting.value) || "https://d01tlzhc7vd8uq-11434.proxy.runpod.net/api/generate";
+        let runpodUrl = (runpodSetting && runpodSetting.value) || "https://d01tlzhc7vd8uq-11434.proxy.runpod.net/api/generate";
+
+        // Auto-fix URL: Ensure it ends with /api/generate
+        if (runpodUrl && !runpodUrl.includes('/api/generate')) {
+            runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
+        }
+
+        console.log(`🤖 AI Request to: ${runpodUrl}`);
 
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
 
@@ -99,10 +106,10 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             prompt: `${systemInstruction}\n\nUser Question: ${question}\n\nAssistant Jawab:`,
             stream: false,
             options: {
-                temperature: 0.5, // Logic tight karne ke liye temperature kam kiya
-                stop: ["User:", "Question:"]
+                temperature: 0.5,
+                stop: ["User:", "Assistant:", "Question:"]
             }
-        });
+        }, { timeout: 30000 }); // 30s timeout for AI response
 
         res.json({
             success: true,
@@ -113,6 +120,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         console.error("AI Error:", error.message);
         res.status(500).json({
             success: false,
+            error: error.message,
             answer: "Bhai, AI abhi busy hai, thodi der mein try karna!"
         });
     }
