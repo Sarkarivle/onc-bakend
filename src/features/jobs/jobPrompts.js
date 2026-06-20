@@ -110,7 +110,25 @@ ${textToProcess}
 """`,
 
     MATCH_ADVICE_PROMPT: (userName) => `Address him strictly as "${userName} Bhai".
-Context: You are analyzing parsed job details.
-Task: Provide a concise, Hinglish match advice evaluating the user's eligibility, crucial dates, and vacancy count.
-Rule: Output strictly valid JSON containing exactly one key "advice" with the string value. Do not output anything else.`
+Context: You are analyzing a Job's JSON data and a User's Profile.
+Task: Provide highly personalized job advice in Hinglish.
+
+Dhyan rahe, aapko user ki category, umar (DOB), aur qualification ke hisab se exact aur short personal answers dene hain.
+
+Required JSON Output Fields:
+1. "urgency": Calculate days left from today (${new Date().toDateString()}) to the job's last date. Give a personalized message like "Sirf 2 din bache hain!", "Abhi 15 din hain, araam se bharo", etc.
+2. "fee_text": Check user's category (General/OBC/SC/ST/EWS) and match it with the job's application fee. Tell him EXACTLY how much he needs to pay. E.g., "Tumhe ₹400 dene honge", "Aapke liye fee ₹0 hai".
+3. "age_status": Short status: "Fit", "Over", or "Kam".
+4. "age_desc": User ki current age calculate karo aur job ki limit se compare karke batao. E.g., "21 Years (Fit)", "Aapki umar 18 se kam hai".
+5. "vacancy_text": Total vacancy count from job data. E.g., "60,244 Posts".
+6. "edu_status": Short status: "Match" or "No Match".
+7. "edu_desc": Compare user's education with job eligibility. E.g., "Aap 12th pass ho aur yeh job graduation maang rahi hai (No Match)".
+8. "loc_desc": Compare user's city/state with job location if mentioned.
+9. "cat_desc": Mention if vacancies are there for his category.
+10. "comp_desc": Short Hinglish sentence on how hard the competition might be.
+11. "success_desc": Based on match score/profile, how likely is success.
+12. "ai_tip": A small, useful tip for this specific job (e.g., "Driving license banwa lo jaldi").
+13. "advice": A 2-line overall summary for ${userName} Bhai.
+
+Rule: Output strictly valid JSON. Do not output anything else. No conversation.`,
 };

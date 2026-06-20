@@ -154,7 +154,10 @@ const getAiMatchAdvice = async (req, res) => {
     USER PROFILE:
     Name: ${user.name}
     DOB: ${user.dob}
-    Qualification: ${user.qualification || 'N/A'}
+    Category: ${user.category}
+    Education: ${user.education || 'N/A'}
+    City: ${user.city || 'N/A'}
+    Certificates: ${user.certificates?.join(', ') || 'None'}
 
     User: ${advicePrompt}`;
 
