@@ -24,10 +24,10 @@ const cleanAIResponse = (text) => {
     } catch (e) { return text; }
 };
 
+// 1. DISCOVERY: SarkariResult links
 const discoverNewJobs = async (req, res) => {
   try {
-    const targetUrl = 'https://www.sarkariresult.com/latestjob/';
-    const response = await axios.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const response = await axios.get('https://www.sarkariresult.com/latestjob/', { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(response.data);
     const discovered = [];
     $('#post_field a').each((i, el) => {
@@ -39,64 +39,82 @@ const discoverNewJobs = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
+// 2. MASTER IMPORT: This stores data for BOTH UI and Advice
 const importJob = async (req, res) => {
   try {
     const { url, rawText, category } = req.body;
     let textToProcess = rawText;
 
     if (url && !textToProcess) {
-        const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
+        const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
         const $ = cheerio.load(pageRes.data);
         textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 6000);
     }
 
-    if (!textToProcess) throw new Error('No data found to process');
+    if (!textToProcess) throw new Error('Input text empty');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Convert Job Text to JSON. Fields: title, organization, core (education, ageLimit, vacancy, lastDate), sections array. JSON ONLY. TEXT: ${textToProcess}`;
+    // MASTER PROMPT: Fixed structure for advice and UI
+    const prompt = `
+      You are SarkariVLE Extractor. Convert TEXT to JSON.
+      JSON Schema: {
+        "title": "Job Name",
+        "organization": "Board",
+        "core": { "education": "...", "ageLimit": "...", "vacancy": "...", "lastDate": "..." },
+        "sections": [ { "heading": "Title", "type": "table/text", "data": {...} } ]
+      }
+      TEXT: ${textToProcess}
+    `;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return ONLY a valid JSON object. No conversation.\n\nUser: ${prompt}`,
+      prompt: `System: Return JSON ONLY. No chat.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
     const cleanedJson = cleanAIResponse(aiRes.data.response);
     const result = JSON.parse(cleanedJson);
 
-    // Dynamic core requirements handle karne ke liye
+    // Save everything in 'specifications' for UI and 'coreRequirements' for Advice
     const newJob = await Job.create({
       title: result.title || 'Untitled',
       organization: result.organization || 'Sarkari VLE',
       category: category || 'Latest Jobs',
       applyLink: url || '',
-      specifications: { sections: result.sections },
+      specifications: { sections: result.sections || [] },
       coreRequirements: result.core || {}
     });
 
     res.status(201).json({ status: 'success', data: newJob });
   } catch (err) {
-    console.error('Import Error:', err.message);
-    res.status(400).json({ status: 'fail', message: `AI Error: ${err.message}` });
+    res.status(400).json({ status: 'fail', message: `Processing error: ${err.message}` });
   }
 };
 
+// 3. PERSONALIZED ADVICE: Using the stored data
 const getAiMatchAdvice = async (req, res) => {
   try {
     const { jobId } = req.params;
     const user = req.user;
     const job = await Job.findById(jobId);
+    if (!job) throw new Error('Job not found');
+
     const userAge = calculateAge(user.dob);
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Address him as "${user.name} Bhai". Compare User (Edu: ${user.education}, Age: ${userAge}) with Job ${job.title}. Use friendly Hinglish. Return JSON with advice, statuses and personal tips.`;
+    // AI ko ab stored core requirements mil rahi hain
+    const prompt = `
+      User: ${user.name}, Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category}.
+      Job: ${job.title}. Core Requirements: ${JSON.stringify(job.coreRequirements)}.
+      Analyze match and return Hinglish JSON (advice, age_status, edu_status, ai_tip, fee_text).
+    `;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return valid JSON match advice in Hinglish.\n\nUser: ${prompt}`,
+        prompt: `System: Return Friendly Hinglish Advice JSON.\n\nUser: ${prompt}`,
         stream: false
     });
 
