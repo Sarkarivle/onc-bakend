@@ -83,6 +83,21 @@
                                 </div>
                                 <p class="mt-2 text-xs text-gray-400">Used for mobile number verification (OTP).</p>
                             </div>
+
+                            <hr class="border-gray-50">
+
+                            <!-- RunPod AI -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">RunPod AI URL (Ollama)</label>
+                                <div class="flex gap-4">
+                                    <input type="text" id="RUNPOD_URL" placeholder="https://d01tlzhc7vd8uq-11434.proxy.runpod.net/api/generate"
+                                        class="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20">
+                                    <button onclick="saveSetting('RUNPOD_URL')" class="bg-[#1A237E] text-white px-8 py-3 rounded-xl font-bold text-sm">
+                                        Update URL
+                                    </button>
+                                </div>
+                                <p class="mt-2 text-xs text-gray-400">The serverless AI endpoint for job matching and chat.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
