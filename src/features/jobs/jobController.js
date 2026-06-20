@@ -36,25 +36,19 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
+    // MASTER PROMPT: UI-Focused Mapping
     const prompt = `
-      You are SarkariVLE’s Automated Job Template Generator.
-      EXTRACT data from RAW TEXT and return JSON only.
+      You are SarkariVLE's Data Extractor. Convert TEXT to JSON.
       RULES:
-      1. Rewrite in simple student-friendly Hinglish.
-      2. Replace any website name with "Sarkari VLE".
-      3. Create sections in order: Title, Board, About, Overview, Dates, Fee, Age, Vacancy, Eligibility, Physical, Selection, How to Apply, FAQ.
-
-      JSON SCHEMA: {
-        "title": "...", "organization": "...",
-        "sections": [ { "heading": "Heading Name", "type": "table/text/list", "data": {} } ],
-        "core": { "education": "...", "ageLimit": "...", "fees": "...", "vacancy": "..." }
-      }
+      1. Use exact keys: "title", "organization", "importantDates" (applicationBegin, applicationLastDate, feePaymentDeadline, examDate), "applicationFee" (generalObcEws, scStPh, female), "eligibility" (minAge, maxAge, totalVacancy, salary, education).
+      2. Rewrite values in student Hinglish.
+      3. Create extra sections for FAQ, Selection, etc. in a "sections" array.
       TEXT: ${textToProcess}
     `;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return JSON only. No conversation.\n\nUser: ${prompt}`,
+      prompt: `System: Return JSON only.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
@@ -65,12 +59,11 @@ const importJob = async (req, res) => {
       organization: result.organization,
       category: category || 'Jobs',
       applyLink: url || '',
-      jobSpecifications: result.sections.map(s => ({
-          heading: s.heading,
-          sectionType: s.type || 'text',
-          sectionData: s.data || s.content || s.items
-      })),
-      aiCoreSummary: result.core // This is used for match advice
+      importantDates: result.importantDates,
+      applicationFee: result.applicationFee,
+      eligibility: result.eligibility,
+      jobSpecifications: result.sections || [],
+      aiCoreSummary: { ...result.eligibility, lastDate: result.importantDates?.applicationLastDate }
     });
 
     res.status(201).json({ status: 'success', data: newJob });
@@ -88,17 +81,15 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    // AI ab database me save huye aiCoreSummary ka use karega
     const prompt = `
-      User: ${user.name}, Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category}.
-      Job Info: ${JSON.stringify(job.aiCoreSummary)}.
-      Analyze match and return Hinglish JSON (advice, age_status, edu_status, ai_tip, fee_text).
-      Address him as "${user.name} Bhai".
+      Compare User ${user.name} (Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category})
+      with Job ${job.title} (Req: ${JSON.stringify(job.aiCoreSummary)}).
+      Return Friendly Hinglish JSON match advice.
     `;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return Friendly Hinglish Advice JSON only.\n\nUser: ${prompt}`,
+        prompt: `System: Return JSON advice only.\n\nUser: ${prompt}`,
         stream: false
     });
 
@@ -107,8 +98,12 @@ const getAiMatchAdvice = async (req, res) => {
 };
 
 const getAllJobs = async (req, res) => {
-  const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-  res.status(200).json({ status: 'success', data: jobs });
+  try {
+    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+    res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
+  } catch (err) {
+    res.status(400).json({ status: 'fail', message: err.message });
+  }
 };
 
 const deleteJob = async (req, res) => {
