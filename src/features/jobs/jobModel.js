@@ -7,7 +7,10 @@ const jobSchema = new mongoose.Schema({
   applyLink: { type: String },
   lastDate: { type: Date },
 
-  // Ye fields App UI ke purane fixed sections ke liye hain (taki N/A na aaye)
+  // Top level fields (matching Flutter Model)
+  totalVacancy: { type: String, default: 'N/A' },
+  salary: { type: String, default: 'Not Disclosed' },
+
   importantDates: {
     applicationBegin: { type: String, default: 'N/A' },
     applicationLastDate: { type: String, default: 'N/A' },
@@ -22,19 +25,10 @@ const jobSchema = new mongoose.Schema({
   eligibility: {
     minAge: { type: String, default: '18 Years' },
     maxAge: { type: String, default: '40 Years' },
-    totalVacancy: { type: String, default: 'N/A' },
-    salary: { type: String, default: 'Not Disclosed' },
     education: { type: String, default: 'Check Notification' }
   },
 
-  // ELASTIC DATA: Isme AI ke saare 18-steps dynamic array me save honge
-  // Isme kuch bhi pre-planned nahi hai, AI jo dega wahi yahan dikhega.
-  jobSpecifications: [{
-    title: String,
-    content: String
-  }],
-
-  // AI Matching logic ke liye core summary
+  jobSpecifications: mongoose.Schema.Types.Mixed,
   aiCoreSummary: mongoose.Schema.Types.Mixed,
 
   isActive: { type: Boolean, default: true },

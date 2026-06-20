@@ -15,13 +15,10 @@ const calculateAge = (dob) => {
 
 const cleanAIResponse = (text) => {
     try {
-        // Remove markdown code blocks and any leading/trailing text
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
-        if (start !== -1 && end !== -1) {
-            return cleaned.substring(start, end + 1);
-        }
+        if (start !== -1 && end !== -1) return cleaned.substring(start, end + 1);
         return cleaned;
     } catch (e) { return text; }
 };
@@ -42,7 +39,6 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    // MASTER PROMPT: Strict JSON rules to avoid parse errors
     const prompt = `
       You are SarkariVLE’s Automated Job Data Extractor.
       Convert RAW TEXT into a detailed JSON object following these 18 steps:
@@ -53,7 +49,7 @@ const importJob = async (req, res) => {
       - DO NOT use newlines inside string values.
       - Rewrite in simple Hinglish.
       - Replace website names with "Sarkari VLE".
-      - Keys: "title", "organization", "importantDates" (applicationBegin, applicationLastDate, feePaymentDeadline, examDate), "applicationFee" (generalObcEws, scStPh, female), "eligibility" (education, ageLimit, minAge, maxAge, totalVacancy, salary), "sections" (array of {title, content}).
+      - Keys: "title", "organization", "totalVacancy", "salary", "importantDates" (applicationBegin, applicationLastDate, feePaymentDeadline, examDate), "applicationFee" (generalObcEws, scStPh, female), "eligibility" (education, minAge, maxAge, ageLimit), "sections" (array of {title, content}).
     `;
 
     const aiRes = await axios.post(runpodUrl, {
@@ -67,6 +63,8 @@ const importJob = async (req, res) => {
     const newJob = await Job.create({
       title: result.title || 'Untitled',
       organization: result.organization || 'Sarkari VLE',
+      totalVacancy: result.totalVacancy || 'N/A',
+      salary: result.salary || 'Not Disclosed',
       category: category || 'Latest Jobs',
       applyLink: url || '',
       importantDates: result.importantDates || {},
@@ -77,7 +75,7 @@ const importJob = async (req, res) => {
         education: result.eligibility?.education,
         age: result.eligibility?.ageLimit,
         fee: result.applicationFee,
-        vacancy: result.eligibility?.totalVacancy
+        vacancy: result.totalVacancy
       }
     });
 
