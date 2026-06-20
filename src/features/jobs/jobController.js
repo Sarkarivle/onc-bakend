@@ -72,23 +72,37 @@ exports.getAiMatchAdvice = async (req, res) => {
 
     const prompt = `
       Act as a Career Expert. Analyze this job for the user and return a JSON object ONLY.
+      STRICT RULE: Only use the provided Job and User data. Do not hallucinate or make up facts.
 
-      User: Name ${user.name}, Age ${userAge}, Edu ${user.education || '12th'}, State ${user.domicileState}
-      Job: Title ${job.title}, Requirements ${job.eligibility?.education}, End Date ${job.importantDates?.applicationLastDate}
+      User Profile:
+      - Name: ${user.name}
+      - Education: ${user.education || 'Not Specified'}
+      - Category: ${user.category || 'General'}
+      - State: ${user.domicileState || 'UP'}
+      - Age: ${userAge}
+
+      Job Details:
+      - Title: ${job.title}
+      - Vacancies: ${job.totalVacancy || 'N/A'}
+      - Required Edu: ${job.eligibility?.education || 'N/A'}
+      - Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
+      - Application Fee: General/OBC: ₹${job.applicationFee?.generalObcEws || '0'}, SC/ST: ₹${job.applicationFee?.scStPh || '0'}
+      - Last Date: ${job.importantDates?.applicationLastDate || 'N/A'}
 
       Return a JSON object with these EXACT keys:
-      - "advice": Hinglish overview (3 lines).
+      - "advice": Hinglish overview (max 3 lines).
       - "age_status": "Fit", "Over", or "Limit"
-      - "age_desc": Hinglish explanation (e.g. "Aapki age is job ke liye sahi hai.")
+      - "age_desc": Hinglish explanation (e.g. "Aapki age (20) limit ke andar hai.")
       - "edu_status": "Match" or "No Match"
-      - "edu_desc": Hinglish explanation
-      - "loc_desc": Hinglish explanation
-      - "cat_desc": Hinglish explanation
-      - "comp_desc": Hinglish competition info
-      - "success_desc": Hinglish chances
-      - "ai_tip": Hinglish shortcut tip
-      - "fee_text": Calculated fee for ${user.category}
-      - "urgency": Hinglish urgency for last date ${job.importantDates?.applicationLastDate} (e.g. "Bhai jaldi karo, sirf 2 din bache hain!")
+      - "edu_desc": Hinglish explanation (e.g. "Aap ${user.education || '12th'} hain, aur isme graduation chahiye.")
+      - "loc_desc": Hinglish explanation about state match.
+      - "cat_desc": Hinglish explanation about category eligibility.
+      - "comp_desc": Hinglish competition info.
+      - "success_desc": Hinglish chances.
+      - "ai_tip": Hinglish shortcut tip.
+      - "fee_text": Personalized fee for ${user.category} category (e.g. "Aapki fee ₹500 hai").
+      - "urgency": Hinglish urgency for last date ${job.importantDates?.applicationLastDate}.
+      - "vacancy_text": Total vacancies count (e.g. "${job.totalVacancy} Posts available").
 
       Response MUST be valid JSON only.
     `;
