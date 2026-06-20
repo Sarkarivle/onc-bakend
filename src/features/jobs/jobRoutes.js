@@ -11,21 +11,21 @@ const handle = (fnName) => (req, res, next) => {
         }
         throw new Error(`Controller method ${fnName} not found`);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ status: 'error', message: 'Internal Server Error' });
+        res.status(500).json({ status: 'error', message: 'Controller error' });
     }
 };
 
+// Sabhi ko dikhega
 router.get('/', handle('getAllJobs'));
 
+// Login hona zaroori hai
 router.use(authMiddleware.protect);
 router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 
-// ADMIN ONLY
-router.use(authMiddleware.restrictTo('admin'));
-router.get('/admin/discover', handle('discoverNewJobs'));
-router.post('/admin/import', handle('importFromUrl'));
-router.patch('/:id', handle('updateJob')); // <-- Naya edit route
-router.delete('/:id', handle('deleteJob'));
+// SIRF ADMIN KE LIYE
+router.get('/admin/discover', authMiddleware.restrictTo('admin'), handle('discoverNewJobs'));
+router.post('/admin/import', authMiddleware.restrictTo('admin'), handle('importFromUrl'));
+router.patch('/:id', authMiddleware.restrictTo('admin'), handle('updateJob'));
+router.delete('/:id', authMiddleware.restrictTo('admin'), handle('deleteJob'));
 
 module.exports = router;
