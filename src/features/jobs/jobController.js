@@ -34,58 +34,56 @@ const importJob = async (req, res) => {
         textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 7000);
     }
 
-    if (!textToProcess) throw new Error('No input data');
-
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
     const prompt = `
-      You are SarkariVLE’s Automated Job Data Extractor.
-      Convert RAW TEXT into a detailed JSON object following these 18 steps:
-      1. Title, 2. Subtitle, 3. About, 4. Overview, 5. Dates, 6. Fee, 7. Age, 8. Relaxation, 9. Vacancy, 10. Eligibility, 11. Physical, 12. Who can apply, 13. Selection, 14. How to Apply, 15. Notes, 16. Extra, 17. Links, 18. FAQ.
-
-      STRICT RULES:
-      - Return ONLY a valid JSON object.
-      - DO NOT use newlines inside string values.
-      - Rewrite in simple Hinglish.
-      - Replace website names with "Sarkari VLE".
-      - Keys: "title", "organization", "totalVacancy", "salary", "importantDates" (applicationBegin, applicationLastDate, feePaymentDeadline, examDate), "applicationFee" (generalObcEws, scStPh, female), "eligibility" (education, minAge, maxAge, ageLimit), "sections" (array of {title, content}).
+      You are SarkariVLE's AI Parser. Extract text to JSON.
+      Keys MUST be: title, organization, totalVacancy, salary,
+      importantDates (applicationBegin, applicationLastDate, feePaymentLastDate, examDate),
+      applicationFee (generalObcEws, scStPh, female),
+      eligibility (education, minAge, maxAge, ageLimit),
+      sections (array of {title, content}).
     `;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return PURE JSON only. No conversation. No markdown.\n\nUser: ${prompt}\n\nTEXT: ${textToProcess}`,
+      prompt: `System: Return JSON only.\n\nUser: ${prompt}\n\nTEXT: ${textToProcess}`,
       stream: false, options: { temperature: 0.1 }
     });
 
     const result = JSON.parse(cleanAIResponse(aiRes.data.response));
 
-    // Robust mapping for totalVacancy
-    const totalVacancy = result.totalVacancy || result.vacancy || result.total_post || result.total_vacancy || 'N/A';
+    // Backend side mapping to fix Total Vacancy and other fields for existing App model
+    const vacancy = result.totalVacancy || result.vacancy || result.total_post || 'N/A';
+    const salary = result.salary || 'Not Disclosed';
 
     const newJob = await Job.create({
       title: result.title || 'Untitled',
       organization: result.organization || 'Sarkari VLE',
-      totalVacancy: totalVacancy,
-      salary: result.salary || 'Not Disclosed',
+      totalVacancy: vacancy,
+      salary: salary,
       category: category || 'Latest Jobs',
       applyLink: url || '',
-      importantDates: result.importantDates || {},
+      importantDates: {
+        applicationBegin: result.importantDates?.applicationBegin || 'N/A',
+        applicationLastDate: result.importantDates?.applicationLastDate || 'N/A',
+        feePaymentLastDate: result.importantDates?.feePaymentLastDate || 'N/A',
+        examDate: result.importantDates?.examDate || 'As per Schedule'
+      },
       applicationFee: result.applicationFee || {},
       eligibility: result.eligibility || {},
       jobSpecifications: result.sections || [],
       aiCoreSummary: {
         education: result.eligibility?.education,
         age: result.eligibility?.ageLimit,
-        fee: result.applicationFee,
-        vacancy: totalVacancy
+        vacancy: vacancy
       }
     });
 
     res.status(201).json({ status: 'success', data: newJob });
   } catch (err) {
-    console.error('Import Error:', err.message);
-    res.status(400).json({ status: 'fail', message: `AI JSON Error: ${err.message}` });
+    res.status(400).json({ status: 'fail', message: err.message });
   }
 };
 
@@ -98,16 +96,11 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `
-      User ${user.name} (Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category})
-      Job Requirements: ${JSON.stringify(job.aiCoreSummary)}.
-      Return Personalized Hinglish Advice JSON (advice, age_status, edu_status, ai_tip, fee_text, urgency).
-      Address him as "${user.name} Bhai".
-    `;
+    const prompt = `Analyze match for ${user.name} (Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category}) with Job ${job.title}. Return Hinglish JSON.`;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return valid JSON advice.\n\nUser: ${prompt}`,
+        prompt: `System: Return JSON advice.\n\nUser: ${prompt}`,
         stream: false
     });
 
@@ -116,10 +109,8 @@ const getAiMatchAdvice = async (req, res) => {
 };
 
 const getAllJobs = async (req, res) => {
-  try {
-    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
-  } catch (err) { res.status(400).json({ status: 'fail', message: err.message }); }
+  const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+  res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
 };
 
 const deleteJob = async (req, res) => {

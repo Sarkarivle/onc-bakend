@@ -7,14 +7,14 @@ const jobSchema = new mongoose.Schema({
   applyLink: { type: String },
   lastDate: { type: Date },
 
-  // Top level fields (matching Flutter Model)
+  // App models mapping (Top Level)
   totalVacancy: { type: String, default: 'N/A' },
   salary: { type: String, default: 'Not Disclosed' },
 
   importantDates: {
     applicationBegin: { type: String, default: 'N/A' },
     applicationLastDate: { type: String, default: 'N/A' },
-    feePaymentDeadline: { type: String, default: 'N/A' },
+    feePaymentLastDate: { type: String, default: 'N/A' }, // Changed to match Dart
     examDate: { type: String, default: 'As per Schedule' }
   },
   applicationFee: {
@@ -23,11 +23,13 @@ const jobSchema = new mongoose.Schema({
     female: { type: String, default: 'N/A' }
   },
   eligibility: {
+    education: { type: String, default: 'Check Notification' },
     minAge: { type: String, default: '18 Years' },
     maxAge: { type: String, default: '40 Years' },
-    education: { type: String, default: 'Check Notification' }
+    ageLimit: String
   },
 
+  // Dynamic content for "Extra Details" section in App
   jobSpecifications: mongoose.Schema.Types.Mixed,
   aiCoreSummary: mongoose.Schema.Types.Mixed,
 
