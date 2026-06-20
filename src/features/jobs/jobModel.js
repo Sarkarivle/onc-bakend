@@ -7,7 +7,7 @@ const jobSchema = new mongoose.Schema({
   applyLink: { type: String },
   lastDate: { type: Date },
 
-  // Ye fields aapki App (UI) ke liye hain
+  // Ye fields App UI ke purane fixed sections ke liye hain (taki N/A na aaye)
   importantDates: {
     applicationBegin: { type: String, default: 'N/A' },
     applicationLastDate: { type: String, default: 'N/A' },
@@ -27,9 +27,15 @@ const jobSchema = new mongoose.Schema({
     education: { type: String, default: 'Check Notification' }
   },
 
-  // AI Matching ke liye poora elastic data
+  // ELASTIC DATA: Isme AI ke saare 18-steps dynamic array me save honge
+  // Isme kuch bhi pre-planned nahi hai, AI jo dega wahi yahan dikhega.
+  jobSpecifications: [{
+    title: String,
+    content: String
+  }],
+
+  // AI Matching logic ke liye core summary
   aiCoreSummary: mongoose.Schema.Types.Mixed,
-  jobSpecifications: mongoose.Schema.Types.Mixed,
 
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
