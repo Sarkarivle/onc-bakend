@@ -70,7 +70,7 @@ const importJob = async (req, res) => {
     if (!textToProcess) throw new Error('Input text empty');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
+    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://d01tlzhc7vd8uq-11434.proxy.runpod.net/api/generate";
 
     const prompt = jobPrompts.IMPORT_JOB_PROMPT(textToProcess);
 
@@ -134,7 +134,7 @@ const getAiMatchAdvice = async (req, res) => {
     const job = await Job.findById(jobId);
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
+    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://d01tlzhc7vd8uq-11434.proxy.runpod.net/api/generate";
 
     const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
 

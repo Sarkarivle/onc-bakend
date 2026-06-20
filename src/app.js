@@ -90,7 +90,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
 
         // RUNPOD AI (Ollama) Request
         const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
+        const runpodUrl = (runpodSetting && runpodSetting.value) || "https://d01tlzhc7vd8uq-11434.proxy.runpod.net/api/generate";
 
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
 
