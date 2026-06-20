@@ -3,6 +3,19 @@ const Settings = require('../settings/settingsModel');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+exports.getAllJobs = async (req, res) => {
+  try {
+    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+    res.status(200).json({
+      status: 'success',
+      results: jobs.length,
+      data: jobs
+    });
+  } catch (err) {
+    res.status(400).json({ status: 'fail', message: err.message });
+  }
+};
+
 exports.importFromUrl = async (req, res) => {
   try {
     const { url, category } = req.body;
