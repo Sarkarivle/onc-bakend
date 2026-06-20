@@ -16,20 +16,16 @@ const handle = (fnName) => (req, res, next) => {
     }
 };
 
-// PUBLIC ROUTES
 router.get('/', handle('getAllJobs'));
 
-// PROTECTED ROUTES
 router.use(authMiddleware.protect);
 router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 
-// ADMIN ONLY CONTROL ROUTES
+// ADMIN ONLY
 router.use(authMiddleware.restrictTo('admin'));
-
-// Scraper Control
-router.get('/admin/discover', handle('discoverNewJobs')); // Naye links dhoondhne ke liye
-router.post('/admin/import', handle('importFromUrl'));    // Link se AI setup karne ke liye
-router.post('/add-json', handle('addJobFromJson'));
+router.get('/admin/discover', handle('discoverNewJobs'));
+router.post('/admin/import', handle('importFromUrl'));
+router.patch('/:id', handle('updateJob')); // <-- Naya edit route
 router.delete('/:id', handle('deleteJob'));
 
 module.exports = router;

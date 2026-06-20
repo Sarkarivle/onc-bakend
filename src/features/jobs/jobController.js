@@ -13,7 +13,7 @@ const calculateAge = (dob) => {
   return age;
 };
 
-// 1. ADMIN DISCOVERY: Latest links nikalna
+// 1. ADMIN DISCOVERY
 const discoverNewJobs = async (req, res) => {
   try {
     const targetUrl = 'https://www.sarkariresult.com/latestjob/';
@@ -33,18 +33,13 @@ const discoverNewJobs = async (req, res) => {
     const existingLinks = existingJobs.map(j => j.applyLink);
     const newLinks = discoveredLinks.filter(item => !existingLinks.includes(item.url));
 
-    res.status(200).json({
-      status: 'success',
-      totalFound: discoveredLinks.length,
-      newLinksCount: newLinks.length,
-      links: newLinks
-    });
+    res.status(200).json({ status: 'success', links: newLinks });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
 };
 
-// 2. ADMIN IMPORT: URL se AI Scraper chalana (Elastic JSON)
+// 2. ADMIN IMPORT (AI)
 const importFromUrl = async (req, res) => {
   try {
     const { url, category } = req.body;
@@ -57,18 +52,11 @@ const importFromUrl = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    // MASTER PROMPT: Extracting data as dynamic sections
-    const prompt = `
-      You are SarkariVLE’s Automated Job Data Extractor.
-      Convert RAW TEXT into a detailed "Elastic JSON" object.
-      Replace any website name with "Sarkari VLE".
-      Create sections for: Important Dates, Fee, Age, Eligibility, Physical, FAQ, etc.
-      RAW TEXT: ${rawText}
-    `;
+    const prompt = `Extract job details from raw text and return detailed ELASTIC JSON. RAW TEXT: ${rawText}`;
 
     const aiResponse = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return detailed JSON only.\n\nUser: ${prompt}`,
+      prompt: `System: Return JSON only.\n\nUser: ${prompt}`,
       stream: false,
       options: { temperature: 0.1 }
     });
@@ -77,7 +65,7 @@ const importFromUrl = async (req, res) => {
     const result = JSON.parse(resultText);
 
     const newJob = await Job.create({
-      title: result.title || 'Untitled Job',
+      title: result.title || 'Untitled',
       organization: result.organization || 'Sarkari VLE',
       category: category || 'Latest Jobs',
       applyLink: url,
@@ -91,54 +79,46 @@ const importFromUrl = async (req, res) => {
   }
 };
 
-const getAiMatchAdvice = async (req, res) => {
+// 3. ADMIN UPDATE (Edit functionality)
+const updateJob = async (req, res) => {
   try {
-    const { jobId } = req.params;
-    const user = req.user;
-    const job = await Job.findById(jobId);
+    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!job) throw new Error('Job not found');
-
-    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
-    const userAge = calculateAge(user.dob);
-
-    const prompt = `
-      Analyze match for ${user.name} (Edu: ${user.education}, Age: ${userAge})
-      against Job ${job.title} using this Data: ${JSON.stringify(job.specifications)}.
-      Address him as "${user.name} Bhai". Use friendly Hinglish. Return JSON.
-    `;
-
-    const aiResponse = await axios.post(runpodUrl, {
-        model: "onc-ai",
-        prompt: `System: Return Friendly Hinglish JSON advice.\n\nUser: ${prompt}`,
-        stream: false,
-        options: { temperature: 0.1 }
-    });
-
-    let resultText = aiResponse.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result = JSON.parse(resultText);
-    res.status(200).json({ status: 'success', ...result });
+    res.status(200).json({ status: 'success', data: job });
   } catch (err) {
-    res.status(200).json({ success: true, advice: null });
+    res.status(400).json({ status: 'fail', message: err.message });
   }
 };
 
 const getAllJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
+    const jobs = await Job.find().sort({ createdAt: -1 });
+    res.status(200).json({ status: 'success', data: jobs });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: err.message });
   }
 };
 
-const addJobFromJson = async (req, res) => {
+const getAiMatchAdvice = async (req, res) => {
   try {
-    const parsedData = typeof req.body.jobJson === 'string' ? JSON.parse(req.body.jobJson) : req.body.jobJson;
-    const newJob = await Job.create({ ...parsedData, category: req.body.category || 'General' });
-    res.status(201).json({ status: 'success', data: newJob });
+    const { jobId } = req.params;
+    const user = req.user;
+    const job = await Job.findById(jobId);
+    const userAge = calculateAge(user.dob);
+    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
+    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
+
+    const aiResponse = await axios.post(runpodUrl, {
+        model: "onc-ai",
+        prompt: `Analyze match for ${user.name} against ${job.title}. Return friendly Hinglish JSON.`,
+        stream: false,
+        options: { temperature: 0.1 }
+    });
+
+    let resultText = aiResponse.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
+    res.status(200).json({ status: 'success', ...JSON.parse(resultText) });
   } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    res.status(200).json({ success: true, advice: null });
   }
 };
 
@@ -151,4 +131,4 @@ const deleteJob = async (req, res) => {
   }
 };
 
-module.exports = { getAllJobs, getAiMatchAdvice, importFromUrl, discoverNewJobs, addJobFromJson, deleteJob };
+module.exports = { getAllJobs, getAiMatchAdvice, importFromUrl, discoverNewJobs, updateJob, deleteJob };
