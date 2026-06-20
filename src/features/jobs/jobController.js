@@ -13,7 +13,7 @@ const calculateAge = (dob) => {
   return age;
 };
 
-// 1. DISCOVERY: Naye Links dhoondhna
+// 1. DISCOVERY: Latest links
 const discoverNewJobs = async (req, res) => {
   try {
     const targetUrl = 'https://www.sarkariresult.com/latestjob/';
@@ -27,70 +27,57 @@ const discoverNewJobs = async (req, res) => {
       const title = $(el).text().trim();
       if (url && url.includes('sarkariresult.com')) discovered.push({ title, url });
     });
-    const existing = await Job.find({}, 'applyLink');
-    const existingLinks = existing.map(j => j.applyLink);
-    const newLinks = discovered.filter(item => !existingLinks.includes(item.url));
-    res.status(200).json({ status: 'success', links: newLinks });
-  } catch (err) {
-    console.error('Discovery Error:', err.message);
-    res.status(500).json({ status: 'error', message: err.message });
-  }
+    res.status(200).json({ status: 'success', links: discovered });
+  } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
-// 2. IMPORT: Professional AI Scraping
-const importFromUrl = async (req, res) => {
+// 2. MASTER IMPORT: (Handles both URL Scraping and Direct Text Paste)
+const importJob = async (req, res) => {
   try {
-    const { url, category } = req.body;
-    console.log(`🚀 Starting Import for: ${url}`);
+    const { url, rawText, category } = req.body;
+    let textToProcess = rawText;
 
-    if (!url) return res.status(400).json({ status: 'fail', message: 'URL is required' });
+    // Agar URL diya hai aur text nahi, toh scrape karne ki koshish karo
+    if (url && !textToProcess) {
+        try {
+            const pageRes = await axios.get(url, {
+                headers: { 'User-Agent': 'Mozilla/5.0' },
+                timeout: 5000
+            });
+            const $ = cheerio.load(pageRes.data);
+            textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 6000);
+        } catch (e) {
+            return res.status(400).json({ status: 'fail', message: 'Scraping blocked. Please copy-paste the text manually.' });
+        }
+    }
 
-    // Scraping with User-Agent to avoid blocks
-    const pageRes = await axios.get(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        timeout: 10000
-    });
-
-    const $ = cheerio.load(pageRes.data);
-    const rawText = $('body').text().replace(/\s\s+/g, ' ').substring(0, 5000);
-    console.log('✅ Page Scraped. Sending to AI...');
+    if (!textToProcess) return res.status(400).json({ status: 'fail', message: 'No data to process' });
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `
-      You are SarkariVLE’s Job Extractor. Convert RAW TEXT to ELASTIC JSON.
-      Include: Title, Organization, Core (Education, Age, Vacancy, lastDate as DD/MM/YYYY),
-      and Sections (Dates, Fees, Eligibility, FAQ).
-      RAW TEXT: ${rawText}
-    `;
+    const prompt = `Convert this Job Text into ELASTIC JSON. Include Title, Organization, Core (Education, Age, Vacancy, lastDate), and ALL details as Sections. TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return valid JSON only. No text outside JSON.\n\nUser: ${prompt}`,
+      prompt: `System: Return JSON only.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
-    }, { timeout: 30000 });
+    });
 
     let resultText = aiRes.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(resultText);
-    console.log('✅ AI Analysis Complete.');
 
     const newJob = await Job.create({
-      title: result.title || 'Untitled Job',
+      title: result.title || 'Untitled',
       organization: result.organization || 'Sarkari VLE',
       category: category || 'Latest Jobs',
-      applyLink: url,
+      applyLink: url || '',
       specifications: { sections: result.sections },
       coreRequirements: result.core || {}
     });
 
-    console.log('✅ Job Saved to Database.');
     res.status(201).json({ status: 'success', data: newJob });
-
-  } catch (err) {
-    console.error('❌ IMPORT FAILED:', err.message);
-    res.status(400).json({ status: 'fail', message: err.message });
-  }
+  } catch (err) { res.status(400).json({ status: 'fail', message: err.message }); }
 };
 
 const getAiMatchAdvice = async (req, res) => {
@@ -102,12 +89,10 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Analyze match for ${user.name} (Edu: ${user.education}, Age: ${userAge}) against Job ${job.title}. Use friendly Hinglish.`;
-
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return JSON career advice.\n\nUser: ${prompt}`,
-        stream: false, options: { temperature: 0.1 }
+        prompt: `System: Return Friendly Hinglish JSON match advice.\n\nUser: Compare ${user.name} with ${job.title}`,
+        stream: false
     });
 
     let resultText = aiRes.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -116,24 +101,18 @@ const getAiMatchAdvice = async (req, res) => {
 };
 
 const getAllJobs = async (req, res) => {
-  try {
-    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    res.status(200).json({ status: 'success', data: jobs });
-  } catch (err) { res.status(400).json({ status: 'fail', message: err.message }); }
+  const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
+  res.status(200).json({ status: 'success', data: jobs });
 };
 
 const updateJob = async (req, res) => {
-  try {
-    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.status(200).json({ status: 'success', data: job });
-  } catch (err) { res.status(400).json({ status: 'fail', message: err.message }); }
+  const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.status(200).json({ status: 'success', data: job });
 };
 
 const deleteJob = async (req, res) => {
-  try {
-    await Job.findByIdAndDelete(req.params.id);
-    res.status(204).json({ status: 'success', data: null });
-  } catch (err) { res.status(404).json({ status: 'fail', message: 'Job not found' }); }
+  await Job.findByIdAndDelete(req.params.id);
+  res.status(204).json({ status: 'success', data: null });
 };
 
-module.exports = { getAllJobs, getAiMatchAdvice, importFromUrl, discoverNewJobs, updateJob, deleteJob };
+module.exports = { getAllJobs, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob };

@@ -6,311 +6,103 @@
     <title>ONC Admin | Manage Jobs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .loader { border-top-color: #3498db; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
-<script>
-    // Security Check: Standardize to 'admin_token'
-    if (!localStorage.getItem('admin_token')) {
-        window.location.href = '/admin/login';
-    }
-</script>
 <body class="bg-[#F8F9FA]">
     <div class="flex">
-        <!-- Sidebar (Same as Dashboard) -->
+        <!-- Sidebar (Simplified for brevity) -->
         <div class="w-64 bg-[#1A237E] min-h-screen p-6 text-white hidden md:block">
             <h2 class="text-2xl font-black mb-10">ONC Panel</h2>
             <nav class="space-y-4">
-                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
-                    <span>🏠 Dashboard</span>
-                </a>
-                <a href="/admin/jansewa" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
-                    <span>🏢 Jansewa Kendras</span>
-                </a>
-                <a href="/admin/jobs" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl">
-                    <span>💼 Manage Jobs</span>
-                </a>
-                <a href="/admin/settings" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
-                    <span>⚙️ Settings</span>
-                </a>
-                <div class="pt-10">
-                    <button onclick="logout()" class="flex items-center space-x-3 p-3 text-red-300 hover:bg-red-500/10 w-full rounded-xl transition">
-                        <span>🚪 Logout</span>
-                    </button>
-                </div>
+                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition"><span>🏠 Dashboard</span></a>
+                <a href="/admin/jobs" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl"><span>💼 Manage Jobs</span></a>
+                <a href="/admin/settings" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition"><span>⚙️ Settings</span></a>
             </nav>
         </div>
 
-        <!-- Main Content -->
         <div class="flex-1 min-h-screen">
             <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center">
                 <h1 class="text-xl font-bold text-gray-800">Job Management</h1>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-500">Welcome, <span id="adminName" class="font-bold text-[#1A237E]">Admin</span></span>
-                </div>
             </header>
 
             <main class="p-8">
-                <!-- 1. DISCOVERY & IMPORT SECTION -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- URL Import -->
                     <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-50">
-                        <h2 class="text-lg font-bold mb-2 text-gray-800">Discover New Jobs</h2>
-                        <p class="text-sm text-gray-500 mb-6">Scan official portals for latest job links</p>
-                        <button onclick="discoverJobs()" class="bg-[#1A237E] text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-900 transition shadow-lg shadow-indigo-100">
-                            Scan Now
-                        </button>
-                        <div id="discovery-results" class="mt-6 max-h-60 overflow-y-auto space-y-3">
-                            <!-- Discovery items will appear here -->
-                        </div>
+                        <h2 class="text-lg font-bold mb-4">Link Se Import</h2>
+                        <input id="import-url" type="text" placeholder="Paste URL here..." class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm mb-4">
+                        <button onclick="importProcess({url: document.getElementById('import-url').value})" class="w-full bg-[#1A237E] text-white py-3 rounded-xl font-bold">Sync URL with AI</button>
                     </div>
 
+                    <!-- Manual Text Import -->
                     <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-50">
-                        <h2 class="text-lg font-bold mb-2 text-gray-800">Direct AI Sync</h2>
-                        <p class="text-sm text-gray-500 mb-6">Import any job URL using AI extraction</p>
-                        <div class="space-y-4">
-                            <input id="import-url" type="text" placeholder="https://www.sarkariresult.com/..."
-                                class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition">
-
-                            <select id="import-cat" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none transition">
-                                <option value="Latest Jobs">Latest Jobs</option>
-                                <option value="Results">Results</option>
-                                <option value="Admit Card">Admit Card</option>
-                                <option value="Upcoming">Upcoming</option>
-                            </select>
-
-                            <button onclick="importJob()" id="import-btn" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition">
-                                Sync with AI
-                            </button>
-                        </div>
+                        <h2 class="text-lg font-bold mb-4">Text Se Import (100% Work)</h2>
+                        <textarea id="import-text" rows="2" placeholder="Copy-paste job page text here..." class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm mb-4"></textarea>
+                        <button onclick="importProcess({rawText: document.getElementById('import-text').value})" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-sm">Process Text with AI</button>
                     </div>
                 </div>
 
-                <!-- 2. JOB LIST -->
+                <!-- Job List -->
                 <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
-                    <div class="p-6 border-b border-gray-50 flex justify-between items-center">
-                        <h2 class="text-lg font-bold text-gray-800">Active Job Postings</h2>
-                        <button onclick="loadJobs()" class="text-[#1A237E] text-sm font-bold">Refresh List</button>
+                    <div class="p-6 border-b flex justify-between">
+                        <h2 class="font-bold">Active Jobs</h2>
+                        <button onclick="loadJobs()" class="text-blue-600 text-sm">Refresh</button>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="bg-gray-50 text-gray-400 text-xs uppercase">
-                                <tr>
-                                    <th class="p-4">Job Title</th>
-                                    <th class="p-4">Organization</th>
-                                    <th class="p-4">Category</th>
-                                    <th class="p-4">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="job-table-body" class="divide-y divide-gray-50">
-                                <!-- Jobs will load here -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <table class="w-full text-left">
+                        <tbody id="job-table-body"></tbody>
+                    </table>
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- EDIT MODAL (Elastic JSON Editor) -->
-    <div id="edit-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white w-full max-w-5xl p-8 rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-800">Edit Job Specification</h2>
-                    <p class="text-sm text-gray-500">Fine-tune the elastic JSON data for AI matching.</p>
-                </div>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-800 text-3xl">&times;</button>
-            </div>
-
-            <div class="space-y-6">
-                <input id="edit-id" type="hidden">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Job Title</label>
-                        <input id="edit-title" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Category</label>
-                        <input id="edit-category" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Elastic Data (JSON Structure)</label>
-                    <textarea id="edit-specs" rows="12" class="w-full bg-gray-900 text-green-400 p-6 rounded-2xl font-mono text-xs focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition leading-relaxed"></textarea>
-                </div>
-
-                <div class="flex gap-4">
-                    <button onclick="saveJob()" class="flex-1 bg-[#1A237E] text-white py-4 rounded-2xl font-bold hover:bg-indigo-900 transition-all shadow-lg shadow-indigo-100">
-                        Update Database
-                    </button>
-                    <button onclick="closeModal()" class="px-8 py-4 border border-gray-100 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        const API_BASE = '/api/v1/jobs';
         const admin_token = localStorage.getItem('admin_token');
-        document.getElementById('adminName').textContent = localStorage.getItem('admin_name') || 'Admin';
 
-        async function discoverJobs() {
-            const resultsDiv = document.getElementById('discovery-results');
-            resultsDiv.innerHTML = '<p class="text-sm text-blue-600 animate-pulse font-bold">Scanning SarkariResult...</p>';
-
-            try {
-                const res = await fetch(`${API_BASE}/admin/discover`, {
-                    headers: { 'Authorization': `Bearer ${admin_token}` }
-                });
-                const data = await res.json();
-
-                if (data.links && data.links.length > 0) {
-                    resultsDiv.innerHTML = data.links.map(l => `
-                        <div class="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100 group">
-                            <span class="truncate w-64 text-sm font-semibold text-gray-700">${l.title}</span>
-                            <button onclick="importManual('${l.url}')" class="text-[#1A237E] font-bold text-xs bg-white px-4 py-2 rounded-lg border border-indigo-100 hover:bg-[#1A237E] hover:text-white transition">Import</button>
-                        </div>
-                    `).join('');
-                } else {
-                    resultsDiv.innerHTML = '<p class="text-sm text-gray-400">No new jobs found right now.</p>';
-                }
-            } catch (e) {
-                resultsDiv.innerHTML = '<p class="text-sm text-red-500">Scan failed. Try again.</p>';
-            }
-        }
-
-        async function importManual(url) {
-            document.getElementById('import-url').value = url;
-            importJob();
-        }
-
-        async function importJob() {
-            const url = document.getElementById('import-url').value;
-            const category = document.getElementById('import-cat').value;
-            const btn = document.getElementById('import-btn');
-            if (!url) return alert('URL missing');
-
-            btn.innerText = '🤖 AI Extracting Data...';
+        async function importProcess(body) {
+            if (!body.url && !body.rawText) return alert('Input missing');
+            const btn = event.target;
+            btn.innerText = '🤖 AI Processing...';
             btn.disabled = true;
 
             try {
-                const res = await fetch(`${API_BASE}/admin/import`, {
+                const res = await fetch('/api/v1/jobs/admin/import', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${admin_token}`
-                    },
-                    body: JSON.stringify({ url, category })
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${admin_token}` },
+                    body: JSON.stringify(body)
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert('✅ AI Import Complete! Job added to database.');
+                    alert('Job Saved Successfully!');
                     loadJobs();
-                } else alert('❌ ' + data.message);
-            } catch (e) {
-                alert('Connection Error');
+                } else alert(data.message);
             } finally {
-                btn.innerText = 'Sync with AI';
+                btn.innerText = body.url ? 'Sync URL' : 'Process Text';
                 btn.disabled = false;
             }
         }
 
         async function loadJobs() {
-            const body = document.getElementById('job-table-body');
-            body.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-gray-400 animate-pulse">Loading jobs...</td></tr>';
-
-            try {
-                const res = await fetch(API_BASE);
-                const data = await res.json();
-
-                body.innerHTML = data.data.map(j => `
-                    <tr class="hover:bg-gray-50 transition group">
-                        <td class="p-4">
-                            <p class="font-bold text-gray-800 text-sm">${j.title}</p>
-                            <p class="text-[10px] text-gray-400 font-mono mt-1">${j._id}</p>
-                        </td>
-                        <td class="p-4 text-sm text-gray-500">${j.organization}</td>
-                        <td class="p-4">
-                            <span class="bg-indigo-50 text-[#1A237E] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-                                ${j.category}
-                            </span>
-                        </td>
-                        <td class="p-4">
-                            <div class="flex gap-2">
-                                <button onclick="editJob('${j._id}')" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg font-bold text-xs hover:bg-[#1A237E] hover:text-white transition">Edit</button>
-                                <button onclick="deleteJob('${j._id}')" class="bg-red-50 text-red-500 px-4 py-2 rounded-lg font-bold text-xs hover:bg-red-500 hover:text-white transition">Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (e) {
-                body.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-500">Failed to load.</td></tr>';
-            }
-        }
-
-        async function editJob(id) {
-            try {
-                const res = await fetch(API_BASE);
-                const data = await res.json();
-                const job = data.data.find(x => x._id === id);
-
-                document.getElementById('edit-id').value = job._id;
-                document.getElementById('edit-title').value = job.title;
-                document.getElementById('edit-category').value = job.category;
-                document.getElementById('edit-specs').value = JSON.stringify(job.specifications || {}, null, 4);
-                document.getElementById('edit-modal').classList.remove('hidden');
-            } catch (e) { alert('Error fetching job details'); }
-        }
-
-        async function saveJob() {
-            const id = document.getElementById('edit-id').value;
-            const title = document.getElementById('edit-title').value;
-            const category = document.getElementById('edit-category').value;
-            let specs;
-
-            try {
-                specs = JSON.parse(document.getElementById('edit-specs').value);
-            } catch(e) { return alert('❌ Invalid JSON Format. Please fix syntax.'); }
-
-            const res = await fetch(`${API_BASE}/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${admin_token}`
-                },
-                body: JSON.stringify({ title, category, specifications: specs })
-            });
-
-            if (res.ok) {
-                alert('✅ Database Updated Successfully!');
-                closeModal();
-                loadJobs();
-            } else {
-                alert('Failed to save.');
-            }
+            const res = await fetch('/api/v1/jobs');
+            const data = await res.json();
+            document.getElementById('job-table-body').innerHTML = data.data.map(j => `
+                <tr class="border-b">
+                    <td class="p-4 font-bold text-sm">${j.title}</td>
+                    <td class="p-4 text-xs text-gray-400">${j.category}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="deleteJob('${j._id}')" class="text-red-500 text-xs">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         async function deleteJob(id) {
-            if (!confirm('Are you sure you want to delete this job permanently?')) return;
-            try {
-                await fetch(`${API_BASE}/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${admin_token}` }
-                });
+            if (confirm('Delete?')) {
+                await fetch('/api/v1/jobs/'+id, { method: 'DELETE', headers: { 'Authorization': `Bearer ${admin_token}` } });
                 loadJobs();
-            } catch (e) { alert('Delete failed'); }
+            }
         }
 
-        function closeModal() { document.getElementById('edit-modal').classList.add('hidden'); }
-        function logout() { localStorage.clear(); window.location.href = '/admin/login'; }
-
-        // Initial Load
         loadJobs();
     </script>
 </body>
