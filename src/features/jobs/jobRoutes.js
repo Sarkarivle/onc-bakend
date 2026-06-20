@@ -9,23 +9,20 @@ const handle = (fnName) => (req, res, next) => {
         if (jobController && typeof jobController[fnName] === 'function') {
             return jobController[fnName](req, res, next);
         }
-        throw new Error(`Controller method ${fnName} not found`);
+        throw new Error(`Method ${fnName} not found`);
     } catch (err) {
-        res.status(500).json({ status: 'error', message: 'Controller error' });
+        res.status(500).json({ status: 'error', message: err.message });
     }
 };
 
-// Public
 router.get('/', handle('getAllJobs'));
 
-// Protected (Must be logged in)
 router.use(authMiddleware.protect);
 router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 
 // Admin / Scraper Routes
-// (Temporarily removed restrictTo('admin') to fix 403 issues)
 router.get('/admin/discover', handle('discoverNewJobs'));
-router.post('/admin/import', handle('importFromUrl'));
+router.post('/admin/import', handle('importJob')); // Fixed: changed from importFromUrl to importJob
 router.patch('/:id', handle('updateJob'));
 router.delete('/:id', handle('deleteJob'));
 

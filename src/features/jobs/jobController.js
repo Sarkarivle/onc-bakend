@@ -13,13 +13,11 @@ const calculateAge = (dob) => {
   return age;
 };
 
-// 1. DISCOVERY: Latest links
+// 1. DISCOVERY
 const discoverNewJobs = async (req, res) => {
   try {
     const targetUrl = 'https://www.sarkariresult.com/latestjob/';
-    const response = await axios.get(targetUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
+    const response = await axios.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(response.data);
     const discovered = [];
     $('#post_field a').each((i, el) => {
@@ -31,36 +29,28 @@ const discoverNewJobs = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
-// 2. MASTER IMPORT: (Handles both URL Scraping and Direct Text Paste)
+// 2. MASTER IMPORT (Unified)
 const importJob = async (req, res) => {
   try {
     const { url, rawText, category } = req.body;
     let textToProcess = rawText;
 
-    // Agar URL diya hai aur text nahi, toh scrape karne ki koshish karo
     if (url && !textToProcess) {
-        try {
-            const pageRes = await axios.get(url, {
-                headers: { 'User-Agent': 'Mozilla/5.0' },
-                timeout: 5000
-            });
-            const $ = cheerio.load(pageRes.data);
-            textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 6000);
-        } catch (e) {
-            return res.status(400).json({ status: 'fail', message: 'Scraping blocked. Please copy-paste the text manually.' });
-        }
+        const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
+        const $ = cheerio.load(pageRes.data);
+        textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 6000);
     }
 
-    if (!textToProcess) return res.status(400).json({ status: 'fail', message: 'No data to process' });
+    if (!textToProcess) throw new Error('No data found to process');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Convert this Job Text into ELASTIC JSON. Include Title, Organization, Core (Education, Age, Vacancy, lastDate), and ALL details as Sections. TEXT: ${textToProcess}`;
+    const prompt = `Convert Job Text to Elastic JSON. Include Title, Organization, Core (education, ageLimit, vacancy, lastDate as DD/MM/YYYY), and ALL details as Sections. TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return JSON only.\n\nUser: ${prompt}`,
+      prompt: `System: Return ONLY valid JSON object.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
@@ -77,7 +67,10 @@ const importJob = async (req, res) => {
     });
 
     res.status(201).json({ status: 'success', data: newJob });
-  } catch (err) { res.status(400).json({ status: 'fail', message: err.message }); }
+  } catch (err) {
+    console.error('Import Error:', err.message);
+    res.status(400).json({ status: 'fail', message: err.message });
+  }
 };
 
 const getAiMatchAdvice = async (req, res) => {
@@ -91,10 +84,9 @@ const getAiMatchAdvice = async (req, res) => {
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return Friendly Hinglish JSON match advice.\n\nUser: Compare ${user.name} with ${job.title}`,
+        prompt: `System: Match ${user.name} with ${job.title}. Return JSON.\n\n`,
         stream: false
     });
-
     let resultText = aiRes.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
     res.status(200).json({ status: 'success', ...JSON.parse(resultText) });
   } catch (err) { res.status(200).json({ success: true, advice: null }); }
