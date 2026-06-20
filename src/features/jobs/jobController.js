@@ -22,10 +22,11 @@ const toStr = (val) => {
 
 const cleanAIResponse = (text) => {
     try {
-        // 1. Remove markdown backticks
+        if (!text) return "{}";
+        // 1. Remove markdown backticks and trim
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        // 2. Find the first '{' and last '}'
+        // 2. Find the first '{' and last '}' to extract the JSON object
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
 
@@ -33,8 +34,12 @@ const cleanAIResponse = (text) => {
 
         let jsonStr = cleaned.substring(start, end + 1);
 
-        // 3. Fix common AI JSON errors (like unescaped quotes in middle of text)
-        // This is a basic sanitizer
+        // 3. Remove control characters (0-31) which are invalid in JSON strings
+        jsonStr = jsonStr.replace(/[\x00-\x1F\x7F-\x9F]/g, " ");
+
+        // 4. Fix common trailing commas before closing braces/brackets
+        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
+
         return jsonStr;
     } catch (e) { return text; }
 };
@@ -61,7 +66,9 @@ const importJob = async (req, res) => {
     if (url && !textToProcess) {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
-        textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 4500); // Reduced length for stability
+        // Remove noise elements
+        $('script, style, ins, nav, footer, header').remove();
+        textToProcess = $('body').text().replace(/\s\s+/g, ' ').trim().substring(0, 4500);
     }
 
     if (!textToProcess) throw new Error('Input text empty');
@@ -69,9 +76,27 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Convert TEXT to JSON. RULES: Use single quotes for any emphasis inside text. NO double quotes inside strings.
-    Keys: title, organization, importantDates (applicationBegin, applicationLastDate, feePaymentLastDate, examDate),
-    applicationFee (generalObcEws, scStPh, female), eligibility (education, minAge, maxAge, ageLimit), totalVacancy, salary, sections (array of {title, content}).
+    const prompt = `Extract job details from the following TEXT into a valid JSON object.
+    CRITICAL RULES:
+    1. The output MUST be a single valid JSON object.
+    2. All keys and string values MUST be enclosed in double quotes.
+    3. If a value contains double quotes, you MUST replace them with single quotes (') or escape them with a backslash (\\").
+    4. NO trailing commas in objects or arrays.
+    5. If a field is unknown or not found, use "N/A".
+    6. Return ONLY the JSON object, no other text or explanation.
+
+    Structure:
+    {
+      "title": "",
+      "organization": "",
+      "importantDates": { "applicationBegin": "", "applicationLastDate": "", "feePaymentLastDate": "", "examDate": "" },
+      "applicationFee": { "generalObcEws": "", "scStPh": "", "female": "" },
+      "eligibility": { "education": "", "minAge": "", "maxAge": "", "ageLimit": "" },
+      "totalVacancy": "",
+      "salary": "",
+      "sections": [{ "title": "", "content": "" }]
+    }
+
     TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
