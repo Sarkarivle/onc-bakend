@@ -82,7 +82,8 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             : "Jansewa kendra ki jankari jald hi update hogi.";
 
         // 2. RunPod AI (Ollama) ko Request bhejna
-        const runpodUrl = "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
+        const runpodSetting = await require('./features/settings/settingsModel').findOne({ key: 'RUNPOD_URL' });
+        const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
         // SAKHT (STRICT) SYSTEM PROMPT
         const systemInstruction = `
