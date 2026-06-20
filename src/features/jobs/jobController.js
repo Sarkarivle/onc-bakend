@@ -13,6 +13,13 @@ const calculateAge = (dob) => {
   return age;
 };
 
+// Helper: Ensure everything is a String to prevent Flutter crashes
+const toStr = (val) => {
+    if (val === null || val === undefined) return 'N/A';
+    if (Array.isArray(val)) return val.join(', ');
+    return String(val);
+};
+
 const cleanAIResponse = (text) => {
     try {
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -37,48 +44,42 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `
-      You are SarkariVLE's AI Parser. Extract text to JSON.
-      Keys MUST be: title, organization, totalVacancy, salary,
-      importantDates (applicationBegin, applicationLastDate, feePaymentLastDate, examDate),
-      applicationFee (generalObcEws, scStPh, female),
-      eligibility (education, minAge, maxAge, ageLimit),
-      sections (array of {title, content}).
-    `;
+    const prompt = `Extract job details to JSON. Rules: All values MUST be Strings. No arrays. Use keys exactly. TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return JSON only.\n\nUser: ${prompt}\n\nTEXT: ${textToProcess}`,
+      prompt: `System: Return JSON only. Every value must be a String.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
     const result = JSON.parse(cleanAIResponse(aiRes.data.response));
 
-    // Backend side mapping to fix Total Vacancy and other fields for existing App model
-    const vacancy = result.totalVacancy || result.vacancy || result.total_post || 'N/A';
-    const salary = result.salary || 'Not Disclosed';
-
     const newJob = await Job.create({
-      title: result.title || 'Untitled',
-      organization: result.organization || 'Sarkari VLE',
-      totalVacancy: vacancy,
-      salary: salary,
+      title: toStr(result.title),
+      organization: toStr(result.organization),
+      totalVacancy: toStr(result.totalVacancy || result.vacancy),
+      salary: toStr(result.salary),
       category: category || 'Latest Jobs',
       applyLink: url || '',
       importantDates: {
-        applicationBegin: result.importantDates?.applicationBegin || 'N/A',
-        applicationLastDate: result.importantDates?.applicationLastDate || 'N/A',
-        feePaymentLastDate: result.importantDates?.feePaymentLastDate || 'N/A',
-        examDate: result.importantDates?.examDate || 'As per Schedule'
+        applicationBegin: toStr(result.importantDates?.applicationBegin),
+        applicationLastDate: toStr(result.importantDates?.applicationLastDate),
+        feePaymentLastDate: toStr(result.importantDates?.feePaymentLastDate),
+        examDate: toStr(result.importantDates?.examDate || 'As per Schedule')
       },
-      applicationFee: result.applicationFee || {},
-      eligibility: result.eligibility || {},
+      applicationFee: {
+        generalObcEws: toStr(result.applicationFee?.generalObcEws),
+        scStPh: toStr(result.applicationFee?.scStPh),
+        female: toStr(result.applicationFee?.female)
+      },
+      eligibility: {
+        education: toStr(result.eligibility?.education),
+        minAge: toStr(result.eligibility?.minAge),
+        maxAge: toStr(result.eligibility?.maxAge),
+        ageLimit: toStr(result.eligibility?.ageLimit)
+      },
       jobSpecifications: result.sections || [],
-      aiCoreSummary: {
-        education: result.eligibility?.education,
-        age: result.eligibility?.ageLimit,
-        vacancy: vacancy
-      }
+      aiCoreSummary: result.core || {}
     });
 
     res.status(201).json({ status: 'success', data: newJob });
@@ -96,15 +97,21 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Analyze match for ${user.name} (Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category}) with Job ${job.title}. Return Hinglish JSON.`;
-
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return JSON advice.\n\nUser: ${prompt}`,
+        prompt: `Compare ${user.name} with ${job.title}. Return Hinglish JSON. Ensure advice, urgency, ai_tip are single strings.`,
         stream: false
     });
 
-    res.status(200).json({ status: 'success', ...JSON.parse(cleanAIResponse(aiRes.data.response)) });
+    const adviceResult = JSON.parse(cleanAIResponse(aiRes.data.response));
+
+    // Safety for advice response
+    const finalAdvice = {};
+    Object.keys(adviceResult).forEach(key => {
+        finalAdvice[key] = toStr(adviceResult[key]);
+    });
+
+    res.status(200).json({ status: 'success', ...finalAdvice });
   } catch (err) { res.status(200).json({ success: true, advice: null }); }
 };
 
