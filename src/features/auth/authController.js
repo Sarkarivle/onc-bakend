@@ -7,7 +7,7 @@ const signToken = id => {
   });
 };
 
-exports.signup = async (req, res) => {
+const signup = async (req, res) => {
   try {
     const newUser = await User.create({
       name: req.body.name,
@@ -27,7 +27,7 @@ exports.signup = async (req, res) => {
   }
 };
 
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { phone, password } = req.body;
     if (!phone || !password) throw new Error('Please provide phone and password');
@@ -35,16 +35,12 @@ exports.login = async (req, res) => {
     let user = await User.findOne({ phone }).select('+password');
 
     if (!user) {
-      // Auto-Signup if user doesn't exist
       user = await User.create({
         name: 'User ' + phone.slice(-4),
         phone: phone,
         password: password
       });
-      // Need to re-fetch to exclude password and include other fields if necessary,
-      // but User.create returns the object.
     } else {
-      // Existing user: check password
       if (!(await user.correctPassword(password, user.password))) {
         return res.status(401).json({ status: 'fail', message: 'Incorrect password for this mobile number' });
       }
@@ -62,7 +58,7 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.getMe = async (req, res) => {
+const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     res.status(200).json({
@@ -74,13 +70,11 @@ exports.getMe = async (req, res) => {
   }
 };
 
-exports.updateMe = async (req, res) => {
+const updateMe = async (req, res) => {
   try {
-    // 1. Filter out fields that are not allowed to be updated
     const filteredBody = { ...req.body };
     ['password', 'role', 'phone'].forEach(el => delete filteredBody[el]);
 
-    // 2. Update user document
     const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
       new: true,
       runValidators: true
@@ -94,3 +88,5 @@ exports.updateMe = async (req, res) => {
     res.status(400).json({ status: 'fail', message: err.message });
   }
 };
+
+module.exports = { signup, login, getMe, updateMe };
