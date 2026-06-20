@@ -17,7 +17,9 @@ const calculateAge = (dob) => {
 const discoverNewJobs = async (req, res) => {
   try {
     const targetUrl = 'https://www.sarkariresult.com/latestjob/';
-    const response = await axios.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const response = await axios.get(targetUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
     const $ = cheerio.load(response.data);
     const discovered = [];
     $('#post_field a').each((i, el) => {
@@ -29,54 +31,52 @@ const discoverNewJobs = async (req, res) => {
     const existingLinks = existing.map(j => j.applyLink);
     const newLinks = discovered.filter(item => !existingLinks.includes(item.url));
     res.status(200).json({ status: 'success', links: newLinks });
-  } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
+  } catch (err) {
+    console.error('Discovery Error:', err.message);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
 };
 
-// 2. IMPORT: Professional 18-step AI Scraping
+// 2. IMPORT: Professional AI Scraping
 const importFromUrl = async (req, res) => {
   try {
     const { url, category } = req.body;
-    if (!url) throw new Error('URL missing');
+    console.log(`🚀 Starting Import for: ${url}`);
 
-    const pageRes = await axios.get(url);
+    if (!url) return res.status(400).json({ status: 'fail', message: 'URL is required' });
+
+    // Scraping with User-Agent to avoid blocks
+    const pageRes = await axios.get(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 10000
+    });
+
     const $ = cheerio.load(pageRes.data);
-    const rawText = $('body').text().replace(/\s\s+/g, ' ').substring(0, 6000);
+    const rawText = $('body').text().replace(/\s\s+/g, ' ').substring(0, 5000);
+    console.log('✅ Page Scraped. Sending to AI...');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
     const prompt = `
-      You are SarkariVLE’s Automated Job Data Extractor.
-      Extract ALL details from RAW DATA and return an ELASTIC JSON object.
-      Replace website names with "Sarkari VLE".
-      Create sections following the 18-step structure: Overview, Dates, Fee, Age, Eligibility, Physical, FAQ, etc.
-
-      JSON STRUCTURE:
-      {
-        "title": "Full Job Name",
-        "organization": "Board Name",
-        "core": { "education": "...", "ageLimit": "...", "vacancy": "...", "lastDate": "DD/MM/YYYY" },
-        "sections": [
-           { "heading": "Important Dates", "type": "table", "data": { "Start": "...", "Last Date": "..." } },
-           { "heading": "Application Fee", "type": "table", "data": { "General": "...", "SC/ST": "..." } },
-           { "heading": "Eligibility", "type": "text", "content": "..." },
-           { "heading": "FAQ", "type": "list", "items": ["Q:...", "A:..."] }
-        ]
-      }
+      You are SarkariVLE’s Job Extractor. Convert RAW TEXT to ELASTIC JSON.
+      Include: Title, Organization, Core (Education, Age, Vacancy, lastDate as DD/MM/YYYY),
+      and Sections (Dates, Fees, Eligibility, FAQ).
       RAW TEXT: ${rawText}
     `;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return detailed JSON only.\n\nUser: ${prompt}`,
+      prompt: `System: Return valid JSON only. No text outside JSON.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
-    });
+    }, { timeout: 30000 });
 
     let resultText = aiRes.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(resultText);
+    console.log('✅ AI Analysis Complete.');
 
     const newJob = await Job.create({
-      title: result.title || 'Untitled',
+      title: result.title || 'Untitled Job',
       organization: result.organization || 'Sarkari VLE',
       category: category || 'Latest Jobs',
       applyLink: url,
@@ -84,11 +84,15 @@ const importFromUrl = async (req, res) => {
       coreRequirements: result.core || {}
     });
 
+    console.log('✅ Job Saved to Database.');
     res.status(201).json({ status: 'success', data: newJob });
-  } catch (err) { res.status(400).json({ status: 'fail', message: err.message }); }
+
+  } catch (err) {
+    console.error('❌ IMPORT FAILED:', err.message);
+    res.status(400).json({ status: 'fail', message: err.message });
+  }
 };
 
-// 3. ADVICE: Personalized Match Advice using Elastic Data
 const getAiMatchAdvice = async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -98,16 +102,11 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `
-      User: ${user.name}, Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category}.
-      Job: ${job.title}. Full Specs: ${JSON.stringify(job.specifications)}.
-      Analyze match and return Personalized Hinglish JSON (advice, status, desc, fee_text, urgency).
-      Address him as "${user.name} Bhai".
-    `;
+    const prompt = `Analyze match for ${user.name} (Edu: ${user.education}, Age: ${userAge}) against Job ${job.title}. Use friendly Hinglish.`;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return Friendly Hinglish JSON advice only.\n\nUser: ${prompt}`,
+        prompt: `System: Return JSON career advice.\n\nUser: ${prompt}`,
         stream: false, options: { temperature: 0.1 }
     });
 
