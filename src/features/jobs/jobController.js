@@ -63,88 +63,57 @@ exports.getAiMatchAdvice = async (req, res) => {
 
     if (!job) throw new Error('Job not found');
 
-    // Try multiple possible keys for Gemini API
-    const geminiSetting = await Settings.findOne({ key: 'GEMINI_API_KEY' });
-    const legacySetting = await Settings.findOne({ key: 'API_KEY' });
-
-    const apiKey = (geminiSetting && geminiSetting.value) ||
-                   (legacySetting && legacySetting.value) ||
-                   process.env.GEMINI_API_KEY ||
-                   'YOUR_GEMINI_API_KEY';
+    // RunPod Settings se URL nikalna
+    const Settings = require('../settings/settingsModel');
+    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
+    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
     const userAge = calculateAge(user.dob);
 
     const prompt = `
-      Act as a Career Expert. Analyze this job for the user and return a JSON object for a "Good Match" section.
+      Act as a Career Expert. Analyze this job for the user and return a JSON object ONLY.
 
-      User Details:
-      - Name: ${user.name}, Age: ${userAge}, Education: ${user.education || 'Not Specified'}
-      - Category: ${user.category || 'General'}, State: ${user.domicileState || 'Uttar Pradesh'}
+      User: Name ${user.name}, Age ${userAge}, Edu ${user.education || '12th'}, State ${user.domicileState}
+      Job: Title ${job.title}, Requirements ${job.eligibility?.education}, End Date ${job.importantDates?.applicationLastDate}
 
-      Job Details:
-      - Title: ${job.title}, Org: ${job.organization}
-      - Required Education: ${job.eligibility?.education || 'Check Notification'}
-      - Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
-      - Fees: ${JSON.stringify(job.applicationFee)}
+      Return a JSON object with these EXACT keys:
+      - "advice": Hinglish overview (3 lines).
+      - "age_status": "Fit", "Over", or "Limit"
+      - "age_desc": Hinglish explanation (e.g. "Aapki age is job ke liye sahi hai.")
+      - "edu_status": "Match" or "No Match"
+      - "edu_desc": Hinglish explanation
+      - "loc_desc": Hinglish explanation
+      - "cat_desc": Hinglish explanation
+      - "comp_desc": Hinglish competition info
+      - "success_desc": Hinglish chances
+      - "ai_tip": Hinglish shortcut tip
+      - "fee_text": Calculated fee for ${user.category}
+      - "urgency": Hinglish urgency for last date ${job.importantDates?.applicationLastDate} (e.g. "Bhai jaldi karo, sirf 2 din bache hain!")
 
-      Return ONLY a JSON object with these EXACT keys:
-      1. "advice": A 3-line Hinglish overview.
-      2. "age_status": Short (e.g. "Fit")
-      3. "age_desc": Hinglish explanation (e.g. "Aapki age (22) is job ke age limit ke andar hai.")
-      4. "edu_status": Short (e.g. "Match")
-      5. "edu_desc": Hinglish explanation (e.g. "Aap 12th pass hain, jo is job ke liye required hai.")
-      6. "loc_desc": Hinglish explanation (e.g. "Aapka state preference Uttar Pradesh hai.")
-      7. "cat_desc": Hinglish explanation (e.g. "Aapki category OBC hai, jo is vacancy me eligible hai.")
-      8. "comp_desc": Hinglish explanation about competition (e.g. "Is job me competition level Medium hai.")
-      9. "success_desc": Hinglish explanation about selection chances.
-      10. "ai_tip": A short helpful tip (e.g. "Agar aap abhi se taiyari shuru karte hain toh...").
-      11. "fee_text": Calculated fee.
-      12. "urgency": Days left.
+      Response MUST be valid JSON only.
     `;
 
-    const requestData = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { response_mime_type: "application/json" }
+    const axios = require('axios');
+    const aiResponse = await axios.post(runpodUrl, {
+        model: "onc-ai",
+        prompt: `System: You are an expert career assistant. Return valid JSON only.\n\nUser: ${prompt}\n\nAssistant JSON:`,
+        stream: false,
+        options: { temperature: 0.1 }
     });
 
-    const options = {
-      hostname: 'generativelanguage.googleapis.com',
-      path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    };
+    let resultText = aiResponse.data.response;
+    // Remove potential markdown code blocks
+    resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-    const request = https.request(options, response => {
-      let body = '';
-      response.on('data', d => body += d);
-      response.on('end', () => {
-        try {
-          const jsonBody = JSON.parse(body);
-          if (jsonBody.candidates && jsonBody.candidates[0]) {
-            const result = JSON.parse(jsonBody.candidates[0].content.parts[0].text);
-            res.status(200).json({ status: 'success', ...result });
-          } else {
-            res.status(200).json({ status: 'success', advice: null });
-          }
-        } catch (e) {
-          res.status(200).json({ status: 'success', advice: null });
-        }
-      });
-    });
-
-    request.on('error', e => {
-      console.error('HTTPS Request Error:', e);
-      res.status(200).json({
-        status: 'success',
-        advice: null
-      });
-    });
-
-    request.write(requestData);
-    request.end();
+    const result = JSON.parse(resultText);
+    res.status(200).json({ status: 'success', ...result });
 
   } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    console.error('RunPod Analysis Error:', err.message);
+    res.status(200).json({
+      status: 'success',
+      advice: null
+    });
   }
 };
 
