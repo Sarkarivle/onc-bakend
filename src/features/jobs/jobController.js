@@ -15,10 +15,14 @@ const calculateAge = (dob) => {
 
 const cleanAIResponse = (text) => {
     try {
-        const start = text.indexOf('{');
-        const end = text.lastIndexOf('}');
-        if (start !== -1 && end !== -1) return text.substring(start, end + 1);
-        return text;
+        // Remove markdown code blocks and any leading/trailing text
+        let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const start = cleaned.indexOf('{');
+        const end = cleaned.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+            return cleaned.substring(start, end + 1);
+        }
+        return cleaned;
     } catch (e) { return text; }
 };
 
@@ -38,21 +42,23 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    // MASTER PROMPT: 18 Steps to JSON
+    // MASTER PROMPT: Strict JSON rules to avoid parse errors
     const prompt = `
       You are SarkariVLE’s Automated Job Data Extractor.
       Convert RAW TEXT into a detailed JSON object following these 18 steps:
       1. Title, 2. Subtitle, 3. About, 4. Overview, 5. Dates, 6. Fee, 7. Age, 8. Relaxation, 9. Vacancy, 10. Eligibility, 11. Physical, 12. Who can apply, 13. Selection, 14. How to Apply, 15. Notes, 16. Extra, 17. Links, 18. FAQ.
 
-      RULES:
+      STRICT RULES:
+      - Return ONLY a valid JSON object.
+      - DO NOT use newlines inside string values.
       - Rewrite in simple Hinglish.
       - Replace website names with "Sarkari VLE".
-      - JSON must have keys: "title", "organization", "importantDates", "applicationFee", "eligibility", "sections" (array of {title, content}).
+      - Keys: "title", "organization", "importantDates" (applicationBegin, applicationLastDate, feePaymentDeadline, examDate), "applicationFee" (generalObcEws, scStPh, female), "eligibility" (education, ageLimit, minAge, maxAge, totalVacancy, salary), "sections" (array of {title, content}).
     `;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return valid JSON ONLY. NO CHAT.\n\nUser: ${prompt}\n\nTEXT: ${textToProcess}`,
+      prompt: `System: Return PURE JSON only. No conversation. No markdown.\n\nUser: ${prompt}\n\nTEXT: ${textToProcess}`,
       stream: false, options: { temperature: 0.1 }
     });
 
@@ -63,16 +69,10 @@ const importJob = async (req, res) => {
       organization: result.organization || 'Sarkari VLE',
       category: category || 'Latest Jobs',
       applyLink: url || '',
-
-      // Map AI data to fixed App UI fields
       importantDates: result.importantDates || {},
       applicationFee: result.applicationFee || {},
       eligibility: result.eligibility || {},
-
-      // Map AI data to ELASTIC Sections for App to show dynamic content
       jobSpecifications: result.sections || [],
-
-      // Store core requirements for AI Match Advice
       aiCoreSummary: {
         education: result.eligibility?.education,
         age: result.eligibility?.ageLimit,
@@ -83,7 +83,8 @@ const importJob = async (req, res) => {
 
     res.status(201).json({ status: 'success', data: newJob });
   } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    console.error('Import Error:', err.message);
+    res.status(400).json({ status: 'fail', message: `AI JSON Error: ${err.message}` });
   }
 };
 
