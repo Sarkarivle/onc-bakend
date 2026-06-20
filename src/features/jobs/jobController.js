@@ -148,51 +148,63 @@ const getAiMatchAdvice = async (req, res) => {
 
     // AI ko sirf zaroori fields bhej rahe hain taaki speed badhe
     // Accurate Primary Date Calculation for AI context
-    let primaryDateInfo = { event: "Last Date", daysRemaining: "N/A", status: "future", dateStr: "" };
+    let primaryDateInfo = { event: "Apply Last Date", daysRemaining: "N/A", status: "future", dateStr: "" };
     try {
         const jobCat = (job.category || "").toLowerCase();
-        let targetEvent = "last date"; // default
 
-        if (jobCat.includes('admit')) targetEvent = "admit card";
-        else if (jobCat.includes('result')) targetEvent = "result";
-        else if (jobCat.includes('answer')) targetEvent = "answer key";
-        else if (jobCat.includes('exam')) targetEvent = "exam date";
+        // Potential events to check in order of importance
+        const eventsToCheck = ["last date", "exam date", "admit card", "result", "answer key"];
+        if (jobCat.includes('admit')) eventsToCheck.unshift("admit card");
+        if (jobCat.includes('result')) eventsToCheck.unshift("result");
+        if (jobCat.includes('exam')) eventsToCheck.unshift("exam date");
 
-        // Find relevant date string
-        let dateStr = job.fullData?.job_overview?.last_date;
-        let eventName = "Apply Last Date";
+        let foundEvent = null;
+        const allDates = job.fullData?.important_dates || [];
+        const overviewLastDate = job.fullData?.job_overview?.last_date;
 
-        if (targetEvent !== "last date" || !dateStr) {
-            const foundDate = job.fullData?.important_dates?.find(d =>
-                d.event.toLowerCase().includes(targetEvent) ||
-                (targetEvent === "last date" && d.event.toLowerCase().includes("last date"))
-            );
-            if (foundDate) {
-                dateStr = foundDate.date;
-                eventName = foundDate.event;
+        // Try to find the FIRST future event or the LAST expired event
+        for (const eventName of eventsToCheck) {
+            let dateStr = (eventName === "last date") ? overviewLastDate : null;
+            let actualEventName = (eventName === "last date") ? "Apply Last Date" : eventName;
+
+            const dObj = allDates.find(d => d.event.toLowerCase().includes(eventName));
+            if (dObj) {
+                dateStr = dObj.date;
+                actualEventName = dObj.event;
+            }
+
+            if (dateStr && dateStr !== "Available Soon") {
+                let targetDate;
+                if (dateStr.includes('-')) targetDate = new Date(dateStr);
+                else if (dateStr.includes('/')) {
+                    const [d, m, y] = dateStr.split('/');
+                    targetDate = new Date(`${y}-${m}-${d}`);
+                }
+
+                if (targetDate && !isNaN(targetDate)) {
+                    const diffTime = targetDate - new Date();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    const info = {
+                        event: actualEventName,
+                        daysRemaining: diffDays,
+                        status: diffDays < 0 ? "expired" : "future",
+                        dateStr: dateStr
+                    };
+
+                    // If we find a future event, that's our primary one!
+                    if (info.status === "future") {
+                        foundEvent = info;
+                        break;
+                    }
+                    // If it's expired, keep it as fallback if we don't find any future ones
+                    if (!foundEvent || (foundEvent.status === "expired" && eventName === "last date")) {
+                        foundEvent = info;
+                    }
+                }
             }
         }
-
-        if (dateStr && dateStr !== "Available Soon") {
-            let targetDate;
-            if (dateStr.includes('-')) {
-                targetDate = new Date(dateStr);
-            } else if (dateStr.includes('/')) {
-                const [d, m, y] = dateStr.split('/');
-                targetDate = new Date(`${y}-${m}-${d}`);
-            }
-
-            if (targetDate && !isNaN(targetDate)) {
-                const diffTime = targetDate - new Date();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                primaryDateInfo = {
-                    event: eventName,
-                    daysRemaining: diffDays,
-                    status: diffDays < 0 ? "expired" : "future",
-                    dateStr: dateStr
-                };
-            }
-        }
+        if (foundEvent) primaryDateInfo = foundEvent;
     } catch (e) { console.error("Date calc error", e); }
 
     const essentialJobData = {
