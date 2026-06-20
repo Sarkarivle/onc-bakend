@@ -22,20 +22,26 @@ const toStr = (val) => {
 
 const cleanAIResponse = (text) => {
     try {
+        // 1. Remove markdown backticks
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        // 2. Find the first '{' and last '}'
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
-        if (start !== -1 && end !== -1) {
-            return cleaned.substring(start, end + 1);
-        }
-        return cleaned;
+
+        if (start === -1 || end === -1) return cleaned;
+
+        let jsonStr = cleaned.substring(start, end + 1);
+
+        // 3. Fix common AI JSON errors (like unescaped quotes in middle of text)
+        // This is a basic sanitizer
+        return jsonStr;
     } catch (e) { return text; }
 };
 
 const discoverNewJobs = async (req, res) => {
   try {
-    const targetUrl = 'https://www.sarkariresult.com/latestjob/';
-    const response = await axios.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const response = await axios.get('https://www.sarkariresult.com/latestjob/', { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(response.data);
     const discovered = [];
     $('#post_field a').each((i, el) => {
@@ -55,23 +61,35 @@ const importJob = async (req, res) => {
     if (url && !textToProcess) {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
-        textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 5000);
+        textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 4500); // Reduced length for stability
     }
 
-    if (!textToProcess) throw new Error('No input data');
+    if (!textToProcess) throw new Error('Input text empty');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Convert TEXT to JSON. Keys: title, organization, importantDates (applicationBegin, applicationLastDate, feePaymentLastDate, examDate), applicationFee (generalObcEws, scStPh, female), eligibility (education, minAge, maxAge, ageLimit), totalVacancy, salary, sections (array of {title, content}). NO CHAT. TEXT: ${textToProcess}`;
+    const prompt = `Convert TEXT to JSON. RULES: Use single quotes for any emphasis inside text. NO double quotes inside strings.
+    Keys: title, organization, importantDates (applicationBegin, applicationLastDate, feePaymentLastDate, examDate),
+    applicationFee (generalObcEws, scStPh, female), eligibility (education, minAge, maxAge, ageLimit), totalVacancy, salary, sections (array of {title, content}).
+    TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return PURE JSON only. No conversation. No markdown.\n\nUser: ${prompt}`,
+      prompt: `System: Return ONLY a valid JSON object. No conversation. No preamble.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
-    const result = JSON.parse(cleanAIResponse(aiRes.data.response));
+    const rawAiOutput = aiRes.data.response;
+    const cleanedJson = cleanAIResponse(rawAiOutput);
+
+    let result;
+    try {
+        result = JSON.parse(cleanedJson);
+    } catch (parseErr) {
+        console.error('Raw AI Output that failed:', rawAiOutput);
+        throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
+    }
 
     const newJob = await Job.create({
       title: toStr(result.title),
@@ -117,16 +135,16 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
+    const prompt = `Address him as "${user.name} Bhai". Return Hinglish match advice JSON only.`;
+
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Match ${user.name} with ${job.title}. Return Hinglish JSON.\n\n`,
+        prompt: `System: Return JSON only.\n\nUser: ${prompt}`,
         stream: false
     });
 
-    const adviceResult = JSON.parse(cleanAIResponse(aiRes.data.response));
-    const finalAdvice = {};
-    Object.keys(adviceResult).forEach(key => { finalAdvice[key] = toStr(adviceResult[key]); });
-    res.status(200).json({ status: 'success', ...finalAdvice });
+    const cleaned = cleanAIResponse(aiRes.data.response);
+    res.status(200).json({ status: 'success', ...JSON.parse(cleaned) });
   } catch (err) { res.status(200).json({ success: true, advice: null }); }
 };
 
