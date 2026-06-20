@@ -146,25 +146,31 @@ const getAiMatchAdvice = async (req, res) => {
 
     const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
 
-    const fullPrompt = `System: You are an expert job advisor. Use the following JOB JSON DATA to give personalized advice in Hinglish.
+    // AI ko sirf zaroori fields bhej rahe hain taaki speed badhe
+    const essentialJobData = {
+        title: job.title,
+        overview: job.fullData?.job_overview,
+        dates: job.fullData?.important_dates,
+        fees: job.fullData?.application_fee,
+        eligibility: job.fullData?.eligibility_summary || job.fullData?.vacancy_details,
+        vacancy: job.totalVacancy
+    };
+
+    const fullPrompt = `System: Expert Job Advisor. Use JOB DATA & USER PROFILE to give short Hinglish advice.
 
     JOB DATA:
-    ${JSON.stringify(job.fullData)}
+    ${JSON.stringify(essentialJobData)}
 
     USER PROFILE:
-    Name: ${user.name}
-    DOB: ${user.dob}
-    Category: ${user.category}
-    Education: ${user.education || 'N/A'}
-    City: ${user.city || 'N/A'}
-    Certificates: ${user.certificates?.join(', ') || 'None'}
+    Name: ${user.name}, DOB: ${user.dob}, Cat: ${user.category}, Edu: ${user.education || 'N/A'}, City: ${user.city || 'N/A'}
 
     User: ${advicePrompt}`;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
         prompt: fullPrompt,
-        stream: false
+        stream: false,
+        options: { temperature: 0.1, top_p: 0.9, max_tokens: 500 } // Faster inference
     });
 
     const cleaned = cleanAIResponse(aiRes.data.response);
