@@ -101,7 +101,7 @@ exports.getAiMatchAdvice = async (req, res) => {
       - "success_desc": Hinglish chances.
       - "ai_tip": Hinglish shortcut tip.
       - "fee_text": Personalized fee for ${user.category} category (e.g. "Aapki fee ₹500 hai").
-      - "urgency": Hinglish urgency for last date ${job.importantDates?.applicationLastDate}.
+      - "urgency": Personalized Hinglish text about how much time is left (e.g. "Bhai sirf 2 din bache hain!", "Abhi 10 din bache hain aaram se bharo", "Aaj aakhri din hai!"). STRICTLY NO DATES, only human-like relative time.
       - "vacancy_text": Total vacancies count (e.g. "${job.totalVacancy} Posts available").
 
       Response MUST be valid JSON only.
