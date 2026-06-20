@@ -20,6 +20,8 @@ const settingsRoutes = require('./features/settings/settingsRoutes');
 
 const app = express();
 
+console.log('🚀 [ONC-BACKEND] Naya Crash-Proof Code Load Ho Raha Hai... v2');
+
 // 1. GLOBAL MIDDLEWARES
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan('dev'));

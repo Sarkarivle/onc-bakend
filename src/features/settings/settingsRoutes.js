@@ -5,10 +5,16 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 const router = express.Router();
 
 const handle = (fnName) => (req, res, next) => {
-    if (settingsController && typeof settingsController[fnName] === 'function') {
-        return settingsController[fnName](req, res, next);
+    try {
+        const settingsController = require('./settingsController');
+        if (settingsController && typeof settingsController[fnName] === 'function') {
+            return settingsController[fnName](req, res, next);
+        }
+        throw new Error(`Controller method ${fnName} not found`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: 'error', message: 'Internal Server Error' });
     }
-    res.status(500).json({ status: 'error', message: `Controller method ${fnName} not found` });
 };
 
 router.use(authMiddleware.protect);

@@ -5,10 +5,16 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 const router = express.Router();
 
 const handle = (fnName) => (req, res, next) => {
-    if (jansewaController && typeof jansewaController[fnName] === 'function') {
-        return jansewaController[fnName](req, res, next);
+    try {
+        const jansewaController = require('./jansewaController');
+        if (jansewaController && typeof jansewaController[fnName] === 'function') {
+            return jansewaController[fnName](req, res, next);
+        }
+        throw new Error(`Controller method ${fnName} not found`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: 'error', message: 'Internal Server Error' });
     }
-    res.status(500).json({ status: 'error', message: `Controller method ${fnName} not found` });
 };
 
 router.get('/', handle('getAllKendras'));

@@ -1,15 +1,20 @@
 const express = require('express');
-const jobController = require('./jobController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Safety wrapper to prevent crashes
+// Robust handler that loads the controller only when needed
 const handle = (fnName) => (req, res, next) => {
-    if (jobController && typeof jobController[fnName] === 'function') {
-        return jobController[fnName](req, res, next);
+    try {
+        const jobController = require('./jobController');
+        if (jobController && typeof jobController[fnName] === 'function') {
+            return jobController[fnName](req, res, next);
+        }
+        throw new Error(`Controller method ${fnName} not found`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: 'error', message: 'Internal Server Error' });
     }
-    res.status(500).json({ status: 'error', message: `Controller method ${fnName} not found` });
 };
 
 router.get('/', handle('getAllJobs'));
