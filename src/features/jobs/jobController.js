@@ -1,5 +1,6 @@
 const Job = require('./jobModel');
 const Settings = require('../settings/settingsModel');
+const jobPrompts = require('./jobPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -23,23 +24,19 @@ const toStr = (val) => {
 const cleanAIResponse = (text) => {
     try {
         if (!text) return "{}";
-        // 1. Remove markdown backticks and trim
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        // 2. Find the first '{' and last '}' to extract the JSON object
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
-
         if (start === -1 || end === -1) return cleaned;
-
         let jsonStr = cleaned.substring(start, end + 1);
-
-        // 3. Remove control characters (0-31) which are invalid in JSON strings
         jsonStr = jsonStr.replace(/[\x00-\x1F\x7F-\x9F]/g, " ");
-
-        // 4. Fix common trailing commas before closing braces/brackets
         jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
-
+        let openBraces = (jsonStr.match(/{/g) || []).length;
+        let closeBraces = (jsonStr.match(/}/g) || []).length;
+        while (openBraces > closeBraces) {
+            jsonStr += '}';
+            closeBraces++;
+        }
         return jsonStr;
     } catch (e) { return text; }
 };
@@ -66,7 +63,6 @@ const importJob = async (req, res) => {
     if (url && !textToProcess) {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
-        // Remove noise elements
         $('script, style, ins, nav, footer, header').remove();
         textToProcess = $('body').text().replace(/\s\s+/g, ' ').trim().substring(0, 4500);
     }
@@ -76,28 +72,7 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Extract job details from the following TEXT into a valid JSON object.
-    CRITICAL RULES:
-    1. The output MUST be a single valid JSON object.
-    2. All keys and string values MUST be enclosed in double quotes.
-    3. If a value contains double quotes, you MUST replace them with single quotes (') or escape them with a backslash (\\").
-    4. NO trailing commas in objects or arrays.
-    5. If a field is unknown or not found, use "N/A".
-    6. Return ONLY the JSON object, no other text or explanation.
-
-    Structure:
-    {
-      "title": "",
-      "organization": "",
-      "importantDates": { "applicationBegin": "", "applicationLastDate": "", "feePaymentLastDate": "", "examDate": "" },
-      "applicationFee": { "generalObcEws": "", "scStPh": "", "female": "" },
-      "eligibility": { "education": "", "minAge": "", "maxAge": "", "ageLimit": "" },
-      "totalVacancy": "",
-      "salary": "",
-      "sections": [{ "title": "", "content": "" }]
-    }
-
-    TEXT: ${textToProcess}`;
+    const prompt = jobPrompts.IMPORT_JOB_PROMPT(textToProcess);
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
@@ -117,31 +92,32 @@ const importJob = async (req, res) => {
     }
 
     const newJob = await Job.create({
-      title: toStr(result.title),
-      organization: toStr(result.organization),
-      totalVacancy: toStr(result.totalVacancy || result.vacancy),
-      salary: toStr(result.salary),
+      title: result.title || 'N/A',
+      organization: result.subtitle || 'N/A',
+      totalVacancy: toStr(result.job_overview?.total_vacancies),
+      salary: toStr(result.job_overview?.salary_approx),
       category: category || 'Latest Jobs',
-      applyLink: url || '',
+      applyLink: url || result.important_links?.apply_online || '',
       importantDates: {
-        applicationBegin: toStr(result.importantDates?.applicationBegin),
-        applicationLastDate: toStr(result.importantDates?.applicationLastDate),
-        feePaymentLastDate: toStr(result.importantDates?.feePaymentLastDate),
-        examDate: toStr(result.importantDates?.examDate || 'As per Schedule')
+        applicationBegin: toStr(result.job_overview?.application_start),
+        applicationLastDate: toStr(result.job_overview?.last_date),
+        feePaymentLastDate: toStr(result.important_dates?.find(d => d.event.includes('Fee'))?.date),
+        examDate: toStr(result.important_dates?.find(d => d.event.includes('Exam'))?.date || 'As per Schedule')
       },
       applicationFee: {
-        generalObcEws: toStr(result.applicationFee?.generalObcEws),
-        scStPh: toStr(result.applicationFee?.scStPh),
-        female: toStr(result.applicationFee?.female)
+        generalObcEws: toStr(result.application_fee?.[0]?.fee),
+        scStPh: toStr(result.application_fee?.[1]?.fee),
+        female: 'N/A'
       },
       eligibility: {
-        education: toStr(result.eligibility?.education),
-        minAge: toStr(result.eligibility?.minAge),
-        maxAge: toStr(result.eligibility?.maxAge),
-        ageLimit: toStr(result.eligibility?.ageLimit)
+        education: result.eligibility_summary || 'Check Notification',
+        minAge: result.age_limit || 'N/A',
+        maxAge: 'N/A',
+        ageLimit: result.age_limit
       },
-      jobSpecifications: Array.isArray(result.sections) ? result.sections : [],
-      aiCoreSummary: result.core || {}
+      jobSpecifications: result.extra_sections || [],
+      aiCoreSummary: { summary: result.about_post },
+      fullData: result // Storing the entire JSON for AI Advice context
     });
 
     res.status(201).json({ status: 'success', data: newJob });
@@ -156,15 +132,27 @@ const getAiMatchAdvice = async (req, res) => {
     const { jobId } = req.params;
     const user = req.user;
     const job = await Job.findById(jobId);
-    const userAge = calculateAge(user.dob);
+
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Address him as "${user.name} Bhai". Return Hinglish match advice JSON only.`;
+    const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
+
+    const fullPrompt = `System: You are an expert job advisor. Use the following JOB JSON DATA to give personalized advice in Hinglish.
+
+    JOB DATA:
+    ${JSON.stringify(job.fullData)}
+
+    USER PROFILE:
+    Name: ${user.name}
+    DOB: ${user.dob}
+    Qualification: ${user.qualification || 'N/A'}
+
+    User: ${advicePrompt}`;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return JSON only.\n\nUser: ${prompt}`,
+        prompt: fullPrompt,
         stream: false
     });
 

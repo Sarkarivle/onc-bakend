@@ -10,6 +10,7 @@ const axios = require('axios');
 const Job = require('./features/jobs/jobModel');
 const Jansewa = require('./features/jansewa/jansewaModel');
 const Settings = require('./features/settings/settingsModel');
+const aiPrompts = require('./features/ai/aiPrompts');
 
 
 // Feature-Based Routes
@@ -87,33 +88,11 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             ? kendras.map(k => `- ${k.name} (${k.address})`).join("\n")
             : "Jansewa kendra ki jankari jald hi update hogi.";
 
-        // 2. RunPod AI (Ollama) ko Request bhejna
+        // RUNPOD AI (Ollama) Request
         const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
         const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-        // SAKHT (STRICT) SYSTEM PROMPT
-        const systemInstruction = `
-        Aap ONC (Online Nagrik Center) App ke expert assistant hain. Aapko Himanshu Kashyap ne banaya hai.
-
-        SAKHT NIYAM (STRICT RULES):
-        1. Aapka naam ONC-Dost hai.
-        2. Aap sirf Jansewa, Sarkari Jobs, aur Yojnao ke baare mein baat karenge.
-        3. Agar user ONC ke baare mein pooche, toh batayein ye UP ke logo ki madad ke liye hai.
-        4. Agar koi faltu sawal pooche (jaise Khana, Cricket, ya Movies), toh politely bolo: "Bhai main sirf Jobs aur Yojnao mein help kar sakta hoon."
-        5. Faltu gyaan ya "OncoApp" jaisi baatein BILKUL NAHI karni.
-        6. Jawab hamesha Hinglish mein aur doston ki tarah (Bhai, Dost) hona chahiye.
-
-        USER CONTEXT:
-        - User Name: ${userName || 'Dost'}
-        - User Location: ${userLocation || 'UP'}
-
-        LIVE DATA SE JAWAB DEIN:
-        LATEST JOBS:
-        ${jobInfo}
-
-        JANSEWA KENDRAS:
-        ${kendraInfo}
-        `;
+        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
 
         const aiResponse = await axios.post(runpodUrl, {
             model: "onc-ai",

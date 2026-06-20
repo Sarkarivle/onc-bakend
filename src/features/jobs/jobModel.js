@@ -32,6 +32,7 @@ const jobSchema = new mongoose.Schema({
   // Dynamic content for "Extra Details" section in App
   jobSpecifications: mongoose.Schema.Types.Mixed,
   aiCoreSummary: mongoose.Schema.Types.Mixed,
+  fullData: mongoose.Schema.Types.Mixed,
 
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
