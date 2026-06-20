@@ -24,7 +24,7 @@ exports.importFromUrl = async (req, res) => {
       You are SarkariVLE’s Automated Job Data Extractor and Template Generator.
       Extract job details from the RAW TEXT below and return a valid JSON object ONLY.
 
- sv-box, sv-h1, sv-h2, sv-about, sv-table.
+      - Use ONLY these classes: sv-box, sv-h1, sv-h2, sv-about, sv-table.
       - Rewrite in simple student-friendly Hinglish.
       - Replace any website name with "ONC".
       - Wrap Last Date values in <span style="color: #ff0000;">DATE</span>.
@@ -191,7 +191,7 @@ exports.getAiMatchAdvice = async (req, res) => {
   } catch (err) {
     console.error('RunPod Analysis Error:', err.message);
     res.status(200).json({
-      status: 'success',
+      success: true,
       advice: null
     });
   }

@@ -9,6 +9,7 @@ const path = require('path');
 const axios = require('axios');
 const Job = require('./features/jobs/jobModel');
 const Jansewa = require('./features/jansewa/jansewaModel');
+const Settings = require('./features/settings/settingsModel');
 
 
 // Feature-Based Routes
@@ -82,7 +83,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             : "Jansewa kendra ki jankari jald hi update hogi.";
 
         // 2. RunPod AI (Ollama) ko Request bhejna
-        const runpodSetting = await require('./features/settings/settingsModel').findOne({ key: 'RUNPOD_URL' });
+        const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
         const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
         // SAKHT (STRICT) SYSTEM PROMPT
