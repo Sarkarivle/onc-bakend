@@ -1,31 +1,35 @@
 const express = require('express');
+const jobController = require('./jobController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Safety function: Agar controller nahi bhi mila toh crash nahi hoga
-const safe = (name) => (req, res, next) => {
+const handle = (fnName) => (req, res, next) => {
     try {
-        const controller = require('./jobController');
-        if (controller && controller[name]) {
-            return controller[name](req, res, next);
+        if (jobController && typeof jobController[fnName] === 'function') {
+            return jobController[fnName](req, res, next);
         }
-        console.error(`ERROR: Method ${name} not found in jobController`);
-        res.status(500).json({ status: 'error', message: 'Controller method not found' });
+        throw new Error(`Controller method ${fnName} not found`);
     } catch (err) {
-        console.error('ERROR loading jobController:', err.message);
+        console.error(err);
         res.status(500).json({ status: 'error', message: 'Internal Server Error' });
     }
 };
 
-// Route handlers (Wrapped in arrow functions for extra safety)
-router.get('/', (req, res, next) => safe('getAllJobs')(req, res, next));
+// PUBLIC ROUTES
+router.get('/', handle('getAllJobs'));
 
+// PROTECTED ROUTES
 router.use(authMiddleware.protect);
+router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 
-router.get('/:jobId/match-advice', (req, res, next) => safe('getAiMatchAdvice')(req, res, next));
-router.post('/add-json', authMiddleware.restrictTo('admin'), (req, res, next) => safe('addJobFromJson')(req, res, next));
-router.post('/import-url', authMiddleware.restrictTo('admin'), (req, res, next) => safe('importFromUrl')(req, res, next));
-router.delete('/:id', authMiddleware.restrictTo('admin'), (req, res, next) => safe('deleteJob')(req, res, next));
+// ADMIN ONLY CONTROL ROUTES
+router.use(authMiddleware.restrictTo('admin'));
+
+// Scraper Control
+router.get('/admin/discover', handle('discoverNewJobs')); // Naye links dhoondhne ke liye
+router.post('/admin/import', handle('importFromUrl'));    // Link se AI setup karne ke liye
+router.post('/add-json', handle('addJobFromJson'));
+router.delete('/:id', handle('deleteJob'));
 
 module.exports = router;
