@@ -114,9 +114,9 @@ Evaluate Job vs User Profile strictly. Hinglish output.
 
 IMPORTANT Rules for "urgency" field:
 1. Use the "primaryDateInfo" provided in JOB DATA.
-2. If status is "expired", say: "Iska ${primaryDateInfo.event} nikal chuka hai (${primaryDateInfo.dateStr})".
-3. If status is "future", calculate months/days. E.g., "Abhi 2 mahine 5 din baki hain".
-4. Always mention WHAT the date is for if it's not the Apply Last Date. E.g., "Exam me 15 din baki hain".
+2. If status is "expired", say that the event's date has passed.
+3. If status is "future", calculate months/days from daysRemaining.
+4. Mention the event name clearly (e.g., Exam Date, Admit Card).
 
 JSON Fields:
 1. "urgency": Accurate message based on primaryDateInfo.
