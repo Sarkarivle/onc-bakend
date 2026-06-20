@@ -147,41 +147,75 @@ const getAiMatchAdvice = async (req, res) => {
     const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
 
     // AI ko sirf zaroori fields bhej rahe hain taaki speed badhe
-    // Accurate Days Calculation for AI context
-    let daysRemaining = "N/A";
+    // Accurate Primary Date Calculation for AI context
+    let primaryDateInfo = { event: "Last Date", daysRemaining: "N/A", status: "future", dateStr: "" };
     try {
-        const lastDateStr = job.fullData?.job_overview?.last_date ||
-                           job.fullData?.important_dates?.find(d => d.event.toLowerCase().includes('last date'))?.date;
+        const jobCat = (job.category || "").toLowerCase();
+        let targetEvent = "last date"; // default
 
-        if (lastDateStr) {
-            let lastDate;
-            if (lastDateStr.includes('-')) {
-                lastDate = new Date(lastDateStr);
-            } else if (lastDateStr.includes('/')) {
-                const [d, m, y] = lastDateStr.split('/');
-                lastDate = new Date(`${y}-${m}-${d}`);
+        if (jobCat.includes('admit')) targetEvent = "admit card";
+        else if (jobCat.includes('result')) targetEvent = "result";
+        else if (jobCat.includes('answer')) targetEvent = "answer key";
+        else if (jobCat.includes('exam')) targetEvent = "exam date";
+
+        // Find relevant date string
+        let dateStr = job.fullData?.job_overview?.last_date;
+        let eventName = "Apply Last Date";
+
+        if (targetEvent !== "last date" || !dateStr) {
+            const foundDate = job.fullData?.important_dates?.find(d =>
+                d.event.toLowerCase().includes(targetEvent) ||
+                (targetEvent === "last date" && d.event.toLowerCase().includes("last date"))
+            );
+            if (foundDate) {
+                dateStr = foundDate.date;
+                eventName = foundDate.event;
+            }
+        }
+
+        if (dateStr && dateStr !== "Available Soon") {
+            let targetDate;
+            if (dateStr.includes('-')) {
+                targetDate = new Date(dateStr);
+            } else if (dateStr.includes('/')) {
+                const [d, m, y] = dateStr.split('/');
+                targetDate = new Date(`${y}-${m}-${d}`);
             }
 
-            if (lastDate && !isNaN(lastDate)) {
-                const diffTime = lastDate - new Date();
-                daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (targetDate && !isNaN(targetDate)) {
+                const diffTime = targetDate - new Date();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                primaryDateInfo = {
+                    event: eventName,
+                    daysRemaining: diffDays,
+                    status: diffDays < 0 ? "expired" : "future",
+                    dateStr: dateStr
+                };
             }
         }
     } catch (e) { console.error("Date calc error", e); }
 
     const essentialJobData = {
         title: job.title,
+        category: job.category,
         overview: job.fullData?.job_overview,
         dates: job.fullData?.important_dates,
         fees: job.fullData?.application_fee,
         eligibility: job.fullData?.eligibility_summary || job.fullData?.vacancy_details,
         vacancy: job.totalVacancy,
-        daysRemaining: daysRemaining
+        primaryDateInfo: primaryDateInfo
     };
 
     const fullPrompt = `System: Expert Job Advisor. Today is ${new Date().toDateString()}.
-    For "urgency", exactly ${daysRemaining} days are left for the last date.
-    Use JOB DATA & USER PROFILE to give short Hinglish advice.
+    PRIMARY DATE CONTEXT:
+    - Event: ${primaryDateInfo.event}
+    - Date: ${primaryDateInfo.dateStr}
+    - Status: ${primaryDateInfo.status}
+    - Days Left: ${primaryDateInfo.daysRemaining}
+
+    IMPORTANT: If status is 'expired', strictly say the date has passed. If 'future', tell exactly how many days/months left. If the event is NOT 'Apply Last Date', mention the event name clearly (e.g., Exam Date, Admit Card).
+
+    Use JOB DATA & USER PROFILE for Hinglish advice.
 
     JOB DATA:
     ${JSON.stringify(essentialJobData)}

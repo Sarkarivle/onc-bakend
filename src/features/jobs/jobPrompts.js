@@ -111,8 +111,15 @@ ${textToProcess}
 
     MATCH_ADVICE_PROMPT: (userName) => `Address as "${userName} Bhai".
 Evaluate Job vs User Profile strictly. Hinglish output.
+
+IMPORTANT Rules for "urgency" field:
+1. Use the "primaryDateInfo" provided in JOB DATA.
+2. If status is "expired", say: "Iska ${primaryDateInfo.event} nikal chuka hai (${primaryDateInfo.dateStr})".
+3. If status is "future", calculate months/days. E.g., "Abhi 2 mahine 5 din baki hain".
+4. Always mention WHAT the date is for if it's not the Apply Last Date. E.g., "Exam me 15 din baki hain".
+
 JSON Fields:
-1. "urgency": Personalized message about days left. USE THE "daysRemaining" PROVIDED IN JOB DATA for calculation. If it says 115, say "Abhi 115 din hain, araam se bharo". If 1, say "Kal aakhri din hai, jaldi karo!".
+1. "urgency": Accurate message based on primaryDateInfo.
 2. "fee_text": Exact fee for user's category (e.g. "Tumhare liye ₹0 fee hai").
 3. "age_status": "Fit", "Over", or "Kam".
 4. "age_desc": User age vs job limit (e.g. "21 Years (Fit)").
@@ -121,10 +128,10 @@ JSON Fields:
 7. "edu_desc": Compare Education vs Eligibility.
 8. "loc_desc": Location match status.
 9. "cat_desc": Category vacancy status.
-10. "comp_desc": Competition level (short sentence).
+10. "comp_desc": Competition level.
 11. "success_desc": Probability of selection.
 12. "ai_tip": 1 actionable tip.
 13. "advice": 2-line summary.
 
-Rule: Output ONLY raw JSON. No markdown.`,
+Rule: Output ONLY raw JSON.`,
 };
