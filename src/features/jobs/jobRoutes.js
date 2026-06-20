@@ -4,23 +4,21 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Safety wrapper to prevent crashes if controller methods are missing
-const safeCall = (method) => (req, res, next) => {
-    if (jobController && typeof jobController[method] === 'function') {
-        return jobController[method](req, res, next);
+// Safety wrapper to prevent crashes
+const handle = (fnName) => (req, res, next) => {
+    if (jobController && typeof jobController[fnName] === 'function') {
+        return jobController[fnName](req, res, next);
     }
-    console.error(`Method ${method} not found in jobController`);
-    res.status(500).json({ status: 'error', message: 'Internal Server Error: Controller not initialized' });
+    res.status(500).json({ status: 'error', message: `Controller method ${fnName} not found` });
 };
 
-router.get('/', safeCall('getAllJobs'));
+router.get('/', handle('getAllJobs'));
 
-// Protected routes
 router.use(authMiddleware.protect);
 
-router.get('/:jobId/match-advice', safeCall('getAiMatchAdvice'));
-router.post('/add-json', authMiddleware.restrictTo('admin'), safeCall('addJobFromJson'));
-router.post('/import-url', authMiddleware.restrictTo('admin'), safeCall('importFromUrl'));
-router.delete('/:id', authMiddleware.restrictTo('admin'), safeCall('deleteJob'));
+router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
+router.post('/add-json', authMiddleware.restrictTo('admin'), handle('addJobFromJson'));
+router.post('/import-url', authMiddleware.restrictTo('admin'), handle('importFromUrl'));
+router.delete('/:id', authMiddleware.restrictTo('admin'), handle('deleteJob'));
 
 module.exports = router;

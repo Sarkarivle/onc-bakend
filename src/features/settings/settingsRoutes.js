@@ -4,18 +4,21 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// All settings routes are protected and restricted to admin
+const handle = (fnName) => (req, res, next) => {
+    if (settingsController && typeof settingsController[fnName] === 'function') {
+        return settingsController[fnName](req, res, next);
+    }
+    res.status(500).json({ status: 'error', message: `Controller method ${fnName} not found` });
+};
+
 router.use(authMiddleware.protect);
 router.use(authMiddleware.restrictTo('admin'));
 
-// Generic settings routes
-router.get('/', settingsController.getAllSettings);
-router.post('/update', settingsController.updateSetting);
+router.get('/', handle('getAllSettings'));
+router.post('/update', handle('updateSetting'));
 
-// Legacy/Specific routes
-router
-  .route('/api-key')
-  .get(settingsController.getApiKey)
-  .post(settingsController.updateApiKey);
+router.route('/api-key')
+  .get(handle('getApiKey'))
+  .post(handle('updateApiKey'));
 
 module.exports = router;

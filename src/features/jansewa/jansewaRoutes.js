@@ -4,14 +4,20 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
-router.get('/', jansewaController.getAllKendras);
-router.get('/:id', jansewaController.getKendra);
+const handle = (fnName) => (req, res, next) => {
+    if (jansewaController && typeof jansewaController[fnName] === 'function') {
+        return jansewaController[fnName](req, res, next);
+    }
+    res.status(500).json({ status: 'error', message: `Controller method ${fnName} not found` });
+};
 
-// Protected routes (Only admin can create)
+router.get('/', handle('getAllKendras'));
+router.get('/:id', handle('getKendra'));
+
 router.post('/',
     authMiddleware.protect,
     authMiddleware.restrictTo('admin'),
-    jansewaController.createKendra
+    handle('createKendra')
 );
 
 module.exports = router;
