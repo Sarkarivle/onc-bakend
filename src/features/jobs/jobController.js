@@ -3,7 +3,7 @@ const Settings = require('../settings/settingsModel');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-exports.getAllJobs = async (req, res) => {
+const getAllJobs = async (req, res) => {
   try {
     const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
     res.status(200).json({
@@ -16,7 +16,7 @@ exports.getAllJobs = async (req, res) => {
   }
 };
 
-exports.importFromUrl = async (req, res) => {
+const importFromUrl = async (req, res) => {
   try {
     const { url, category } = req.body;
     if (!url) throw new Error('URL is required');
@@ -90,7 +90,7 @@ exports.importFromUrl = async (req, res) => {
   }
 };
 
-exports.addJobFromJson = async (req, res) => {
+const addJobFromJson = async (req, res) => {
   try {
     const { jobJson, category } = req.body;
     const parsedData = typeof jobJson === 'string' ? JSON.parse(jobJson) : jobJson;
@@ -130,7 +130,7 @@ const calculateAge = (dob) => {
   return age;
 };
 
-exports.getAiMatchAdvice = async (req, res) => {
+const getAiMatchAdvice = async (req, res) => {
   try {
     const { jobId } = req.params;
     const user = req.user;
@@ -210,11 +210,19 @@ exports.getAiMatchAdvice = async (req, res) => {
   }
 };
 
-exports.deleteJob = async (req, res) => {
+const deleteJob = async (req, res) => {
   try {
     await Job.findByIdAndDelete(req.params.id);
     res.status(204).json({ status: 'success', data: null });
   } catch (err) {
     res.status(404).json({ status: 'fail', message: 'Job not found' });
   }
+};
+
+module.exports = {
+  getAllJobs,
+  importFromUrl,
+  addJobFromJson,
+  getAiMatchAdvice,
+  deleteJob
 };
