@@ -110,9 +110,10 @@ ${textToProcess}
 """`,
 
     MATCH_ADVICE_PROMPT: (userName) => `Address as "${userName} Bhai".
+Current Date: ${new Date().toDateString()}
 Evaluate Job vs User Profile strictly. Hinglish output.
 JSON Fields:
-1. "urgency": Days left for last date (Hinglish).
+1. "urgency": Calculate exactly how many days left from Today to the job's last date. E.g., "Sirf 3 din bache hain", "10 din baki hain".
 2. "fee_text": Exact fee for user's category (e.g. "Tumhare liye ₹0 fee hai").
 3. "age_status": "Fit", "Over", or "Kam".
 4. "age_desc": User age vs job limit (e.g. "21 Years (Fit)").
