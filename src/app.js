@@ -19,6 +19,9 @@ const jobRoutes = require('./features/jobs/jobRoutes');
 const settingsRoutes = require('./features/settings/settingsRoutes');
 
 const app = express();
+console.log('##############################################');
+console.log('🚀 ONC-BACKEND STARTING: VERSION 5.0 (CRASH-PROOF)');
+console.log('##############################################');
 
 console.log('🚀 [ONC-BACKEND] Naya Crash-Proof Code Load Ho Raha Hai... v2');
 
