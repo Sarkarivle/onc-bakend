@@ -1,140 +1,116 @@
 module.exports = {
-    IMPORT_JOB_PROMPT: (textToProcess) => `You are SarkariVLE’s Automated Job JSON Generator.
+    IMPORT_JOB_PROMPT: (textToProcess) => `You are a strict, automated Data Extraction Engine for SarkariVLE.
+Your ONLY task is to parse highly unstructured, messy raw text and convert it into a perfectly formatted, rigid JSON object.
 
-IMPORTANT GLOBAL RULES:
----------------------------------------
-- Output ONLY ONE complete, valid JSON object.
-- DO NOT use markdown formatting, code fences (like \`\`\`json), or any conversational text. Return ONLY the raw JSON object.
-- NEVER copy any sentence exactly from RAW DATA.
-→ Always rewrite in simple, clean, student-friendly language.
-- Wherever any website name is found in RAW DATA → ALWAYS replace it with "Sarkari VLE".
-- Do NOT include any HTML tags or CSS anywhere in the output.
-- If a section is missing in the RAW DATA → return null or an empty array [] for that key.
-- If there is extra info → add it to the "extra_sections" array.
+CRITICAL PIPELINE RULES (DO NOT IGNORE):
+1. NO PREAMBLE/NO POSTAMBLE: Output absolutely nothing except the JSON object. Do not say "Here is the JSON". Do not use markdown \`\`\`json code blocks. Start exactly with '{' and end exactly with '}'.
+2. SYNTAX SAFETY: Ensure all string values are properly escaped (e.g., use \\" for quotes inside text). No trailing commas.
+3. HANDLING MESSY DATA: The raw data is unstructured. Scan the entire text carefully. Infer missing headers from context.
+4. REWRITING: NEVER copy exact sentences. Rewrite in clean, simple, student-friendly Hindi/English mix. Replace ANY third-party website names with "Sarkari VLE".
+5. FALLBACKS: If a specific piece of information is completely missing, use null (boolean/type null, NOT the string "null") or an empty array []. DO NOT invent or hallucinate data.
 
----------------------------------------
-SPECIAL RULES:
----------------------------------------
-1) DATE FORMATTING:
-Whenever there is a "Last Date" or "Application Last Date", format it clearly (e.g., "25-Aug-2026").
-
-2) ARRAYS & OBJECTS:
-Use arrays for lists (like FAQs, Selection Process) and objects for key-value pairs (like Job Overview, Important Links).
-
----------------------------------------
-REQUIRED JSON STRUCTURE (EXACT KEYS):
----------------------------------------
+JSON SCHEMA AND INSTRUCTIONS:
 {
-  "title": "...rewritten title...",
-  "subtitle": "...rewritten board / exam name...",
-  "about_post": "...rewritten summary...",
+  "title": "String - Cleaned up job title. E.g., 'UP Police Constable Recruitment 2026'",
+  "subtitle": "String - Board/Exam name. E.g., 'Uttar Pradesh Police Recruitment Board (UPPRPB)'",
+  "about_post": "String - 2-3 line rewritten summary of the job and opportunity.",
+
   "job_overview": {
-    "department": "...auto detect...",
-    "post_name": "...auto detect...",
-    "total_vacancies": "...auto detect...",
-    "application_start": "...if available or null...",
-    "last_date": "...auto detect...",
-    "salary_approx": "...if available or null..."
+    "department": "String or null - Auto-detect from text",
+    "post_name": "String or null - Auto-detect from text",
+    "total_vacancies": "String or null - E.g., '60244' or 'Not Specified'",
+    "application_start": "String or null - Format: DD-MMM-YYYY (e.g., 25-Aug-2026)",
+    "last_date": "String or null - Format: DD-MMM-YYYY. Crucial field, scan carefully.",
+    "salary_approx": "String or null - E.g., '₹21,700 - ₹69,100' or 'As per rules'"
   },
+
   "important_dates": [
     {
-      "event": "Application Begin",
-      "date": "..."
-    },
-    {
-      "event": "Last Date for Apply Online",
-      "date": "..."
+      "event": "String - e.g., 'Application Begin', 'Last Date', 'Exam Date'",
+      "date": "String - e.g., '25-Aug-2026' or 'Available Soon'"
     }
   ],
+
   "application_fee": [
     {
-      "category": "General / OBC",
-      "fee": "..."
-    },
-    {
-      "category": "SC / ST",
-      "fee": "..."
+      "category": "String - e.g., 'General / OBC / EWS', 'SC / ST'",
+      "fee": "String - e.g., '₹400', 'Exempted'"
     }
   ],
-  "age_limit": "...rewritten text about age limit...",
+
+  "age_limit": "String - Rewritten short summary of age limits and cutoff dates.",
+
   "age_relaxation": {
-    "OBC": "As per rules",
-    "SC": "As per rules",
-    "ST": "As per rules",
-    "Other_Categories": "As per rules"
+    "OBC": "String - Default to 'As per rules' if not specified",
+    "SC": "String - Default to 'As per rules' if not specified",
+    "ST": "String - Default to 'As per rules' if not specified",
+    "Other_Categories": "String - Default to 'As per rules' if not specified"
   },
+
   "vacancy_details": [
     {
-      "post_name": "...",
-      "vacancies": "...",
-      "eligibility": "..."
+      "post_name": "String",
+      "vacancies": "String",
+      "eligibility": "String - Cleanly summarized qualifications"
     }
   ],
-  "eligibility_summary": "...rewritten overall eligibility...",
+
+  "eligibility_summary": "String - Overall eligibility in 1-2 lines.",
+
   "physical_standard": [
     {
-      "category": "Male",
-      "details": "..."
+      "category": "String - e.g., 'Male (Gen/OBC/SC)', 'Female'",
+      "details": "String - e.g., 'Height: 168 cm, Chest: 79-84 cm'"
     }
   ],
-  "who_can_apply": "...All India / State candidates / Male / Female (auto detect)...",
+
+  "who_can_apply": "String - e.g., 'All India Candidates (Male/Female)'",
+
   "selection_process": [
-    "Written Examination",
-    "Physical Test (if applicable)",
-    "Document Verification",
-    "Medical Examination"
+    "String - Array of steps e.g., 'Written Exam', 'Physical Test'"
   ],
+
   "how_to_apply": [
-    "Visit the official website.",
-    "Complete the registration process.",
-    "Fill the application form carefully.",
-    "Upload all required documents.",
-    "Pay the fee and submit the form."
+    "String - Step 1",
+    "String - Step 2"
   ],
+
   "important_notes": [
-    "Incorrect information may lead to rejection.",
-    "Preview the form before final submission.",
-    "Apply only through the official website."
+    "String - Note 1",
+    "String - Note 2"
   ],
+
   "extra_sections": [
     {
-      "section_title": "...",
-      "content": "..."
+      "section_title": "String",
+      "content": "String"
     }
   ],
+
   "important_links": {
-    "apply_online": "Link or 'Available Soon'",
-    "notification": "Link or 'Click Here'",
-    "short_notice": "Link or 'Click Here'",
-    "official_website": "Link or 'Click Here'",
+    "apply_online": "String - URL or 'Available Soon'",
+    "notification": "String - URL or 'Click Here'",
+    "short_notice": "String - URL or 'Click Here'",
+    "official_website": "String - URL or 'Click Here'",
     "sarkarivle_app": "https://play.google.com/store/apps/details?id=com.blogpro.sarkarivle&hl=en_IN",
-    "whatsapp_channel": "Link or 'Click Here'"
+    "whatsapp_channel": "String - URL or 'Click Here'"
   },
+
   "faq": [
     {
-      "question": "Q1. ...?",
-      "answer": "Ans. ..."
-    },
-    {
-      "question": "Q2. ...?",
-      "answer": "Ans. ..."
-    },
-    {
-      "question": "Q3. ...?",
-      "answer": "Ans. ..."
-    },
-    {
-      "question": "Q4. ...?",
-      "answer": "Ans. ..."
+      "question": "String - e.g., 'Q1. What is the last date?'",
+      "answer": "String - e.g., 'Ans. The last date is...'"
     }
   ]
 }
 
----------------------------------------
-RAW DATA: ${textToProcess}`,
+RAW UNSTRUCTURED DATA TO PARSE:
+"""
+${textToProcess}
+"""`,
 
-    MATCH_ADVICE_PROMPT: (userName) => `Address him as "${userName} Bhai".
-    Context: You are looking at the job details provided in the system.
-    Task: Analyze the job's eligibility, dates, and vacancy.
-    Return Hinglish match advice JSON only.`
+    MATCH_ADVICE_PROMPT: (userName) => `Address him strictly as "${userName} Bhai".
+Context: You are analyzing parsed job details.
+Task: Provide a concise, Hinglish match advice evaluating the user's eligibility, crucial dates, and vacancy count.
+Rule: Output strictly valid JSON containing exactly one key "advice" with the string value. Do not output anything else.`
 };
