@@ -24,7 +24,6 @@
             </nav>
         </div>
 
-        <!-- Main Content -->
         <div class="flex-1 md:ml-64 min-h-screen">
             <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center sticky top-0 z-10">
                 <h1 class="text-xl font-bold text-gray-800">Job Management</h1>
@@ -35,7 +34,6 @@
             </header>
 
             <main class="p-8">
-                <!-- Import Row -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                         <h2 class="font-bold mb-4">Sync via URL</h2>
@@ -49,7 +47,6 @@
                     </div>
                 </div>
 
-                <!-- Job Table -->
                 <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     <table class="w-full text-left">
                         <thead class="bg-gray-50 text-xs uppercase text-gray-400 font-bold">
@@ -66,7 +63,7 @@
         </div>
     </div>
 
-    <!-- ADVANCED EDIT MODAL -->
+    <!-- EDIT MODAL -->
     <div id="edit-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white w-full max-w-4xl p-8 rounded-3xl shadow-2xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center mb-6">
@@ -79,11 +76,11 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Job Title</label>
-                        <input id="edit-title" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <input id="edit-title" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Category</label>
-                        <select id="edit-category" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <select id="edit-category" class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm outline-none">
                             <option value="Latest Jobs">Latest Jobs</option>
                             <option value="Jobs">Jobs</option>
                             <option value="Results">Results</option>
@@ -94,13 +91,12 @@
 
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Elastic Data (Full JSON)</label>
-                    <p class="text-[10px] text-orange-500 mb-2 font-bold">Be careful: Changing structure might affect App display.</p>
                     <textarea id="edit-json" rows="15" class="w-full bg-gray-900 text-green-400 p-6 rounded-2xl font-mono text-xs focus:outline-none focus:ring-4 focus:ring-blue-500/20 leading-relaxed"></textarea>
                 </div>
             </div>
 
             <div class="flex gap-4 mt-8">
-                <button onclick="saveChanges()" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg">Save Everything</button>
+                <button onclick="saveChanges()" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition">Save Everything</button>
                 <button onclick="closeModal()" class="px-8 py-4 border border-gray-100 rounded-2xl font-bold text-gray-500 hover:bg-gray-50">Cancel</button>
             </div>
         </div>
@@ -151,8 +147,6 @@
             document.getElementById('edit-id').value = job._id;
             document.getElementById('edit-title').value = job.title;
             document.getElementById('edit-category').value = job.category;
-
-            // Extract only the fields we want to edit in JSON
             const { _id, title, organization, category, createdAt, isActive, ...rest } = job;
             document.getElementById('edit-json').value = JSON.stringify(rest, null, 4);
             document.getElementById('edit-modal').classList.remove('hidden');
@@ -163,10 +157,7 @@
             const title = document.getElementById('edit-title').value;
             const category = document.getElementById('edit-category').value;
             let updatedData;
-
-            try {
-                updatedData = JSON.parse(document.getElementById('edit-json').value);
-            } catch(e) { return alert('Invalid JSON Syntax!'); }
+            try { updatedData = JSON.parse(document.getElementById('edit-json').value); } catch(e) { return alert('Invalid JSON!'); }
 
             const res = await fetch(`/api/v1/jobs/${id}`, {
                 method: 'PATCH',
@@ -174,11 +165,11 @@
                 body: JSON.stringify({ title, category, ...updatedData })
             });
 
-            if (res.ok) { alert('Successfully Saved!'); closeModal(); loadJobs(); }
-            else { alert('Save failed'); }
+            if (res.ok) { alert('Saved!'); closeModal(); loadJobs(); }
+            else alert('Save failed');
         }
 
-        function deleteJob(id) { if (confirm('Permanently Delete?')) { fetch('/api/v1/jobs/'+id, { method: 'DELETE', headers: { 'Authorization': `Bearer ${admin_token}` } }).then(loadJobs); } }
+        function deleteJob(id) { if (confirm('Delete?')) fetch('/api/v1/jobs/'+id, { method: 'DELETE', headers: { 'Authorization': `Bearer ${admin_token}` } }).then(loadJobs); }
         function closeModal() { document.getElementById('edit-modal').classList.add('hidden'); }
         function logout() { localStorage.clear(); window.location.href = '/admin/login'; }
         loadJobs();

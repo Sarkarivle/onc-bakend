@@ -13,10 +13,10 @@ const calculateAge = (dob) => {
   return age;
 };
 
-// Helper: Ensure everything is a String to prevent Flutter crashes
 const toStr = (val) => {
     if (val === null || val === undefined) return 'N/A';
     if (Array.isArray(val)) return val.join(', ');
+    if (typeof val === 'object') return JSON.stringify(val);
     return String(val);
 };
 
@@ -25,9 +25,26 @@ const cleanAIResponse = (text) => {
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
-        if (start !== -1 && end !== -1) return cleaned.substring(start, end + 1);
+        if (start !== -1 && end !== -1) {
+            return cleaned.substring(start, end + 1);
+        }
         return cleaned;
     } catch (e) { return text; }
+};
+
+const discoverNewJobs = async (req, res) => {
+  try {
+    const targetUrl = 'https://www.sarkariresult.com/latestjob/';
+    const response = await axios.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const $ = cheerio.load(response.data);
+    const discovered = [];
+    $('#post_field a').each((i, el) => {
+      const url = $(el).attr('href');
+      const title = $(el).text().trim();
+      if (url && url.includes('sarkariresult.com')) discovered.push({ title, url });
+    });
+    res.status(200).json({ status: 'success', links: discovered });
+  } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
 const importJob = async (req, res) => {
@@ -36,19 +53,21 @@ const importJob = async (req, res) => {
     let textToProcess = rawText;
 
     if (url && !textToProcess) {
-        const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
-        textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 7000);
+        textToProcess = $('body').text().replace(/\s\s+/g, ' ').substring(0, 5000);
     }
+
+    if (!textToProcess) throw new Error('No input data');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Extract job details to JSON. Rules: All values MUST be Strings. No arrays. Use keys exactly. TEXT: ${textToProcess}`;
+    const prompt = `Convert TEXT to JSON. Keys: title, organization, importantDates (applicationBegin, applicationLastDate, feePaymentLastDate, examDate), applicationFee (generalObcEws, scStPh, female), eligibility (education, minAge, maxAge, ageLimit), totalVacancy, salary, sections (array of {title, content}). NO CHAT. TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return JSON only. Every value must be a String.\n\nUser: ${prompt}`,
+      prompt: `System: Return PURE JSON only. No conversation. No markdown.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
@@ -78,13 +97,14 @@ const importJob = async (req, res) => {
         maxAge: toStr(result.eligibility?.maxAge),
         ageLimit: toStr(result.eligibility?.ageLimit)
       },
-      jobSpecifications: result.sections || [],
+      jobSpecifications: Array.isArray(result.sections) ? result.sections : [],
       aiCoreSummary: result.core || {}
     });
 
     res.status(201).json({ status: 'success', data: newJob });
   } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    console.error('Import Error:', err.message);
+    res.status(400).json({ status: 'fail', message: `Data Error: ${err.message}` });
   }
 };
 
@@ -99,18 +119,13 @@ const getAiMatchAdvice = async (req, res) => {
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `Compare ${user.name} with ${job.title}. Return Hinglish JSON. Ensure advice, urgency, ai_tip are single strings.`,
+        prompt: `System: Match ${user.name} with ${job.title}. Return Hinglish JSON.\n\n`,
         stream: false
     });
 
     const adviceResult = JSON.parse(cleanAIResponse(aiRes.data.response));
-
-    // Safety for advice response
     const finalAdvice = {};
-    Object.keys(adviceResult).forEach(key => {
-        finalAdvice[key] = toStr(adviceResult[key]);
-    });
-
+    Object.keys(adviceResult).forEach(key => { finalAdvice[key] = toStr(adviceResult[key]); });
     res.status(200).json({ status: 'success', ...finalAdvice });
   } catch (err) { res.status(200).json({ success: true, advice: null }); }
 };
@@ -120,9 +135,14 @@ const getAllJobs = async (req, res) => {
   res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
 };
 
+const updateJob = async (req, res) => {
+  const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.status(200).json({ status: 'success', data: job });
+};
+
 const deleteJob = async (req, res) => {
   await Job.findByIdAndDelete(req.params.id);
   res.status(204).json({ status: 'success', data: null });
 };
 
-module.exports = { getAllJobs, getAiMatchAdvice, importJob, deleteJob };
+module.exports = { getAllJobs, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob };
