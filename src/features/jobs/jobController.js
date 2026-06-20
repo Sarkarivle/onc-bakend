@@ -1,3 +1,5 @@
+const Job = require('./jobModel');
+const Settings = require('../settings/settingsModel');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -124,7 +126,6 @@ exports.getAiMatchAdvice = async (req, res) => {
     if (!job) throw new Error('Job not found');
 
     // RunPod Settings se URL nikalna
-    const Settings = require('../settings/settingsModel');
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
@@ -173,7 +174,6 @@ exports.getAiMatchAdvice = async (req, res) => {
       - "vacancy_text": "${job.totalVacancy} Posts available".
     `;
 
-    const axios = require('axios');
     const aiResponse = await axios.post(runpodUrl, {
         model: "onc-ai",
         prompt: `System: You are an expert career assistant. Return valid JSON only.\n\nUser: ${prompt}\n\nAssistant JSON:`,
