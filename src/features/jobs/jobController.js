@@ -35,33 +35,47 @@ const getAiMatchAdvice = async (req, res) => {
 
     const prompt = `
       Aap ONC App ke expert career assistant hain. User ${user.name} ke liye is job ko analyze karein.
-      User Profile: Edu: ${user.education}, Category: ${user.category}, Age: ${userAge}.
-      Job Details: ${job.title}, Vacancy: ${job.totalVacancy || 'Not Specified'}.
-      Fees Info: General/OBC: ₹${job.applicationFee?.generalObcEws || '0'}, SC/ST/Female: ₹${job.applicationFee?.scStPh || '0'}.
+      USER PROFILE:
+      - Naam: ${user.name}
+      - Padhai: ${user.education}
+      - Category: ${user.category}
+      - Umar: ${userAge}
+      - State: ${user.domicileState || 'UP'}
 
-      Strictly return valid JSON in Friendly Hinglish (Bhai/Dost tone).
-      Jawab cut-to-cut aur personalized hona chahiye. Address him as "${user.name} Bhai" or "${user.name} Dost".
+      JOB DATA:
+      - Title: ${job.title}
+      - Required Education: ${job.eligibility?.education || 'Not Specified'}
+      - Age Limit: ${job.eligibility?.ageLimit || 'Not Specified'}
+      - Last Date: ${job.importantDates?.applicationLastDate || 'Not Specified'}
+      - Vacancy: ${job.totalVacancy || 'Not Specified'}
+      - Fees: Gen/OBC: ₹${job.applicationFee?.generalObcEws || '0'}, SC/ST/Female: ₹${job.applicationFee?.scStPh || '0'}
+
+      RULES:
+      1. User ki details aur Job requirements ko compare karein.
+      2. Jawab cut-to-cut Friendly Hinglish me dein. Address him as "${user.name} Bhai".
+      3. Return ONLY valid JSON. No extra text.
 
       JSON structure:
       {
-        "advice": "2-3 lines of personal advice (apnapan tone)",
+        "advice": "3 lines me personal advice (apnapan tone)",
         "age_status": "Fit" or "Over" or "Limit",
-        "age_desc": "Choti personal tip age par",
+        "age_desc": "Umar match par Hinglish tip",
         "edu_status": "Match" or "No Match",
-        "edu_desc": "Padhai match info",
-        "loc_desc": "Location info",
-        "cat_desc": "Category info",
-        "success_desc": "Selection chances",
-        "ai_tip": "Ek choti personal tip",
-        "fee_text": "₹..." (Category ke hisab se sahi fees),
-        "urgency": "Short urgency text (e.g. Aaj aakhri din hai!)",
-        "vacancy_text": "${job.totalVacancy || 'Not Specified'}"
+        "edu_desc": "Education match par Hinglish info",
+        "loc_desc": "Location match par info",
+        "cat_desc": "Category match par info",
+        "comp_desc": "Competition level (Hinglish)",
+        "success_desc": "Selection chances (Hinglish)",
+        "ai_tip": "Ek short career tip",
+        "fee_text": "₹..." (User ki category ke hisab se sahi fees),
+        "urgency": "Last date ke hisab se short msg",
+        "vacancy_text": "${job.totalVacancy || 'Not Specified'} Posts"
       }
     `;
 
     const aiResponse = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return valid JSON only in Friendly Hinglish.\n\nUser: ${prompt}`,
+        prompt: `System: Return valid JSON career advice in Friendly Hinglish.\n\nUser: ${prompt}`,
         stream: false,
         options: { temperature: 0.1 }
     });
@@ -70,7 +84,7 @@ const getAiMatchAdvice = async (req, res) => {
     const result = JSON.parse(resultText);
     res.status(200).json({ status: 'success', ...result });
   } catch (err) {
-    console.error('AI Match Error:', err.message);
+    console.error('AI Error:', err.message);
     res.status(200).json({ success: true, advice: null });
   }
 };
@@ -78,20 +92,17 @@ const getAiMatchAdvice = async (req, res) => {
 const importFromUrl = async (req, res) => {
   try {
     const { url, category } = req.body;
-    if (!url) throw new Error('URL is required');
     const pageResponse = await axios.get(url);
     const $ = cheerio.load(pageResponse.data);
     const rawText = $('body').text().replace(/\s\s+/g, ' ').substring(0, 3000);
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
-
     const aiResponse = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Extract job JSON details.\n\nUser: ${rawText}`,
+      prompt: `System: Extract job JSON from text.\n\nUser: ${rawText}`,
       stream: false,
       options: { temperature: 0.1 }
     });
-
     let resultText = aiResponse.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(resultText);
     const newJob = await Job.create({ ...result.jobData, fullHtmlContent: result.htmlTemplate, applyLink: url, category: category || 'Jobs' });
