@@ -36,26 +36,25 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    // MASTER PROMPT: Implementing your 18 Rules and Elastic Structure
     const prompt = `
       You are SarkariVLE’s Automated Job Template Generator.
       EXTRACT data from RAW TEXT and return JSON only.
       RULES:
       1. Rewrite in simple student-friendly Hinglish.
       2. Replace any website name with "Sarkari VLE".
-      3. Create these sections in order: Title, Board Name, About Post, Job Overview, Important Dates, Fee, Age, Vacancy, Eligibility, Physical, Selection, How to Apply, FAQ.
+      3. Create sections in order: Title, Board, About, Overview, Dates, Fee, Age, Vacancy, Eligibility, Physical, Selection, How to Apply, FAQ.
 
       JSON SCHEMA: {
         "title": "...", "organization": "...",
-        "sections": [ { "heading": "Section Name", "type": "table/text", "data": {...} } ],
-        "core": { "education": "...", "ageLimit": "...", "fees": "..." }
+        "sections": [ { "heading": "Heading Name", "type": "table/text/list", "data": {} } ],
+        "core": { "education": "...", "ageLimit": "...", "fees": "...", "vacancy": "..." }
       }
       TEXT: ${textToProcess}
     `;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return JSON only. No chat.\n\nUser: ${prompt}`,
+      prompt: `System: Return JSON only. No conversation.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
@@ -68,10 +67,10 @@ const importJob = async (req, res) => {
       applyLink: url || '',
       jobSpecifications: result.sections.map(s => ({
           heading: s.heading,
-          sectionType: s.type,
+          sectionType: s.type || 'text',
           sectionData: s.data || s.content || s.items
       })),
-      aiCoreSummary: result.core
+      aiCoreSummary: result.core // This is used for match advice
     });
 
     res.status(201).json({ status: 'success', data: newJob });
@@ -89,16 +88,17 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    // AI ab database me save huye pure specification ka use karega
+    // AI ab database me save huye aiCoreSummary ka use karega
     const prompt = `
       User: ${user.name}, Edu: ${user.education}, Age: ${userAge}, Cat: ${user.category}.
       Job Info: ${JSON.stringify(job.aiCoreSummary)}.
       Analyze match and return Hinglish JSON (advice, age_status, edu_status, ai_tip, fee_text).
+      Address him as "${user.name} Bhai".
     `;
 
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Return Friendly Hinglish Advice JSON.\n\nUser: ${prompt}`,
+        prompt: `System: Return Friendly Hinglish Advice JSON only.\n\nUser: ${prompt}`,
         stream: false
     });
 
