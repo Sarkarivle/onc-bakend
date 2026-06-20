@@ -147,16 +147,41 @@ const getAiMatchAdvice = async (req, res) => {
     const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
 
     // AI ko sirf zaroori fields bhej rahe hain taaki speed badhe
+    // Accurate Days Calculation for AI context
+    let daysRemaining = "N/A";
+    try {
+        const lastDateStr = job.fullData?.job_overview?.last_date ||
+                           job.fullData?.important_dates?.find(d => d.event.toLowerCase().includes('last date'))?.date;
+
+        if (lastDateStr) {
+            let lastDate;
+            if (lastDateStr.includes('-')) {
+                lastDate = new Date(lastDateStr);
+            } else if (lastDateStr.includes('/')) {
+                const [d, m, y] = lastDateStr.split('/');
+                lastDate = new Date(`${y}-${m}-${d}`);
+            }
+
+            if (lastDate && !isNaN(lastDate)) {
+                const diffTime = lastDate - new Date();
+                daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+        }
+    } catch (e) { console.error("Date calc error", e); }
+
     const essentialJobData = {
         title: job.title,
         overview: job.fullData?.job_overview,
         dates: job.fullData?.important_dates,
         fees: job.fullData?.application_fee,
         eligibility: job.fullData?.eligibility_summary || job.fullData?.vacancy_details,
-        vacancy: job.totalVacancy
+        vacancy: job.totalVacancy,
+        daysRemaining: daysRemaining
     };
 
-    const fullPrompt = `System: Expert Job Advisor. Use JOB DATA & USER PROFILE to give short Hinglish advice.
+    const fullPrompt = `System: Expert Job Advisor. Today is ${new Date().toDateString()}.
+    For "urgency", exactly ${daysRemaining} days are left for the last date.
+    Use JOB DATA & USER PROFILE to give short Hinglish advice.
 
     JOB DATA:
     ${JSON.stringify(essentialJobData)}
