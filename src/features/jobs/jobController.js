@@ -60,10 +60,13 @@ const importJob = async (req, res) => {
 
     const result = JSON.parse(cleanAIResponse(aiRes.data.response));
 
+    // Robust mapping for totalVacancy
+    const totalVacancy = result.totalVacancy || result.vacancy || result.total_post || result.total_vacancy || 'N/A';
+
     const newJob = await Job.create({
       title: result.title || 'Untitled',
       organization: result.organization || 'Sarkari VLE',
-      totalVacancy: result.totalVacancy || 'N/A',
+      totalVacancy: totalVacancy,
       salary: result.salary || 'Not Disclosed',
       category: category || 'Latest Jobs',
       applyLink: url || '',
@@ -75,7 +78,7 @@ const importJob = async (req, res) => {
         education: result.eligibility?.education,
         age: result.eligibility?.ageLimit,
         fee: result.applicationFee,
-        vacancy: result.totalVacancy
+        vacancy: totalVacancy
       }
     });
 
