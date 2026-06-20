@@ -4,42 +4,24 @@ const jobSchema = new mongoose.Schema({
   title: { type: String, required: true },
   organization: { type: String, required: true },
   location: { type: String, default: 'India' },
-  totalVacancy: { type: String },
-  salary: { type: String }, // Purane data ke liye wapas add kiya
-  jobType: { type: String, enum: ['Full-time', 'Part-time', 'Contract'], default: 'Full-time' },
   category: { type: String, required: true },
-  description: { type: String },
   applyLink: { type: String },
   lastDate: { type: Date },
-  fullHtmlContent: { type: String }, // AI Generated SarkariVLE Template
 
-  // Enhanced Fields
-  importantDates: {
-    applicationStart: String,
-    applicationLastDate: String,
-    feePaymentDeadline: String,
-    examDate: String
+  // Elastic Data Field: Isme AI ka pura JSON save hoga
+  // Isme sections (Overview, Dates, Fee, etc.) dynamic honge
+  specifications: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
-  applicationFee: {
-    generalObcEws: String,
-    scStPh: String,
-    female: String,
-    paymentMode: String
-  },
-  eligibility: {
+
+  // Core fields for AI Match logic
+  coreRequirements: {
     education: String,
     ageLimit: String,
-    ageNote: String
+    feeInfo: mongoose.Schema.Types.Mixed,
+    vacancy: String
   },
-  physicalEligibility: [{
-    parameter: String,
-    male: String,
-    female: String
-  }],
-  extraSections: [{
-    title: String,
-    content: String
-  }],
 
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
