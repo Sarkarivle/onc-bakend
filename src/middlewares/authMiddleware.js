@@ -24,8 +24,12 @@ exports.protect = async (req, res, next) => {
 
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {
+    // Debugging: Role check
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ status: 'fail', message: 'Unauthorized access' });
+      return res.status(403).json({
+        status: 'fail',
+        message: `Permission Denied! Your current role is '${req.user.role}', but you need to be '${roles.join(' or ')}'.`
+      });
     }
     next();
   };

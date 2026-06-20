@@ -11,21 +11,21 @@ const handle = (fnName) => (req, res, next) => {
         }
         throw new Error(`Controller method ${fnName} not found`);
     } catch (err) {
-        res.status(500).json({ status: 'error', message: 'Controller error' });
+        res.status(500).json({ status: 'error', message: 'Internal Server Error' });
     }
 };
 
-// Sabhi ko dikhega
+// 1. PUBLIC ROUTES
 router.get('/', handle('getAllJobs'));
 
-// Login hona zaroori hai
+// 2. LOGGED IN USER ROUTES
 router.use(authMiddleware.protect);
 router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 
-// SIRF ADMIN KE LIYE
-router.get('/admin/discover', authMiddleware.restrictTo('admin'), handle('discoverNewJobs'));
-router.post('/admin/import', authMiddleware.restrictTo('admin'), handle('importFromUrl'));
-router.patch('/:id', authMiddleware.restrictTo('admin'), handle('updateJob'));
-router.delete('/:id', authMiddleware.restrictTo('admin'), handle('deleteJob'));
+// 3. ADMIN ONLY ROUTES
+router.get('/admin/discover', authMiddleware.restrictTo('admin', 'expert'), handle('discoverNewJobs'));
+router.post('/admin/import', authMiddleware.restrictTo('admin', 'expert'), handle('importFromUrl'));
+router.patch('/:id', authMiddleware.restrictTo('admin', 'expert'), handle('updateJob'));
+router.delete('/:id', authMiddleware.restrictTo('admin', 'expert'), handle('deleteJob'));
 
 module.exports = router;
