@@ -11,6 +11,7 @@ const jobSchema = new mongoose.Schema({
   description: { type: String },
   applyLink: { type: String },
   lastDate: { type: Date },
+  fullHtmlContent: { type: String }, // AI Generated SarkariVLE Template
 
   // Enhanced Fields
   importantDates: {

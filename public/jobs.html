@@ -42,13 +42,12 @@
             <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center">
                 <h1 class="text-xl font-bold text-gray-800">Job Management</h1>
                 <div class="flex space-x-4">
+                    <button onclick="toggleUrlModal(true)" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl font-bold hover:bg-indigo-900 transition">
+                        🔗 Import from URL
+                    </button>
                     <button onclick="toggleJsonModal(true)" class="bg-[#FF6D00] text-white px-6 py-2 rounded-xl font-bold hover:bg-orange-600 transition">
                         ⚡ AI JSON Import
                     </button>
-                    <button onclick="toggleModal(true)" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl font-bold hover:bg-indigo-900 transition">
-                        + Post New Job
-                    </button>
-                </div>
             </header>
 
             <main class="p-8">
@@ -56,6 +55,25 @@
                     <!-- Jobs will load here -->
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- AI JSON Import Modal -->
+    <div id="urlModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-lg">
+            <h2 class="text-2xl font-bold mb-2 text-[#1A237E]">Smart URL Import</h2>
+            <p class="text-gray-500 text-sm mb-6">Paste SarkariResult URL and AI will do the rest.</p>
+
+            <form id="urlImportForm">
+                <div class="mb-4">
+                    <label class="text-xs font-bold text-gray-400 uppercase">Page URL</label>
+                    <input type="url" id="scrapingUrl" placeholder="https://www.sarkariresult.com/..." required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                </div>
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" onclick="toggleUrlModal(false)" class="flex-1 py-3 rounded-xl font-bold text-gray-500 bg-gray-100">Cancel</button>
+                    <button type="submit" id="urlSubmitBtn" class="flex-1 py-3 rounded-xl font-bold text-white bg-[#1A237E]">Start Scraping</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -230,6 +248,43 @@
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             fetchJobs();
+        }
+
+        // URL Import
+        document.getElementById('urlImportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('urlSubmitBtn');
+            const url = document.getElementById('scrapingUrl').value;
+            const token = localStorage.getItem('admin_token');
+
+            btn.disabled = true;
+            btn.textContent = 'AI is Extracting...';
+
+            try {
+                const res = await fetch('/api/v1/jobs/import-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ url })
+                });
+
+                if (res.ok) {
+                    alert('✅ AI successfully extracted and saved job details!');
+                    toggleUrlModal(false);
+                    fetchJobs();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + err.message);
+                }
+            } catch (e) {
+                alert('Connection Error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Start Scraping';
+            }
+        });
+
+        function toggleUrlModal(show) {
+            document.getElementById('urlModal').classList.toggle('hidden', !show);
         }
 
         function toggleModal(show) {

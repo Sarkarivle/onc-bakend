@@ -11,6 +11,7 @@ router.use(authMiddleware.protect);
 
 router.get('/:jobId/match-advice', jobController.getAiMatchAdvice);
 router.post('/add-json', authMiddleware.restrictTo('admin'), jobController.addJobFromJson);
+router.post('/import-url', authMiddleware.restrictTo('admin'), jobController.importFromUrl);
 router.delete('/:id', authMiddleware.restrictTo('admin'), jobController.deleteJob);
 
 module.exports = router;

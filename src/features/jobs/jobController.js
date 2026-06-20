@@ -1,17 +1,77 @@
-const Job = require('./jobModel');
-const Settings = require('../settings/settingsModel');
-const https = require('https');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
-exports.getAllJobs = async (req, res) => {
+exports.importFromUrl = async (req, res) => {
   try {
-    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    res.status(200).json({
-      status: 'success',
-      results: jobs.length,
-      data: jobs
+    const { url, category } = req.body;
+    if (!url) throw new Error('URL is required');
+
+    // 1. Raw Data nikalna (Scraping)
+    const pageResponse = await axios.get(url);
+    const $ = cheerio.load(pageResponse.data);
+
+    // Sirf main content ka text uthana (SarkariResult specific)
+    const rawText = $('body').text().replace(/\s\s+/g, ' ').substring(0, 5000);
+
+    // 2. RunPod AI Settings
+    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
+    const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
+
+    // 3. AI ko instruct karna data filter karne ke liye (Dual Purpose: JSON + HTML Template)
+    const prompt = `
+      You are SarkariVLE’s Automated Job Data Extractor and Template Generator.
+      Extract job details from the RAW TEXT below and return a valid JSON object ONLY.
+
+ sv-box, sv-h1, sv-h2, sv-about, sv-table.
+      - Rewrite in simple student-friendly Hinglish.
+      - Replace any website name with "ONC".
+      - Wrap Last Date values in <span style="color: #ff0000;">DATE</span>.
+      - Important Links heading MUST be <h2 class="sv-h2" style="color: #ff66cc;">Important Links</h2>.
+
+      JSON STRUCTURE:
+      {
+        "jobData": {
+          "title": "Full Job Name",
+          "organization": "Org Name",
+          "location": "State",
+          "totalVacancy": "Count",
+          "salary": "Pay Scale",
+          "importantDates": {"applicationStartDate": "DD/MM/YYYY", "applicationLastDate": "DD/MM/YYYY", "feePaymentLastDate": "DD/MM/YYYY", "examDate": "Date"},
+          "applicationFee": {"generalObcEws": "Amount", "scStPh": "Amount"},
+          "eligibility": {"education": "Requirements", "minAge": "18", "maxAge": "40"},
+          "description": "Summary"
+        },
+        "htmlTemplate": "...Full SarkariVLE Structured HTML Block..."
+      }
+
+      RAW TEXT: ${rawText}
+    `;
+
+    const aiResponse = await axios.post(runpodUrl, {
+      model: "onc-ai",
+      prompt: `System: You are an expert data extractor. Return a JSON object containing "jobData" and "htmlTemplate". No markdown.\n\nUser: ${prompt}\n\nAssistant JSON:`,
+      stream: false,
+      options: { temperature: 0.1 }
     });
+
+    let resultText = aiResponse.data.response;
+    resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const result = JSON.parse(resultText);
+
+    const jobData = result.jobData;
+    jobData.fullHtmlContent = result.htmlTemplate;
+    jobData.applyLink = url;
+
+    // Default Category agar user ne nahi di
+    jobData.category = category || jobData.category || 'Jobs';
+
+    // 4. Database mein save karna
+    const newJob = await Job.create(jobData);
+    res.status(201).json({ status: 'success', data: newJob });
+
   } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    console.error('AI Scraping Error:', err.message);
+    res.status(400).json({ status: 'fail', message: 'Could not process URL: ' + err.message });
   }
 };
 
