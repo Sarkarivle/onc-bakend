@@ -70,41 +70,47 @@ exports.getAiMatchAdvice = async (req, res) => {
 
     const userAge = calculateAge(user.dob);
 
+    const lastDateStr = job.importantDates?.applicationLastDate || '';
+    let daysLeftText = "N/A";
+    if (lastDateStr) {
+      try {
+        let lastDate;
+        if (lastDateStr.includes('/')) {
+          const parts = lastDateStr.split('/');
+          lastDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        } else {
+          lastDate = new Date(lastDateStr);
+        }
+        const diffTime = lastDate - new Date();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) daysLeftText = "Expired";
+        else if (diffDays === 0) daysLeftText = "0 (Today is Last Day)";
+        else daysLeftText = `${diffDays} days remaining`;
+      } catch (e) { daysLeftText = "N/A"; }
+    }
+
     const prompt = `
-      Act as a Career Expert. Analyze this job for the user and return a JSON object ONLY.
-      STRICT RULE: Only use the provided Job and User data. Do not hallucinate or make up facts.
+      Act as a Career Expert. Analyze this job and return a JSON object.
+      STRICT RULE: Only use provided facts. Do not guess.
 
-      User Profile:
-      - Name: ${user.name}
-      - Education: ${user.education || 'Not Specified'}
-      - Category: ${user.category || 'General'}
-      - State: ${user.domicileState || 'UP'}
-      - Age: ${userAge}
+      User: ${user.name}, Edu: ${user.education}, Cat: ${user.category}, Age: ${userAge}
+      Job: ${job.title}, Vacancies: ${job.totalVacancy}, Last Date: ${lastDateStr} (${daysLeftText})
+      Fees: Gen: ₹${job.applicationFee?.generalObcEws || '0'}, SC/ST: ₹${job.applicationFee?.scStPh || '0'}
 
-      Job Details:
-      - Title: ${job.title}
-      - Vacancies: ${job.totalVacancy || 'N/A'}
-      - Required Edu: ${job.eligibility?.education || 'N/A'}
-      - Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
-      - Application Fee: General/OBC: ₹${job.applicationFee?.generalObcEws || '0'}, SC/ST: ₹${job.applicationFee?.scStPh || '0'}
-      - Last Date: ${job.importantDates?.applicationLastDate || 'N/A'}
-
-      Return a JSON object with these EXACT keys:
-      - "advice": Hinglish overview (max 3 lines).
+      Return JSON with:
+      - "advice": Hinglish overview (3 lines).
       - "age_status": "Fit", "Over", or "Limit"
-      - "age_desc": Hinglish explanation (e.g. "Aapki age (20) limit ke andar hai.")
+      - "age_desc": Hinglish explanation.
       - "edu_status": "Match" or "No Match"
-      - "edu_desc": Hinglish explanation (e.g. "Aap ${user.education || '12th'} hain, aur isme graduation chahiye.")
-      - "loc_desc": Hinglish explanation about state match.
-      - "cat_desc": Hinglish explanation about category eligibility.
-      - "comp_desc": Hinglish competition info.
+      - "edu_desc": Hinglish explanation.
+      - "loc_desc": Hinglish state match.
+      - "cat_desc": Hinglish category info.
+      - "comp_desc": Hinglish competition.
       - "success_desc": Hinglish chances.
-      - "ai_tip": Hinglish shortcut tip.
-      - "fee_text": Personalized fee for ${user.category} category (e.g. "Aapki fee ₹500 hai").
-      - "urgency": Personalized Hinglish text about how much time is left (e.g. "Bhai sirf 2 din bache hain!", "Abhi 10 din bache hain aaram se bharo", "Aaj aakhri din hai!"). STRICTLY NO DATES, only human-like relative time.
-      - "vacancy_text": Total vacancies count (e.g. "${job.totalVacancy} Posts available").
-
-      Response MUST be valid JSON only.
+      - "ai_tip": Hinglish tip.
+      - "fee_text": Personalized fee for ${user.category} category.
+      - "urgency": Use exactly "${daysLeftText}" to write a natural Hinglish response. If 0 days, say "Aaj aakhri din hai". If X days, say "Sirf X din bache hain".
+      - "vacancy_text": "${job.totalVacancy} Posts available".
     `;
 
     const axios = require('axios');
