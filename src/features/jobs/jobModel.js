@@ -8,19 +8,16 @@ const jobSchema = new mongoose.Schema({
   applyLink: { type: String },
   lastDate: { type: Date },
 
-  // Elastic Data Field: Isme AI ka pura JSON save hoga
-  // Isme sections (Overview, Dates, Fee, etc.) dynamic honge
+  // FULLY ELASTIC: Isme sab kuch save hoga jo AI nikalega
   specifications: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
 
-  // Core fields for AI Match logic
+  // CORE REQUIREMENTS: Isko bhi Mixed kar diya taaki validation fail na ho
   coreRequirements: {
-    education: String,
-    ageLimit: String,
-    feeInfo: mongoose.Schema.Types.Mixed,
-    vacancy: String
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
 
   isActive: { type: Boolean, default: true },
