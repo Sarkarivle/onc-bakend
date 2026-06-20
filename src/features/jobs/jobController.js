@@ -13,6 +13,18 @@ const calculateAge = (dob) => {
   return age;
 };
 
+// Helper to extract JSON from AI's conversational response
+const cleanAIResponse = (text) => {
+    try {
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+            return text.substring(start, end + 1);
+        }
+        return text;
+    } catch (e) { return text; }
+};
+
 // 1. DISCOVERY
 const discoverNewJobs = async (req, res) => {
   try {
@@ -29,7 +41,7 @@ const discoverNewJobs = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
-// 2. MASTER IMPORT (Unified)
+// 2. MASTER IMPORT
 const importJob = async (req, res) => {
   try {
     const { url, rawText, category } = req.body;
@@ -46,16 +58,17 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
-    const prompt = `Convert Job Text to Elastic JSON. Include Title, Organization, Core (education, ageLimit, vacancy, lastDate as DD/MM/YYYY), and ALL details as Sections. TEXT: ${textToProcess}`;
+    const prompt = `Convert Job Text to JSON. Use fields: title, organization, core (education, ageLimit, vacancy, lastDate), and sections array. NO CONVERSATION. JSON ONLY. TEXT: ${textToProcess}`;
 
     const aiRes = await axios.post(runpodUrl, {
       model: "onc-ai",
-      prompt: `System: Return ONLY valid JSON object.\n\nUser: ${prompt}`,
+      prompt: `System: You are a data parser. Return ONLY a valid JSON object. Do not say "Bhai" or anything else.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
 
-    let resultText = aiRes.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result = JSON.parse(resultText);
+    // Cleaning response to find only the {...} block
+    const cleanedJson = cleanAIResponse(aiRes.data.response);
+    const result = JSON.parse(cleanedJson);
 
     const newJob = await Job.create({
       title: result.title || 'Untitled',
@@ -69,7 +82,7 @@ const importJob = async (req, res) => {
     res.status(201).json({ status: 'success', data: newJob });
   } catch (err) {
     console.error('Import Error:', err.message);
-    res.status(400).json({ status: 'fail', message: err.message });
+    res.status(400).json({ status: 'fail', message: `AI Error: ${err.message}` });
   }
 };
 
@@ -82,13 +95,16 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     const runpodUrl = (runpodSetting && runpodSetting.value) || "https://1krx0rrhqju1ff-11434.proxy.runpod.net/api/generate";
 
+    const prompt = `Address him as "${user.name} Bhai". Use Friendly Hinglish. Compare User (Edu: ${user.education}, Age: ${userAge}) with Job ${job.title}. Return JSON with fields: advice, age_status, edu_status, ai_tip, fee_text.`;
+
     const aiRes = await axios.post(runpodUrl, {
         model: "onc-ai",
-        prompt: `System: Match ${user.name} with ${job.title}. Return JSON.\n\n`,
+        prompt: `System: Return Friendly Hinglish JSON match advice only.\n\nUser: ${prompt}`,
         stream: false
     });
-    let resultText = aiRes.data.response.replace(/```json/g, '').replace(/```/g, '').trim();
-    res.status(200).json({ status: 'success', ...JSON.parse(resultText) });
+
+    const cleanedJson = cleanAIResponse(aiRes.data.response);
+    res.status(200).json({ status: 'success', ...JSON.parse(cleanedJson) });
   } catch (err) { res.status(200).json({ success: true, advice: null }); }
 };
 
