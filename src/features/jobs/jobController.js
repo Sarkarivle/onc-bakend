@@ -75,7 +75,7 @@ exports.getAiMatchAdvice = async (req, res) => {
     const userAge = calculateAge(user.dob);
 
     const prompt = `
-      Act as a Career Expert. Analyze this job for the user and return a JSON object.
+      Act as a Career Expert. Analyze this job for the user and return a JSON object for a "Good Match" section.
 
       User Details:
       - Name: ${user.name}, Age: ${userAge}, Education: ${user.education || 'Not Specified'}
@@ -87,14 +87,19 @@ exports.getAiMatchAdvice = async (req, res) => {
       - Age Limit: ${job.eligibility?.ageLimit || 'N/A'}
       - Fees: ${JSON.stringify(job.applicationFee)}
 
-      Return ONLY a JSON object with these keys:
-      1. "advice": A 3-line Hinglish advice starting with "Hi ${user.name}, ".
-      2. "age_status": A short text like "Fit", "Over Age", or "Limit par".
-      3. "edu_status": Short text like "Perfect Match", "Not Match", or "Need Degree".
-      4. "fee_text": The exact fee amount for this user's category (${user.category}).
-      5. "urgency": Urgency based on last date (${job.importantDates?.applicationLastDate}).
-
-      Example: {"advice": "...", "age_status": "Fit", "edu_status": "Match", "fee_text": "₹500", "urgency": "2 Din Bache"}
+      Return ONLY a JSON object with these EXACT keys:
+      1. "advice": A 3-line Hinglish overview.
+      2. "age_status": Short (e.g. "Fit")
+      3. "age_desc": Hinglish explanation (e.g. "Aapki age (22) is job ke age limit ke andar hai.")
+      4. "edu_status": Short (e.g. "Match")
+      5. "edu_desc": Hinglish explanation (e.g. "Aap 12th pass hain, jo is job ke liye required hai.")
+      6. "loc_desc": Hinglish explanation (e.g. "Aapka state preference Uttar Pradesh hai.")
+      7. "cat_desc": Hinglish explanation (e.g. "Aapki category OBC hai, jo is vacancy me eligible hai.")
+      8. "comp_desc": Hinglish explanation about competition (e.g. "Is job me competition level Medium hai.")
+      9. "success_desc": Hinglish explanation about selection chances.
+      10. "ai_tip": A short helpful tip (e.g. "Agar aap abhi se taiyari shuru karte hain toh...").
+      11. "fee_text": Calculated fee.
+      12. "urgency": Days left.
     `;
 
     const requestData = JSON.stringify({
