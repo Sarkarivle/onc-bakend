@@ -52,6 +52,19 @@ app.use('/api/v1/jansewa', jansewaRoutes);
 app.use('/api/v1/jobs', jobRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 
+// Database Sync: Purane links ko auto-update karna
+(async () => {
+    try {
+        const oldIds = ['d01tlzhc7vd8uq', 'fnw56unrazffyl', 'wumkvy5y9epghs'];
+        const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
+        if (setting && oldIds.some(id => setting.value.includes(id))) {
+            console.log('🔄 Old RunPod link detected in DB, updating to latest...');
+            setting.value = constants.DEFAULT_RUNPOD_URL;
+            await setting.save();
+        }
+    } catch (err) { console.error('DB Sync Error:', err.message); }
+})();
+
 // Web Admin Pages
 app.get('/admin/config.js', (req, res) => {
     res.set('Content-Type', 'application/javascript');
