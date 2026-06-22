@@ -11,6 +11,7 @@ const Job = require('./features/jobs/jobModel');
 const Jansewa = require('./features/jansewa/jansewaModel');
 const Settings = require('./features/settings/settingsModel');
 const aiPrompts = require('./features/ai/aiPrompts');
+const constants = require('./config/constants');
 
 
 // Feature-Based Routes
@@ -52,6 +53,11 @@ app.use('/api/v1/jobs', jobRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 
 // Web Admin Pages
+app.get('/admin/config.js', (req, res) => {
+    res.set('Content-Type', 'application/javascript');
+    res.send(`window.ONC_CONFIG = ${JSON.stringify(constants)};`);
+});
+
 app.get('/admin/login', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/login.html'));
 });
@@ -90,7 +96,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
 
         // RUNPOD AI (Ollama) Request
         const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        let runpodUrl = (runpodSetting && runpodSetting.value) || "https://nqzncrap1jzhbr-11434.proxy.runpod.net/api/generate";
+        let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
 
         // Auto-fix URL: Ensure it ends with /api/generate
         if (runpodUrl && !runpodUrl.includes('/api/generate')) {

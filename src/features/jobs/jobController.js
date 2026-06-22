@@ -1,5 +1,6 @@
 const Job = require('./jobModel');
 const Settings = require('../settings/settingsModel');
+const constants = require('../../config/constants');
 const jobPrompts = require('./jobPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -70,7 +71,7 @@ const importJob = async (req, res) => {
     if (!textToProcess) throw new Error('Input text empty');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    let runpodUrl = (runpodSetting && runpodSetting.value) || "https://nqzncrap1jzhbr-11434.proxy.runpod.net/api/generate";
+    let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
 
     if (runpodUrl && !runpodUrl.includes('/api/generate')) {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
@@ -138,7 +139,7 @@ const getAiMatchAdvice = async (req, res) => {
     const job = await Job.findById(jobId);
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    let runpodUrl = (runpodSetting && runpodSetting.value) || "https://nqzncrap1jzhbr-11434.proxy.runpod.net/api/generate";
+    let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
 
     if (runpodUrl && !runpodUrl.includes('/api/generate')) {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
