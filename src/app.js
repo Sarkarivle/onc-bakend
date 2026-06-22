@@ -90,7 +90,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
 
         // RUNPOD AI (Ollama) Request
         const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        let runpodUrl = (runpodSetting && runpodSetting.value) || "https://wumkvy5y9epghs-11434.proxy.runpod.net/api/generate";
+        let runpodUrl = (runpodSetting && runpodSetting.value) || "https://nqzncrap1jzhbr-11434.proxy.runpod.net/api/generate";
 
         // Auto-fix URL: Ensure it ends with /api/generate
         if (runpodUrl && !runpodUrl.includes('/api/generate')) {

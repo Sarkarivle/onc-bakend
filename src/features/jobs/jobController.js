@@ -70,7 +70,7 @@ const importJob = async (req, res) => {
     if (!textToProcess) throw new Error('Input text empty');
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    let runpodUrl = (runpodSetting && runpodSetting.value) || "https://wumkvy5y9epghs-11434.proxy.runpod.net/api/generate";
+    let runpodUrl = (runpodSetting && runpodSetting.value) || "https://nqzncrap1jzhbr-11434.proxy.runpod.net/api/generate";
 
     if (runpodUrl && !runpodUrl.includes('/api/generate')) {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
@@ -138,7 +138,7 @@ const getAiMatchAdvice = async (req, res) => {
     const job = await Job.findById(jobId);
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    let runpodUrl = (runpodSetting && runpodSetting.value) || "https://wumkvy5y9epghs-11434.proxy.runpod.net/api/generate";
+    let runpodUrl = (runpodSetting && runpodSetting.value) || "https://nqzncrap1jzhbr-11434.proxy.runpod.net/api/generate";
 
     if (runpodUrl && !runpodUrl.includes('/api/generate')) {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
