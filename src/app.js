@@ -55,7 +55,7 @@ app.use('/api/v1/settings', settingsRoutes);
 // Database Sync: Purane links ko auto-update karna
 (async () => {
     try {
-        const oldIds = ['d01tlzhc7vd8uq', 'fnw56unrazffyl', 'wumkvy5y9epghs'];
+        const oldIds = ['d01tlzhc7vd8uq', 'fnw56unrazffyl', 'wumkvy5y9epghs', 'nqzncrap1jzhbr'];
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         if (setting && oldIds.some(id => setting.value.includes(id))) {
             console.log('🔄 Old RunPod link detected in DB, updating to latest...');
@@ -121,7 +121,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
 
         const aiResponse = await axios.post(runpodUrl, {
-            model: "onc-ai",
+            model: constants.AI_MODEL_NAME,
             prompt: `${systemInstruction}\n\nUser Question: ${question}\n\nAssistant Jawab:`,
             stream: false,
             options: {

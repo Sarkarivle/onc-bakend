@@ -80,7 +80,7 @@ const importJob = async (req, res) => {
     const prompt = jobPrompts.IMPORT_JOB_PROMPT(textToProcess);
 
     const aiRes = await axios.post(runpodUrl, {
-      model: "onc-ai",
+      model: constants.AI_MODEL_NAME,
       prompt: `System: Return ONLY a valid JSON object. No conversation. No preamble.\n\nUser: ${prompt}`,
       stream: false, options: { temperature: 0.1 }
     });
@@ -239,7 +239,7 @@ const getAiMatchAdvice = async (req, res) => {
     User: ${advicePrompt}`;
 
     const aiRes = await axios.post(runpodUrl, {
-        model: "onc-ai",
+        model: constants.AI_MODEL_NAME,
         prompt: fullPrompt,
         stream: false,
         options: { temperature: 0.1, top_p: 0.9, max_tokens: 500 } // Faster inference
