@@ -232,8 +232,6 @@ const getAiMatchAdvice = async (req, res) => {
     JOB DATA:
     ${JSON.stringify(essentialJobData)}
 
-    User: ${advicePrompt}`;
-
     USER PROFILE:
     Name: ${user.name}, DOB: ${user.dob}, Cat: ${user.category}, Edu: ${user.education || 'N/A'}, City: ${user.city || 'N/A'}
 
