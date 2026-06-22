@@ -114,7 +114,7 @@ Evaluate Job vs User Profile strictly. Hinglish output.
 
 IMPORTANT Rules for "urgency" field:
 1. Use the "primaryDateInfo" provided in JOB DATA.
-2. If status is "expired", strictly say: "${primaryDateInfo.event} Nikal chuki hai". (This triggers RED color in UI).
+2. If status is "expired", strictly say: "[Event Name] Nikal chuki hai". (E.g., "Apply Date Nikal chuki hai").
 3. If status is "future", calculate months/days from daysRemaining. E.g., "Abhi 2 mahine 5 din baki hain".
 4. Always mention the event name clearly if it's not the Apply Last Date. E.g., "Exam me 15 din baki hain".
 
