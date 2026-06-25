@@ -99,7 +99,7 @@ app.get('/', (req, res) => res.redirect('/admin/login'));
 // 3. AI ASSISTANT ROUTE (Personalized & Data-Rich)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
-        const { question, userName, userLocation, history } = req.body;
+        const { question, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
 
         // 1. Database se Jobs aur Jansewa ka data nikalna
         const [latestJobs, kendras] = await Promise.all([
@@ -130,7 +130,15 @@ app.post('/api/v1/ai/ask', async (req, res) => {
 
         console.log(`🤖 AI Chat Request to: ${runpodUrl} | Model: ${constants.AI_MODEL_NAME}`);
 
-        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
+        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(
+            userName,
+            userLocation,
+            userDOB,
+            userCategory,
+            userQualification,
+            jobInfo,
+            kendraInfo
+        );
 
         // Construct messages for /api/chat
         const messages = [
