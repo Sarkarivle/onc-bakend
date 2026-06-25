@@ -55,7 +55,7 @@ app.use('/api/v1/settings', settingsRoutes);
 // Database Sync: Purane links ko auto-update karna
 (async () => {
     try {
-        const oldIds = ['d01tlzhc7vd8uq', 'fnw56unrazffyl', 'wumkvy5y9epghs', 'nqzncrap1jzhbr'];
+        const oldIds = ['d01tlzhc7vd8uq', 'fnw56unrazffyl', 'wumkvy5y9epghs', 'nqzncrap1jzhbr', '2iikutwcien56l'];
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         if (setting && oldIds.some(id => setting.value.includes(id))) {
             console.log('🔄 Old RunPod link detected in DB, updating to latest...');
@@ -128,7 +128,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
                 temperature: 0.5,
                 stop: ["User:", "Assistant:", "Question:"]
             }
-        }, { timeout: 30000 }); // 30s timeout for AI response
+        }, { timeout: 60000 }); // 60s timeout for AI response
 
         res.json({
             success: true,
