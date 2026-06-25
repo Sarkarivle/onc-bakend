@@ -55,12 +55,20 @@ app.use('/api/v1/settings', settingsRoutes);
 // Database Sync: Purane links ko auto-update karna
 (async () => {
     try {
+        // Database Sync: Purane links aur models ko auto-update karna
         const oldIds = ['d01tlzhc7vd8uq', 'fnw56unrazffyl', 'wumkvy5y9epghs', 'nqzncrap1jzhbr', '2iikutwcien56l'];
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
+
+        // Auto-update URL if old
         if (setting && oldIds.some(id => setting.value.includes(id))) {
             console.log('🔄 Old RunPod link detected in DB, updating to latest...');
             setting.value = constants.DEFAULT_RUNPOD_URL;
             await setting.save();
+        }
+
+        // Ensure model name is correct (llama3 -> llama3:8b)
+        if (constants.AI_MODEL_NAME === 'llama3:8b') {
+            // We can add logic here if we were storing AI_MODEL_NAME in DB
         }
     } catch (err) { console.error('DB Sync Error:', err.message); }
 })();
@@ -116,7 +124,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
         }
 
-        console.log(`🤖 AI Request to: ${runpodUrl}`);
+        console.log(`🤖 AI Request to: ${runpodUrl} | Model: ${constants.AI_MODEL_NAME}`);
 
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
 
