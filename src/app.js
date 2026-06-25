@@ -99,7 +99,7 @@ app.get('/', (req, res) => res.redirect('/admin/login'));
 // 3. AI ASSISTANT ROUTE (Personalized & Data-Rich)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
-        const { question, userName, userLocation } = req.body;
+        const { question, userName, userLocation, history } = req.body;
 
         // 1. Database se Jobs aur Jansewa ka data nikalna
         const [latestJobs, kendras] = await Promise.all([
@@ -119,28 +119,38 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
         let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
 
-        // Auto-fix URL: Ensure it ends with /api/generate
-        if (runpodUrl && !runpodUrl.includes('/api/generate')) {
-            runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
+        // Auto-fix URL: Ensure it ends with /api/chat
+        if (runpodUrl && !runpodUrl.includes('/api/chat')) {
+            if (runpodUrl.includes('/api/generate')) {
+                runpodUrl = runpodUrl.replace('/api/generate', '/api/chat');
+            } else {
+                runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/chat';
+            }
         }
 
-        console.log(`🤖 AI Request to: ${runpodUrl} | Model: ${constants.AI_MODEL_NAME}`);
+        console.log(`🤖 AI Chat Request to: ${runpodUrl} | Model: ${constants.AI_MODEL_NAME}`);
 
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, jobInfo, kendraInfo);
 
+        // Construct messages for /api/chat
+        const messages = [
+            { role: 'system', content: systemInstruction },
+            ...(history || []), // Previous history [{role: 'user', content: '...'}, {role: 'assistant', content: '...'}]
+            { role: 'user', content: question }
+        ];
+
         const aiResponse = await axios.post(runpodUrl, {
             model: constants.AI_MODEL_NAME,
-            prompt: `${systemInstruction}\n\nUser Question: ${question}\n\nAssistant Jawab:`,
+            messages: messages,
             stream: false,
             options: {
-                temperature: 0.5,
-                stop: ["User:", "Assistant:", "Question:"]
+                temperature: 0.5
             }
         }, { timeout: 60000 }); // 60s timeout for AI response
 
         res.json({
             success: true,
-            answer: aiResponse.data.response
+            answer: aiResponse.data.message.content
         });
 
     } catch (error) {
