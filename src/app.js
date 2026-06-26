@@ -130,17 +130,16 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             kendraInfo = kendras.map(k => `- ${k.name} (${k.address || 'Local Area'})`).join("\n");
 
             contextInstruction = `USER IS ASKING ABOUT JOBS/ELIGIBILITY.
-            1. Use the "LIVE DATA" provided below to answer. If the specific job is not in the data, tell them you are searching or give general advice based on their profile.
-            2. MANDATORY: Put all math/reasoning in <HIDDEN_MATH> tags.
-            3. MANDATORY: Put final response in <USER_MESSAGE> tags.
-            4. STRICT FACT: Today's Date is ${formattedToday} (DD/MM/YYYY). User DOB is ${userDOB}. User is exactly ${calculatedAge} years old.
-            5. Personalized for ${userQualification} and ${userCategory} category.
-            6. Use Category Relaxation: OBC (+3 years), SC/ST (+5 years) for upper age limit.`;
+            1. Use the "LIVE DATA" provided below to answer.
+            2. STRICT FACT: Today's Date is ${formattedToday} (DD/MM/YYYY). User DOB is ${userDOB}. User is exactly ${calculatedAge} years old.
+            3. Personalized for ${userQualification} and ${userCategory} category.
+            4. Use Category Relaxation: OBC (+3 years), SC/ST (+5 years).
+            5. Don't be robotic. Be helpful and direct like Gemini. Answer the specific question first.`;
         } else {
-            contextInstruction = `USER IS MAKING SMALL TALK.
-            1. Be a friendly brother.
-            2. Keep response in <USER_MESSAGE> tags.
-            3. No math needed.`;
+            contextInstruction = `USER IS MAKING SMALL TALK OR GENERAL QUERY.
+            1. Be natural, brief, and friendly.
+            2. Answer the user's question directly.
+            3. Don't be robotic or use scripted introductions.`;
         }
 
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, userDOB, userCategory, userQualification, jobInfo, kendraInfo);
