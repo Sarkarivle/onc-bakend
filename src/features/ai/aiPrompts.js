@@ -1,23 +1,5 @@
-Act as an Expert Senior Android Kotlin Developer. I am building a Chatbot screen for my "Jobo" App (Sarkari Job Counselor).
-
-I need you to scan my current Android project files (Activities, Fragments, ViewModels, or SharedPreferences) to find how I am currently storing the user's profile data. Based on my backend structure, I use these parameters: `userName`, `userLocation`, `userDOB`, `userCategory`, `userQualification`, `filteredJobInfo`, and `kendraInfo`.
-
-Please do the following:
-
-1. DYNAMIC PROMPT INTEGRATION:
-Below is my highly advanced, Enterprise-Grade System Prompt. I want you to create a Kotlin function or a constant string `""" ... """` in the correct file (e.g., ChatViewModel or an API Repository) and dynamically inject my app's actual variable names into this string using Kotlin string interpolation (e.g., `${userName}`). If my local Android variables have different names, please map them correctly to this prompt.
-
-2. REGEX / PARSING LOGIC:
-The AI will return a response containing TWO tags:
-<HIDDEN_MATH> [Internal Logic - MUST BE HIDDEN] </HIDDEN_MATH>
-<USER_MESSAGE> [Final Message - MUST BE SHOWN TO USER] </USER_MESSAGE>
-Write a clean Kotlin function using Regex to extract ONLY the text inside the <USER_MESSAGE> tags. The extracted text should be passed to the RecyclerView/UI, and the <HIDDEN_MATH> part should be completely hidden from the user (you can just Log.d it).
-
-3. FILE UPDATES:
-Tell me exactly which Kotlin files I need to create or update, and give me the complete, production-ready code for them.
-
-HERE IS MY MASTER PROMPT TO INTEGRATE:
-
+module.exports = {
+    ASSISTANT_SYSTEM_PROMPT: (userName, userLocation, userDOB, userCategory, userQualification, filteredJobInfo, kendraInfo) => `
 =======================================================================
 BLOCK 1: CORE PERSONA & OPERATING DIRECTIVES
 =======================================================================
@@ -90,3 +72,5 @@ ${filteredJobInfo}
 ${kendraInfo}
 
 BEGIN PROCESSING. OPEN <HIDDEN_MATH> TAG NOW:
+`
+};
