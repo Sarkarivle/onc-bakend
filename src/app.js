@@ -169,11 +169,24 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         let message = fullAnswer;
         let calculation = "";
 
-        // --- STEP 4: POST-PROCESSING (CLEANUP) ---
-        const thinkMatch = fullAnswer.match(/<think>([\s\S]*?)<\/think>/i);
-        if (thinkMatch) {
-            calculation = thinkMatch[1].trim();
-            message = fullAnswer.replace(/<think>[\s\S]*?<\/think>/i, '').trim();
+        // Support for new <HIDDEN_MATH> and <USER_MESSAGE> tags
+        const hiddenMathMatch = fullAnswer.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
+        const userMessageMatch = fullAnswer.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
+
+        // Backward compatibility for <think> and [CALC]
+        const oldThinkMatch = fullAnswer.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
+
+        if (hiddenMathMatch) {
+            calculation = hiddenMathMatch[1].trim();
+        } else if (oldThinkMatch) {
+            calculation = oldThinkMatch[1].trim();
+        }
+
+        if (userMessageMatch) {
+            message = userMessageMatch[1].trim();
+        } else {
+            // Cleanup logic: remove logic tags if user_message tag is missing
+            message = fullAnswer.replace(/<(HIDDEN_MATH|think|CALC)>[\s\S]*?<\/\1>/i, '').trim();
         }
 
         res.json({
