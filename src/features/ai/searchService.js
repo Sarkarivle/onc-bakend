@@ -2,31 +2,34 @@ const axios = require('axios');
 
 class SearchService {
     /**
-     * Performs a web search when database lacks information.
-     * Uses Brave Search or SerpApi as a backbone.
+     * Performs a Google Search when database lacks information.
+     * Uses Google Custom Search JSON API.
      */
-    static async search(query, apiKey) {
-        if (!apiKey) {
-            console.warn("⚠️ Web Search Key missing. Skipping web search.");
+    static async search(query, apiKey, cx) {
+        if (!apiKey || !cx) {
+            console.warn("⚠️ Google Search API Key or CX missing. Skipping web search.");
             return null;
         }
 
         try {
-            // Using Brave Search API as an example (Very efficient for AI)
-            const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
-                params: { q: query },
-                headers: { 'X-Subscription-Token': apiKey }
+            // Google Custom Search API
+            const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
+                params: {
+                    key: apiKey,
+                    cx: cx,
+                    q: query
+                }
             });
 
-            if (response.data && response.data.web && response.data.web.results) {
-                return response.data.web.results.slice(0, 3).map(r => ({
+            if (response.data && response.data.items) {
+                return response.data.items.slice(0, 3).map(r => ({
                     title: r.title,
-                    description: r.description,
-                    url: r.url
+                    description: r.snippet,
+                    url: r.link
                 }));
             }
         } catch (error) {
-            console.error("❌ Search API Error:", error.message);
+            console.error("❌ Google Search API Error:", error.response?.data?.error?.message || error.message);
         }
         return null;
     }

@@ -175,10 +175,13 @@ app.post('/api/v1/ai/ask', async (req, res) => {
                 Jansewa.find().limit(3)
             ]);
 
-            // Fallback to Web Search if no jobs found in database
+            // Fallback to Google Search if no jobs found in database
             if (jobs.length === 0) {
-                const searchKeySetting = await Settings.findOne({ key: 'SEARCH_API_KEY' });
-                searchResults = await SearchService.search(rawInput, searchKeySetting?.value);
+                const [searchKey, searchCx] = await Promise.all([
+                    Settings.findOne({ key: 'GOOGLE_SEARCH_API_KEY' }),
+                    Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })
+                ]);
+                searchResults = await SearchService.search(rawInput, searchKey?.value, searchCx?.value);
             }
 
             jobInfo = jobs.map(j => {
