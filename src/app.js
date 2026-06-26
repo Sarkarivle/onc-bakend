@@ -11,6 +11,8 @@ const Job = require('./features/jobs/jobModel');
 const Jansewa = require('./features/jansewa/jansewaModel');
 const Settings = require('./features/settings/settingsModel');
 const Feedback = require('./features/feedback/feedbackModel');
+const Chat = require('./features/chat/chatModel');
+const SearchService = require('./features/ai/searchService');
 const aiPrompts = require('./features/ai/aiPrompts');
 const constants = require('./config/constants');
 
@@ -83,11 +85,29 @@ app.post('/api/v1/ai/feedback', async (req, res) => {
     }
 });
 
+// Get Chat History
+app.get('/api/v1/ai/history/:userName', async (req, res) => {
+    try {
+        const history = await Chat.find({ userName: req.params.userName })
+            .sort({ timestamp: 1 })
+            .limit(50);
+        res.json({ success: true, history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // 3. AI ASSISTANT ROUTE (Personalized & Intelligent Routing)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
         const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
         const rawInput = userMessage || question || "";
+
+        // Save User Message to History
+        if (rawInput && userName) {
+            await Chat.create({ userName, role: 'user', content: rawInput });
+        }
+
         const userQuery = rawInput.toLowerCase();
 
         // --- STEP 1: INTENT DETECTION & TONE ANALYSIS ---
@@ -136,6 +156,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         // --- STEP 3: CONTEXT PREPARATION ---
         let jobInfo = "";
         let kendraInfo = "";
+        let searchResults = null;
 
         if (isJobRelated) {
             // Smart Search: Try to find jobs that match the user's keywords
@@ -154,13 +175,13 @@ app.post('/api/v1/ai/ask', async (req, res) => {
                 Jansewa.find().limit(3)
             ]);
 
-            // Fallback to recent jobs if no match found
-            let finalJobs = jobs;
+            // Fallback to Web Search if no jobs found in database
             if (jobs.length === 0) {
-                finalJobs = await Job.find({ isActive: true }).sort({ _id: -1 }).limit(5);
+                const searchKeySetting = await Settings.findOne({ key: 'SEARCH_API_KEY' });
+                searchResults = await SearchService.search(rawInput, searchKeySetting?.value);
             }
 
-            jobInfo = finalJobs.map(j => {
+            jobInfo = jobs.map(j => {
                 const edu = j.eligibility?.education || "10th/12th/Graduate";
                 const age = j.eligibility?.ageLimit || `${j.eligibility?.minAge}-${j.eligibility?.maxAge}`;
                 return `JOB: ${j.title}\n- Organization: ${j.organization}\n- Eligibility: ${edu}\n- Age: ${age}\n- Last Date: ${j.importantDates?.applicationLastDate || 'N/A'}`;
@@ -169,10 +190,20 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             kendraInfo = kendras.map(k => `${k.name} (${k.address || 'Bareilly'})`).join(", ");
         }
 
+        // Add Web Search Results to context if available
+        let webContext = "";
+        if (searchResults) {
+            webContext = "\n\n# WEB SEARCH RESULTS (Latest info from Google):\n" +
+                searchResults.map(r => `Title: ${r.title}\nDescription: ${r.description}\nSource: ${r.url}`).join("\n\n");
+        }
+
         const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, userDOB, userCategory, userQualification, jobInfo, kendraInfo, userInsights);
 
+        // Inject Web Context
+        const finalSystemPrompt = systemInstruction + webContext;
+
         const messages = [
-            { role: 'system', content: systemInstruction },
+            { role: 'system', content: finalSystemPrompt },
             ...(history || []),
             { role: 'user', content: rawInput }
         ];
@@ -215,6 +246,16 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             message = fullAnswer.replace(/<(HIDDEN_MATH|USER_MESSAGE|think|CALC)>[\s\S]*?<\/\1>/gi, '').trim();
             // If message is still empty, use full answer
             if (!message) message = fullAnswer.trim();
+        }
+
+        // Save AI Response to History
+        if (message && userName) {
+            await Chat.create({
+                userName,
+                role: 'assistant',
+                content: message,
+                calculation: calculation
+            });
         }
 
         res.json({
