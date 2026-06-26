@@ -10,6 +10,7 @@ const axios = require('axios');
 const Job = require('./features/jobs/jobModel');
 const Jansewa = require('./features/jansewa/jansewaModel');
 const Settings = require('./features/settings/settingsModel');
+const Feedback = require('./features/feedback/feedbackModel');
 const aiPrompts = require('./features/ai/aiPrompts');
 const constants = require('./config/constants');
 
@@ -63,6 +64,25 @@ app.get('/admin/jobs', (req, res) => res.sendFile(path.join(__dirname, '../publi
 app.get('/admin/settings', (req, res) => res.sendFile(path.join(__dirname, '../public/settings.html')));
 app.get('/', (req, res) => res.redirect('/admin/login'));
 
+// AI Feedback Route (Learning System)
+app.post('/api/v1/ai/feedback', async (req, res) => {
+    try {
+        const { userMessage, aiResponse, rating, userName, userLocation } = req.body;
+
+        await Feedback.create({
+            userMessage,
+            aiResponse,
+            rating,
+            userName,
+            userLocation
+        });
+
+        res.json({ success: true, message: "Feedback saved for learning" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // 3. AI ASSISTANT ROUTE (Personalized & Intelligent Routing)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
@@ -70,10 +90,32 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         const rawInput = userMessage || question || "";
         const userQuery = rawInput.toLowerCase();
 
-        // --- STEP 1: INTENT DETECTION ---
+        // --- STEP 1: INTENT DETECTION & TONE ANALYSIS ---
         const isJobRelated = userQuery.match(/(job|naukri|form|eligibility|age|qualification|salary|vacancy|bhar sakta|apply|scheme|yojana|scholarship|paisa|bolo|yes|details|options|career|ssc|upsc|railway|police|cgl|chsl)/i);
 
-        // --- STEP 2: CALCULATE SERVER FACT (AGE) ---
+        // Dynamic Tone Detection from History
+        let detectedTone = "Natural Hinglish";
+        if (history && history.length > 0) {
+            const userMessages = history.filter(m => m.role === 'user').map(m => m.content).join(" ");
+            if (userMessages.length > 20) {
+                if (userMessages.match(/(bhai|yaar|bol|tu|ab)/i)) detectedTone = "Informal & Friendly (Brotherly)";
+                else if (userMessages.match(/(ji|aap|kripya|mahoday)/i)) detectedTone = "Respectful & Formal";
+                else if (userMessages.match(/[a-zA-Z]{5,}/) && !userMessages.match(/[क-ह]/)) detectedTone = "English-Dominant Professional";
+            }
+        }
+
+        // --- STEP 2: FETCH USER LEARNINGS (FEEDBACK HISTORY) ---
+        const userLearnings = await Feedback.find({ userName }).sort({ timestamp: -1 }).limit(5);
+        const positiveStyles = userLearnings.filter(f => f.rating === 'up').map(f => f.aiResponse.substring(0, 50)).join(", ");
+        const negativeStyles = userLearnings.filter(f => f.rating === 'down').map(f => f.aiResponse.substring(0, 50)).join(", ");
+
+        const userInsights = `
+        - DETECTED USER TONE: ${detectedTone}
+        - LIKED STYLES: ${positiveStyles || "No specific preference yet"}
+        - DISLIKED STYLES: ${negativeStyles || "No specific dislikes yet"}
+        `;
+
+        // --- STEP 3: CALCULATE SERVER FACT (AGE) ---
         let calculatedAge = "Unknown";
         const today = new Date();
 
@@ -127,7 +169,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             kendraInfo = kendras.map(k => `${k.name} (${k.address || 'Bareilly'})`).join(", ");
         }
 
-        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, userDOB, userCategory, userQualification, jobInfo, kendraInfo);
+        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, userDOB, userCategory, userQualification, jobInfo, kendraInfo, userInsights);
 
         const messages = [
             { role: 'system', content: systemInstruction },
