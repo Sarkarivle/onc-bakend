@@ -160,18 +160,19 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         let message = fullAnswer;
         let calculation = "";
 
-        // Logic to split message and calculation based on the prompt's rules
-        if (fullAnswer.includes("Calculation:")) {
-            const parts = fullAnswer.split(/Calculation:/i);
-            message = parts[0].trim();
-            calculation = "Calculation: " + parts[1].trim();
+        // Tag-based extraction logic
+        const calcMatch = fullAnswer.match(/\[CALC\]([\s\S]*?)\[\/CALC\]/);
+        if (calcMatch) {
+            calculation = calcMatch[1].trim();
+            // Remove the calc block from the main message
+            message = fullAnswer.replace(/\[CALC\][\s\S]*?\[\/CALC\]/, '').trim();
         }
 
         res.json({
             success: true,
             message: message,
             calculation: calculation,
-            answer: fullAnswer // Keeping 'answer' for backward compatibility
+            answer: fullAnswer
         });
 
     } catch (error) {
