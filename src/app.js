@@ -183,12 +183,18 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         let message = fullAnswer;
         let calculation = "";
 
-        // Tag-based extraction logic
-        const calcMatch = fullAnswer.match(/\[CALC\]([\s\S]*?)\[\/CALC\]/);
-        if (calcMatch) {
-            calculation = calcMatch[1].trim();
-            // Remove the calc block from the main message
-            message = fullAnswer.replace(/\[CALC\][\s\S]*?\[\/CALC\]/, '').trim();
+        // Support both <think> (DeepSeek style) and [CALC] (our custom style)
+        const thinkMatch = fullAnswer.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
+        const calcMatch = fullAnswer.match(/\[CALC\]([\s\S]*?)\[\/CALC\]/i);
+
+        const logicMatch = thinkMatch || calcMatch;
+
+        if (logicMatch) {
+            calculation = logicMatch[1].trim();
+            // Remove the logic block from the main message
+            message = fullAnswer.replace(/<(?:think|CALC)>[\s\S]*?<\/(?:think|CALC)>/i, '')
+                                .replace(/\[CALC\][\s\S]*?\[\/CALC\]/i, '')
+                                .trim();
         }
 
         res.json({
