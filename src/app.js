@@ -251,13 +251,21 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             if (!message) message = fullAnswer.trim();
         }
 
+        // Extract suggestions for database storage
+        let suggestions = [];
+        const suggestMatch = fullAnswer.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
+        if (suggestMatch) {
+            suggestions = suggestMatch[1].split(',').map(s => s.trim());
+        }
+
         // Save AI Response to History
         if (message && userName) {
             await Chat.create({
                 userName,
                 role: 'assistant',
                 content: message,
-                calculation: calculation
+                calculation: calculation,
+                suggestions: suggestions
             });
         }
 

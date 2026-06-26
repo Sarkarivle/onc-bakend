@@ -5,6 +5,7 @@ const chatSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'assistant'], required: true },
   content: { type: String, required: true },
   calculation: String,
+  suggestions: [String], // Suggestions save karne ke liye
   timestamp: { type: Date, default: Date.now }
 });
 
