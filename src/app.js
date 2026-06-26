@@ -156,9 +156,22 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             }
         }, { timeout: 60000 }); // 60s timeout for AI response
 
+        const fullAnswer = aiResponse.data.message.content;
+        let message = fullAnswer;
+        let calculation = "";
+
+        // Logic to split message and calculation based on the prompt's rules
+        if (fullAnswer.includes("Calculation:")) {
+            const parts = fullAnswer.split(/Calculation:/i);
+            message = parts[0].trim();
+            calculation = "Calculation: " + parts[1].trim();
+        }
+
         res.json({
             success: true,
-            answer: aiResponse.data.message.content
+            message: message,
+            calculation: calculation,
+            answer: fullAnswer // Keeping 'answer' for backward compatibility
         });
 
     } catch (error) {
