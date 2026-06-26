@@ -96,64 +96,17 @@ app.get('/admin/settings', (req, res) => {
 });
 app.get('/', (req, res) => res.redirect('/admin/login'));
 
-// 3. AI ASSISTANT ROUTE (Personalized & Data-Rich)
+// 3. AI ASSISTANT ROUTE (Personalized & Intelligent Routing)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
         const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
+        const userQuery = (userMessage || question || "").toLowerCase();
 
-        // Support both 'question' and 'userMessage' for flexibility
-        const userQuery = userMessage || question;
+        // --- STEP 1: INTENT DETECTION (Math/Job vs Normal Talk) ---
+        const isJobRelated = userQuery.match(/(job|naukri|form|eligibility|age|qualification|salary|vacancy|bhar sakta|apply|scheme|yojana|scholarship|paisa|bolo|yes|details)/i);
 
-        if (!userQuery) {
-            return res.status(400).json({ success: false, error: "Question is required" });
-        }
-
-        // 1. Database se Jobs aur Jansewa ka data nikalna
-        const [latestJobs, kendras] = await Promise.all([
-            Job.find().sort({ _id: -1 }).limit(5),
-            Jansewa.find().limit(3)
-        ]);
-
-        const jobInfo = latestJobs.length > 0
-            ? latestJobs.map(j => `JOB: ${j.title}
-  - Location: ${j.location}
-  - Vacancy: ${j.totalVacancy || 'N/A'}
-  - Age Limit: ${j.ageLimit || '21-40'} years
-  - Qualification: ${j.qualification || 'Graduate'}
-  - Last Date: ${j.lastDate || 'Check Notification'}`).join("\n\n")
-            : "Abhi koi nayi job update nahi hai.";
-
-        const kendraInfo = kendras.length > 0
-            ? kendras.map(k => `- ${k.name} (${k.address})`).join("\n")
-            : "Jansewa kendra ki jankari jald hi update hogi.";
-
-        // RUNPOD AI (Ollama) Request
-        const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
-
-        // Auto-fix URL: Ensure it ends with /api/chat
-        if (runpodUrl && !runpodUrl.includes('/api/chat')) {
-            if (runpodUrl.includes('/api/generate')) {
-                runpodUrl = runpodUrl.replace('/api/generate', '/api/chat');
-            } else {
-                runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/chat';
-            }
-        }
-
-        console.log(`🤖 AI Chat Request to: ${runpodUrl} | Model: ${constants.AI_MODEL_NAME}`);
-
-        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(
-            userName,
-            userLocation,
-            userDOB,
-            userCategory,
-            userQualification,
-            jobInfo,
-            kendraInfo
-        );
-
-        // Calculate Age Server-side to avoid AI Math errors
-        let calculatedAge = "Nahi pata";
+        // --- STEP 2: CALCULATE SERVER FACT (AGE) ---
+        let calculatedAge = "Unknown";
         if (userDOB) {
             const birthDate = new Date(userDOB);
             const today = new Date();
@@ -163,38 +116,64 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             calculatedAge = age;
         }
 
-        // Construct messages for /api/chat
+        // --- STEP 3: CONTEXT PREPARATION ---
+        let contextInstruction = "";
+        let jobInfo = "No recent updates.";
+        let kendraInfo = "";
+
+        if (isJobRelated) {
+            const [jobs, kendras] = await Promise.all([
+                Job.find().sort({ _id: -1 }).limit(5),
+                Jansewa.find().limit(3)
+            ]);
+            jobInfo = jobs.map(j => `- ${j.title} (Age: ${j.ageLimit}, Edu: ${j.qualification})`).join("\n");
+            kendraInfo = kendras.map(k => `- ${k.name}`).join("\n");
+
+            contextInstruction = `USER IS ASKING ABOUT JOBS/ELIGIBILITY.
+            1. Use Lora_v1 training for facts.
+            2. MANDATORY: Put all math/reasoning in <think> tags.
+            3. STRICT FACT: User is exactly ${calculatedAge} years old.
+            4. Suggest jobs only if user is eligible (${userQualification}).`;
+        } else {
+            contextInstruction = `USER IS MAKING SMALL TALK.
+            1. Be a friendly brother.
+            2. Don't show job lists or math unless asked.
+            3. Just reply to their message normally.`;
+        }
+
+        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, userDOB, userCategory, userQualification, jobInfo, kendraInfo);
+
+        // Build Messages
         const messages = [
-            { role: 'system', content: `${systemInstruction}\n\nSTRICT FACT: User ki current age EXACTLY ${calculatedAge} saal hai. Ispe koi sawal mat karna.` },
+            { role: 'system', content: `${systemInstruction}\n\nCURRENT CONTEXT:\n${contextInstruction}` },
             ...(history || []),
-            { role: 'user', content: question }
+            { role: 'user', content: userMessage || question }
         ];
+
+        // API Call
+        const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
+        let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
+
+        if (runpodUrl && !runpodUrl.includes('/api/chat')) {
+            runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/chat';
+        }
 
         const aiResponse = await axios.post(runpodUrl, {
             model: constants.AI_MODEL_NAME,
             messages: messages,
             stream: false,
-            options: {
-                temperature: 0.5
-            }
-        }, { timeout: 60000 }); // 60s timeout for AI response
+            options: { temperature: 0.4 }
+        }, { timeout: 60000 });
 
         const fullAnswer = aiResponse.data.message.content;
         let message = fullAnswer;
         let calculation = "";
 
-        // Support both <think> (DeepSeek style) and [CALC] (our custom style)
-        const thinkMatch = fullAnswer.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
-        const calcMatch = fullAnswer.match(/\[CALC\]([\s\S]*?)\[\/CALC\]/i);
-
-        const logicMatch = thinkMatch || calcMatch;
-
-        if (logicMatch) {
-            calculation = logicMatch[1].trim();
-            // Remove the logic block from the main message
-            message = fullAnswer.replace(/<(?:think|CALC)>[\s\S]*?<\/(?:think|CALC)>/i, '')
-                                .replace(/\[CALC\][\s\S]*?\[\/CALC\]/i, '')
-                                .trim();
+        // --- STEP 4: POST-PROCESSING (CLEANUP) ---
+        const thinkMatch = fullAnswer.match(/<think>([\s\S]*?)<\/think>/i);
+        if (thinkMatch) {
+            calculation = thinkMatch[1].trim();
+            message = fullAnswer.replace(/<think>[\s\S]*?<\/think>/i, '').trim();
         }
 
         res.json({
@@ -203,6 +182,12 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             calculation: calculation,
             answer: fullAnswer
         });
+
+    } catch (error) {
+        console.error("AI Error:", error.message);
+        res.status(500).json({ success: false, answer: "Bhai, server error aa raha hai. Thodi der me try karein." });
+    }
+});
 
     } catch (error) {
         console.error("AI Error:", error.message);
