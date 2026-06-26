@@ -71,13 +71,20 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         const userQuery = rawInput.toLowerCase();
 
         // --- STEP 1: INTENT DETECTION ---
-        const isJobRelated = userQuery.match(/(job|naukri|form|eligibility|age|qualification|salary|vacancy|bhar sakta|apply|scheme|yojana|scholarship|paisa|bolo|yes|details|options|career)/i);
+        const isJobRelated = userQuery.match(/(job|naukri|form|eligibility|age|qualification|salary|vacancy|bhar sakta|apply|scheme|yojana|scholarship|paisa|bolo|yes|details|options|career|ssc|upsc|railway|police|cgl|chsl)/i);
 
         // --- STEP 2: CALCULATE SERVER FACT (AGE) ---
         let calculatedAge = "Unknown";
+        const today = new Date();
+
+        // Format date to DD/MM/YYYY
+        const day = String(today.getDate()).padStart(2, '0');
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        const formattedToday = `${day}/${month}/${year}`;
+
         if (userDOB) {
             const birthDate = new Date(userDOB);
-            const today = new Date();
             let age = today.getFullYear() - birthDate.getFullYear();
             const m = today.getMonth() - birthDate.getMonth();
             if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
@@ -90,19 +97,45 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         let kendraInfo = "";
 
         if (isJobRelated) {
+            // Smart Search: Try to find jobs that match the user's keywords
+            const keywords = userQuery.split(/\s+/).filter(w => w.length > 2);
+            let searchCriteria = {};
+
+            if (keywords.length > 0) {
+                searchCriteria = {
+                    $or: [
+                        { title: { $regex: keywords.join('|'), $options: 'i' } },
+                        { organization: { $regex: keywords.join('|'), $options: 'i' } }
+                    ]
+                };
+            }
+
             const [jobs, kendras] = await Promise.all([
-                Job.find().sort({ _id: -1 }).limit(5),
+                Job.find(searchCriteria).sort({ _id: -1 }).limit(8),
                 Jansewa.find().limit(3)
             ]);
-            jobInfo = jobs.map(j => `- ${j.title} (Age: ${j.ageLimit}, Edu: ${j.qualification})`).join("\n");
-            kendraInfo = kendras.map(k => `- ${k.name}`).join("\n");
+
+            // Fallback to recent jobs if no match found
+            let finalJobs = jobs;
+            if (jobs.length === 0) {
+                finalJobs = await Job.find().sort({ _id: -1 }).limit(5);
+            }
+
+            jobInfo = finalJobs.map(j => {
+                const edu = j.eligibility?.education || "Check Notification";
+                const age = j.eligibility?.ageLimit || `${j.eligibility?.minAge}-${j.eligibility?.maxAge}`;
+                return `- JOB: ${j.title}\n  Org: ${j.organization}\n  Eligibility: ${edu}\n  Age Limit: ${age}\n  Last Date: ${j.importantDates?.applicationLastDate || 'N/A'}`;
+            }).join("\n\n");
+
+            kendraInfo = kendras.map(k => `- ${k.name} (${k.address || 'Local Area'})`).join("\n");
 
             contextInstruction = `USER IS ASKING ABOUT JOBS/ELIGIBILITY.
-            1. Use Lora_v1 training.
+            1. Use the "LIVE DATA" provided below to answer. If the specific job is not in the data, tell them you are searching or give general advice based on their profile.
             2. MANDATORY: Put all math/reasoning in <HIDDEN_MATH> tags.
             3. MANDATORY: Put final response in <USER_MESSAGE> tags.
-            4. STRICT FACT: User is exactly ${calculatedAge} years old.
-            5. Personalized for ${userQualification}.`;
+            4. STRICT FACT: Today's Date is ${formattedToday} (DD/MM/YYYY). User DOB is ${userDOB}. User is exactly ${calculatedAge} years old.
+            5. Personalized for ${userQualification} and ${userCategory} category.
+            6. Use Category Relaxation: OBC (+3 years), SC/ST (+5 years) for upper age limit.`;
         } else {
             contextInstruction = `USER IS MAKING SMALL TALK.
             1. Be a friendly brother.
