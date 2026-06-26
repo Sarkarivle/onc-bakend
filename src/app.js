@@ -152,10 +152,21 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             kendraInfo
         );
 
+        // Calculate Age Server-side to avoid AI Math errors
+        let calculatedAge = "Nahi pata";
+        if (userDOB) {
+            const birthDate = new Date(userDOB);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+            calculatedAge = age;
+        }
+
         // Construct messages for /api/chat
         const messages = [
-            { role: 'system', content: systemInstruction },
-            ...(history || []), // Previous history [{role: 'user', content: '...'}, {role: 'assistant', content: '...'}]
+            { role: 'system', content: `${systemInstruction}\n\nSTRICT FACT: User ki current age EXACTLY ${calculatedAge} saal hai. Ispe koi sawal mat karna.` },
+            ...(history || []),
             { role: 'user', content: question }
         ];
 
