@@ -99,7 +99,14 @@ app.get('/', (req, res) => res.redirect('/admin/login'));
 // 3. AI ASSISTANT ROUTE (Personalized & Data-Rich)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
-        const { question, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
+        const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
+
+        // Support both 'question' and 'userMessage' for flexibility
+        const userQuery = userMessage || question;
+
+        if (!userQuery) {
+            return res.status(400).json({ success: false, error: "Question is required" });
+        }
 
         // 1. Database se Jobs aur Jansewa ka data nikalna
         const [latestJobs, kendras] = await Promise.all([
