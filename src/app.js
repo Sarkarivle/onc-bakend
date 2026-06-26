@@ -102,7 +102,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
         const userQuery = (userMessage || question || "").toLowerCase();
 
-        // --- STEP 1: INTENT DETECTION (Math/Job vs Normal Talk) ---
+        // --- STEP 1: INTENT DETECTION ---
         const isJobRelated = userQuery.match(/(job|naukri|form|eligibility|age|qualification|salary|vacancy|bhar sakta|apply|scheme|yojana|scholarship|paisa|bolo|yes|details)/i);
 
         // --- STEP 2: CALCULATE SERVER FACT (AGE) ---
@@ -189,15 +189,4 @@ app.post('/api/v1/ai/ask', async (req, res) => {
     }
 });
 
-    } catch (error) {
-        console.error("AI Error:", error.message);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            answer: "Bhai, AI abhi busy hai, thodi der mein try karna!"
-        });
-    }
-});
-
 module.exports = app;
-
