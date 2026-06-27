@@ -151,7 +151,11 @@
             height: 600,
             plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table code help wordcount',
             toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
-            content_style: 'body { font-family:Inter,Helvetica,Arial,sans-serif; font-size:14px }'
+            content_style: 'body { font-family:Inter,Helvetica,Arial,sans-serif; font-size:14px }',
+            verify_html: false,
+            cleanup: false,
+            valid_elements: '*[*]',
+            valid_children: '+body[style]'
         });
 
         let currentMode = 'visual';
@@ -230,22 +234,21 @@
                     if (rb.value === data.category) rb.checked = true;
                 });
 
-                // Content loading with delay for TinyMCE to be ready
-                let attempts = 0;
-                const setContentInterval = setInterval(() => {
-                    attempts++;
+                // Content loading
+                const rawContent = data.fullHtmlContent || "";
+                document.getElementById('job-content-raw').value = rawContent;
+
+                // TinyMCE Logic: Set content when ready
+                const trySetContent = () => {
                     const editor = tinymce.get('job-content');
-                    if (editor) {
-                        editor.setContent(data.fullHtmlContent || "");
-                        document.getElementById('job-content-raw').value = data.fullHtmlContent || "";
-                        clearInterval(setContentInterval);
-                    } else if (attempts > 20) {
-                        // Fallback if editor doesn't load
-                        document.getElementById('job-content').value = data.fullHtmlContent || "";
-                        document.getElementById('job-content-raw').value = data.fullHtmlContent || "";
-                        clearInterval(setContentInterval);
+                    if (editor && editor.initialized) {
+                        editor.setContent(rawContent);
+                        console.log('Content set in TinyMCE');
+                    } else {
+                        setTimeout(trySetContent, 300);
                     }
-                }, 500);
+                };
+                trySetContent();
 
             } catch (e) {
                 console.error('Load Error:', e);
