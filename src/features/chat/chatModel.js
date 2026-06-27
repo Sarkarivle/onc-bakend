@@ -7,6 +7,7 @@ const chatSchema = new mongoose.Schema({
   content: { type: String, required: true },
   calculation: String,
   suggestions: [String], // Suggestions save karne ke liye
+  metadata: mongoose.Schema.Types.Mixed, // Naya field for AI Pipeline metrics (confidence, topic, etc.)
   timestamp: { type: Date, default: Date.now }
 });
 
