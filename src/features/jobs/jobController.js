@@ -2,6 +2,7 @@ const Job = require('./jobModel');
 const Settings = require('../settings/settingsModel');
 const constants = require('../../config/constants');
 const jobPrompts = require('./jobPrompts');
+const matchPrompts = require('./matchPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -190,7 +191,7 @@ const getAiMatchAdvice = async (req, res) => {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
     }
 
-    const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
+    const advicePrompt = matchPrompts.MATCH_ADVICE_PROMPT(user.name);
 
     let primaryDateInfo = { event: "Apply Last Date", daysRemaining: "N/A", status: "future", dateStr: "" };
     try {

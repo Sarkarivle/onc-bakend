@@ -74,25 +74,5 @@ JSON SCHEMA:
 }
 
 RAW DATA:
-${textToProcess}`,
-
-    MATCH_ADVICE_PROMPT: (userName) => `Analyze the JOB DATA and USER PROFILE to provide personalized advice.
-    Address the user as "${userName} Bhai" in the advice.
-
-    Output ONLY a valid JSON object with these exact keys:
-    - match_score: (Number) 0-100 score based on how well the user fits the job.
-    - advice: (String) Encouraging 2-3 sentence analysis in Hinglish.
-    - urgency: (String) e.g., "10 din bache hain", "Jaldi apply karein".
-    - fee_text: (String) e.g., "₹0 (Free)", "₹100 (Bachat)".
-    - age_status: (String) "Fit", "Over", "Limit".
-    - age_desc: (String) e.g., "24 Years (Fit)".
-    - edu_status: (String) "Match", "No Match", "Need Degree".
-    - edu_desc: (String) e.g., "Graduate (Match)".
-    - vacancy_text: (String) e.g., "719 Posts".
-    - loc_desc: (String) Hinglish advice on location.
-    - cat_desc: (String) Hinglish advice on category.
-    - comp_desc: (String) Hinglish advice on competition.
-    - success_desc: (String) Hinglish advice on selection chances.
-    - ai_tip: (String) A short practical tip.
-    `
+${textToProcess}`
 };
