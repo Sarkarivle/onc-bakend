@@ -99,7 +99,7 @@ const importJob = async (req, res) => {
       stream: false,
       options: {
         temperature: 0.1,
-        max_tokens: 20000 // Max limit for very long jobs with many tables
+        max_tokens: 30000 // Max limit for very long jobs with many tables
       }
     });
 
