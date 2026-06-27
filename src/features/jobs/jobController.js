@@ -97,18 +97,31 @@ const importJob = async (req, res) => {
     }
 
     const parseDate = (dateStr) => {
-        if (!dateStr || dateStr === 'N/A' || dateStr.includes('Soon')) return null;
+        if (!dateStr || typeof dateStr !== 'string' || dateStr === 'N/A' || dateStr.toLowerCase().includes('soon')) return null;
         try {
+            let d;
             if (dateStr.includes('-')) {
                 const parts = dateStr.split('-');
-                if (parts.length === 3 && isNaN(parts[1])) {
+                if (parts.length === 3) {
                     const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct':9, 'nov':10, 'dec':11 };
-                    const m = months[parts[1].toLowerCase().substring(0,3)];
-                    return new Date(parseInt(parts[2]), m, parseInt(parts[0]));
+                    const monthKey = parts[1].toLowerCase().substring(0,3);
+                    const m = months[monthKey];
+                    if (m !== undefined) {
+                        d = new Date(parseInt(parts[2]), m, parseInt(parts[0]));
+                    }
                 }
             }
-            return new Date(dateStr);
-        } catch (e) { return null; }
+
+            if (!d || isNaN(d.getTime())) {
+                d = new Date(dateStr);
+            }
+
+            // Final check to prevent "Invalid Date" object from being returned
+            if (!d || isNaN(d.getTime())) return null;
+            return d;
+        } catch (e) {
+            return null;
+        }
     };
 
     const newJob = await Job.create({
