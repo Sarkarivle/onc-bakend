@@ -151,7 +151,7 @@ const importJob = async (req, res) => {
         maxAge: toStr(result.eligibility?.max_age),
         ageLimit: toStr(result.eligibility?.age_limit_as_on)
       },
-      jobSpecifications: [],
+      jobSpecifications: result.job_specifications || [],
       aiCoreSummary: { summary: result.about_post },
       fullData: result
     });

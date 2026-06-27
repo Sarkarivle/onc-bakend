@@ -46,6 +46,18 @@ JSON SCHEMA:
       "max_age": "...",
       "age_limit_as_on": "..."
     },
+    "vacancy_details": {
+      "total": "...",
+      "general": "...",
+      "obc": "...",
+      "ews": "...",
+      "sc": "...",
+      "st": "..."
+    },
+    "selection_process": {
+      "mode": "...",
+      "steps": "..."
+    },
     "faq": [
       { "question": "...", "answer": "..." }
     ]
