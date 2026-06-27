@@ -35,12 +35,11 @@ class AIService {
         let metrics = { intent: 'UNKNOWN', provider: 'NONE', searchUsed: false };
 
         try {
-            // 1. Intelligence Phase (Parallelizable)
-            const [intents, state] = await Promise.all([
-                IntentDetector.detect(rawInput),
-                ConversationState.update(sessionId, rawInput, []) // Updated to be async
-            ]);
-            metrics.intent = intents[0];
+            // 1. Intelligence Phase
+            const intents = IntentDetector.detect(rawInput);
+            metrics.intent = intents[0] || 'GENERAL';
+
+            const state = await ConversationState.update(sessionId, rawInput, intents);
 
             // 2. Context & Rewriting
             const rewrittenQuery = QueryRewriter.rewrite(rawInput, state.topic);
