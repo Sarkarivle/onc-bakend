@@ -31,6 +31,7 @@ const jobSchema = new mongoose.Schema({
 
   // Dynamic content for "Extra Details" section in App
   jobSpecifications: mongoose.Schema.Types.Mixed,
+  fullHtmlContent: { type: String }, // Naya field for Website style HTML
   aiCoreSummary: mongoose.Schema.Types.Mixed,
   fullData: mongoose.Schema.Types.Mixed,
 

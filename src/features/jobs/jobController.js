@@ -89,8 +89,12 @@ const importJob = async (req, res) => {
     const cleanedJson = cleanAIResponse(rawAiOutput);
 
     let result;
+    let htmlContent = "";
     try {
-        result = JSON.parse(cleanedJson);
+        const fullResult = JSON.parse(cleanedJson);
+        // Supports dual structure from prompt
+        result = fullResult.structured_data || fullResult;
+        htmlContent = fullResult.html_content || "";
     } catch (parseErr) {
         console.error('Raw AI Output that failed:', rawAiOutput);
         throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
@@ -111,16 +115,10 @@ const importJob = async (req, res) => {
                     }
                 }
             }
-
-            if (!d || isNaN(d.getTime())) {
-                d = new Date(dateStr);
-            }
-
+            if (!d || isNaN(d.getTime())) d = new Date(dateStr);
             if (!d || isNaN(d.getTime())) return null;
             return d;
-        } catch (e) {
-            return null;
-        }
+        } catch (e) { return null; }
     };
 
     const newJob = await Job.create({
@@ -131,27 +129,25 @@ const importJob = async (req, res) => {
       category: category || 'Latest Jobs',
       applyLink: url || result.important_links?.apply_online || '',
       lastDate: parseDate(result.job_overview?.last_date),
+      fullHtmlContent: htmlContent,
       importantDates: {
         applicationBegin: toStr(result.job_overview?.application_start),
         applicationLastDate: toStr(result.job_overview?.last_date),
-        feePaymentLastDate: toStr(result.important_dates?.find(d => d.event.toLowerCase().includes('fee'))?.date || 'Check Specification'),
-        examDate: toStr(result.important_dates?.find(d => d.event.toLowerCase().includes('exam'))?.date || 'As per Schedule')
+        feePaymentLastDate: 'Check Below',
+        examDate: 'Check Below'
       },
       applicationFee: {
-        generalObcEws: toStr(result.application_fee?.find(f => f.category.toLowerCase().match(/gen|obc|ews/))?.fee || 'Check Specification'),
-        scStPh: toStr(result.application_fee?.find(f => f.category.toLowerCase().match(/sc|st|ph/))?.fee || 'Check Specification'),
-        female: toStr(result.application_fee?.find(f => f.category.toLowerCase().includes('female'))?.fee || 'N/A')
+        generalObcEws: 'Check Below',
+        scStPh: 'Check Below',
+        female: 'Check Below'
       },
       eligibility: {
-        education: result.eligibility_summary || 'Check Specification below',
+        education: 'Check Details Below',
         minAge: 'N/A',
         maxAge: 'N/A',
         ageLimit: 'N/A'
       },
-      jobSpecifications: (result.extra_sections || []).map(s => ({
-          heading: s.section_title,
-          details: s.content
-      })),
+      jobSpecifications: [], // Use HTML content instead
       aiCoreSummary: { summary: result.about_post },
       fullData: result
     });
