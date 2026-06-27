@@ -131,6 +131,7 @@ const importJob = async (req, res) => {
       totalVacancy: toStr(result.job_overview?.total_vacancies),
       salary: toStr(result.job_overview?.salary_approx),
       category: category || 'Latest Jobs',
+      description: result.about_post || '',
       applyLink: url || result.important_links?.apply_online || '',
       lastDate: parseDate(result.important_dates?.last_date || result.job_overview?.last_date),
       fullHtmlContent: htmlContent,

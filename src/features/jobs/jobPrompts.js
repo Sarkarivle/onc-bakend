@@ -58,6 +58,19 @@ JSON SCHEMA:
       "mode": "...",
       "steps": "..."
     },
+    "exam_details": {
+      "exam_center": "...",
+      "exam_mode": "...",
+      "exam_date": "..."
+    },
+    "how_to_apply": "Detailed step-by-step instructions in simple Hinglish",
+    "important_links": {
+      "apply_online": "Link",
+      "download_notification": "Link",
+      "official_website": "Link",
+      "download_admit_card": "Link",
+      "check_result": "Link"
+    },
     "faq": [
       { "question": "...", "answer": "..." }
     ]
