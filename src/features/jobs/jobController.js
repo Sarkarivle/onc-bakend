@@ -147,7 +147,7 @@ const importJob = async (req, res) => {
         maxAge: 'N/A',
         ageLimit: 'N/A'
       },
-      jobSpecifications: [], // Use HTML content instead
+      jobSpecifications: [],
       aiCoreSummary: { summary: result.about_post },
       fullData: result
     });
@@ -282,7 +282,10 @@ const getAiMatchAdvice = async (req, res) => {
 
     const cleaned = cleanAIResponse(aiRes.data.response);
     res.status(200).json({ status: 'success', ...JSON.parse(cleaned) });
-  } catch (err) { res.status(200).json({ success: true, advice: null }); }
+  } catch (err) {
+    console.error('Match Advice Error:', err.message);
+    res.status(200).json({ status: 'error', advice: null });
+  }
 };
 
 const getAllJobs = async (req, res) => {
