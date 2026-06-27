@@ -61,7 +61,8 @@
                     </button>
                     <div class="flex bg-gray-100 p-1 rounded-lg">
                         <button onclick="toggleEditorMode('visual')" id="btn-visual" class="px-4 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm transition">Visual</button>
-                        <button onclick="toggleEditorMode('code')" id="btn-code" class="px-4 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-700 transition">Code (HTML)</button>
+                        <button onclick="toggleEditorMode('code')" id="btn-code" class="px-4 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-700 transition">Code</button>
+                        <button onclick="toggleEditorMode('preview')" id="btn-preview" class="px-4 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-700 transition">Preview</button>
                     </div>
                 </div>
 
@@ -71,6 +72,9 @@
                 </div>
                 <div id="code-editor-container" class="hidden">
                     <textarea id="job-content-raw" class="w-full h-[600px] bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm border-0 focus:ring-0 leading-relaxed overflow-y-auto"></textarea>
+                </div>
+                <div id="preview-editor-container" class="hidden border rounded-lg bg-white overflow-hidden">
+                    <iframe id="preview-frame" class="w-full h-[600px] border-0"></iframe>
                 </div>
             </div>
 
@@ -181,28 +185,61 @@
         function toggleEditorMode(mode) {
             if (mode === currentMode) return;
 
-            const visualBtn = document.getElementById('btn-visual');
-            const codeBtn = document.getElementById('btn-code');
-            const visualContainer = document.getElementById('visual-editor-container');
-            const codeContainer = document.getElementById('code-editor-container');
+            const btns = { visual: 'btn-visual', code: 'btn-code', preview: 'btn-preview' };
+            const containers = { visual: 'visual-editor-container', code: 'code-editor-container', preview: 'preview-editor-container' };
+
             const editor = tinymce.get('job-content');
             const rawTextarea = document.getElementById('job-content-raw');
+            const previewFrame = document.getElementById('preview-frame');
 
-            if (mode === 'code') {
-                const content = editor ? editor.getContent() : rawTextarea.value;
+            // Sync Content
+            let content = "";
+            if (currentMode === 'visual') content = editor ? editor.getContent() : "";
+            else if (currentMode === 'code') content = rawTextarea.value;
+            else content = rawTextarea.value; // From preview (it's read-only)
+
+            if (mode === 'visual') {
+                if (editor) editor.setContent(content, { format: 'html' });
+            } else if (mode === 'code') {
                 rawTextarea.value = content;
-                visualContainer.classList.add('hidden');
-                codeContainer.classList.remove('hidden');
-                codeBtn.classList.add('bg-white', 'shadow-sm');
-                visualBtn.classList.remove('bg-white', 'shadow-sm');
-            } else {
-                const content = rawTextarea.value;
-                if (editor) editor.setContent(content);
-                codeContainer.classList.add('hidden');
-                visualContainer.classList.remove('hidden');
-                visualBtn.classList.add('bg-white', 'shadow-sm');
-                codeBtn.classList.remove('bg-white', 'shadow-sm');
+            } else if (mode === 'preview') {
+                const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+                doc.open();
+                doc.write(`
+                    <html>
+                        <head>
+                            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+                            <style>
+                                body { font-family: 'Inter', sans-serif; padding: 20px; line-height: 1.6; background: #fff; }
+                                .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+                                .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
+                                .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
+                                .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                                .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
+                                .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; }
+                                a { color: #1A237E; text-decoration: underline; }
+                            </style>
+                        </head>
+                        <body>${content}</body>
+                    </html>
+                `);
+                doc.close();
+                rawTextarea.value = content; // Keep sync
             }
+
+            // Update UI
+            Object.keys(containers).forEach(k => {
+                document.getElementById(containers[k]).classList.toggle('hidden', k !== mode);
+                const btn = document.getElementById(btns[k]);
+                if (k === mode) {
+                    btn.classList.add('bg-white', 'shadow-sm');
+                    btn.classList.remove('text-gray-500');
+                } else {
+                    btn.classList.remove('bg-white', 'shadow-sm');
+                    btn.classList.add('text-gray-500');
+                }
+            });
+
             currentMode = mode;
         }
 
