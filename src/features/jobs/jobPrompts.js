@@ -4,19 +4,20 @@ module.exports = {
 CRITICAL RULES:
 1. Output ONLY a valid JSON object. No preamble, no postamble.
 2. BRANDING: Replace any website names with "Sarkari VLE".
-3. REWRITING: Use simple, student-friendly Hinglish.
-4. EXTRACT EVERYTHING: Do not skip any information like Important Dates, Application Fees, Vacancy Details (Category wise), Eligibility, Age Limit, or How to Apply.
+3. REWRITING: Use simple, student-friendly Hinglish for summaries only.
+4. ZERO-LOSS EXTRACTION: Every piece of information from the raw text MUST be present in the output. Do not skip Important Dates, Application Fees, Vacancy Details (Category wise/District wise), Eligibility, Age Limit, or How to Apply.
+5. NO SUMMARIZATION: Do not replace complex tables with short sentences like "Check notification". Every row and column must be transcribed exactly as it appears in the source.
+6. DATA FIDELITY: Your primary goal is accuracy. If the input has a table, the output MUST have that exact table with all its data.
 
 [HTML CONTENT RULES]:
 - Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
-- You MUST include ALL tables from the original data (Dates, Fees, Vacancy, Eligibility, District-wise vacancy, How to Apply, etc.).
-- Do not summarize tables; extract every single row and column.
-- If the data is long, continue until every section is covered in HTML.
+- You MUST mirror ALL tables from the original data exactly. Do not omit any rows or columns.
+- For district-wise or category-wise vacancies, create detailed tables.
 - Every section (Important Dates, Fee, Vacancy, Eligibility, Age Limit, etc.) MUST be its own <h2> heading followed by a <table>.
 - In the table, use <th> for labels and <td> for values.
-- Apply inline styles for tables: <table style="width:100%; border-collapse: collapse; border: 1px solid #eee;">
-- Apply inline styles for cells: <td style="padding: 12px; border: 1px solid #f0f0f0;">
-- Apply inline styles for headers: <th style="padding: 12px; border: 1px solid #f0f0f0; background: #fafafa; text-align: left;">
+- Apply inline styles for tables: <table style="width:100%; border-collapse: collapse; border: 1px solid #eee; margin-bottom: 20px;">
+- Apply inline styles for cells: <td style="padding: 10px; border: 1px solid #f0f0f0;">
+- Apply inline styles for headers: <th style="padding: 10px; border: 1px solid #f0f0f0; background: #fafafa; text-align: left;">
 
 JSON SCHEMA:
 {
