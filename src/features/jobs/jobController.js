@@ -64,19 +64,20 @@ const importJob = async (req, res) => {
 
     if (url && !rawText) {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
+
+        // Database ke liye bilkul RAW HTML/Text (bina kisi cleaning ke)
+        finalHtmlToSave = pageRes.data;
+
+        // AI ke liye hum HTML clean karenge taaki tokens bachein aur response sahi aaye
         const $ = cheerio.load(pageRes.data);
-
-        // Sirf scripts aur ads remove karein for DB
         $('script, style, ins, nav, footer, header, link, iframe').remove();
-        finalHtmlToSave = $('body').html() || "";
-
-        // AI ke liye extra cleaning (tags/classes remove)
-        let bodyHtmlForAi = finalHtmlToSave.replace(/style="[^"]*"/g, "")
+        let bodyHtml = $('body').html() || "";
+        bodyHtml = bodyHtml.replace(/style="[^"]*"/g, "")
                           .replace(/class="[^"]*"/g, "")
                           .replace(/id="[^"]*"/g, "")
                           .replace(/<!--[\s\S]*?-->/g, "");
 
-        textToProcess = bodyHtmlForAi.replace(/\s\s+/g, ' ').trim().substring(0, 15000);
+        textToProcess = bodyHtml.replace(/\s\s+/g, ' ').trim().substring(0, 15000);
     }
 
     if (!textToProcess) throw new Error('Input text empty');
