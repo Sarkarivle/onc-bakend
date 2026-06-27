@@ -115,10 +115,6 @@ const importJob = async (req, res) => {
         console.error('Raw AI Output that failed:', rawAiOutput);
         throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
     }
-    } catch (parseErr) {
-        console.error('Raw AI Output that failed:', rawAiOutput);
-        throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
-    }
 
     const parseDate = (dateStr) => {
         if (!dateStr || typeof dateStr !== 'string' || dateStr === 'N/A' || dateStr.toLowerCase().includes('soon')) return null;
