@@ -104,7 +104,7 @@ class AIService {
             metrics.provider = llm.provider;
 
             const aiResponse = await llm.chat([
-                { role: 'system', content: systemInstruction + `\n\nBEHAVIOR: ${plan.behavior}. DATA STATUS: ${knowledgeContext.profileStr}.` },
+                { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. The current year is ${currentYear}. Only discuss jobs active in ${currentYear} or later. Disregard any internal knowledge of previous years.` },
                 ...(history || []),
                 { role: 'user', content: rewrittenQuery }
             ]);

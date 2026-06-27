@@ -1,38 +1,53 @@
+/**
+ * SearchReranker Module (Enterprise Logic)
+ */
 class SearchReranker {
     /**
-     * Aggressively prioritizes official government sources.
+     * @param {string} query - The user's query.
+     * @param {Array} results - Raw results from Google Search.
+     * @returns {Array} Top 3 reranked results.
      */
     static rank(query, results) {
         if (!results || !Array.isArray(results)) return [];
 
         const q = query.toLowerCase();
+        // Dynamic Current Year
+        const currentYear = new Date().getFullYear().toString();
+
         const scoredResults = results.map(res => {
             let score = 0;
-            const url = res.url.toLowerCase();
             const title = res.title.toLowerCase();
+            const snippet = res.description.toLowerCase();
+            const url = res.url.toLowerCase();
 
-            // 1. Extreme Priority: Official Government Portals
-            if (url.includes('.gov.in') || url.includes('.nic.in') || url.includes('.edu.in')) score += 100;
-            if (url.includes('upsc.') || url.includes('ssc.') || url.includes('ibps.')) score += 80;
-            if (url.includes('recruitment') || url.includes('notification')) score += 20;
+            // 1. Recency Bonus (Dynamic Year)
+            if (title.includes(currentYear) || snippet.includes(currentYear)) score += 50;
 
-            // 2. Penalize Blogs and Social Media
-            if (url.includes('facebook.com') || url.includes('youtube.com') || url.includes('instagram.com')) score -= 100;
-            if (url.includes('sarkari-result-naukri') || url.includes('blog')) score -= 30; // Unofficial aggregators
+            // 2. Official Source Bonus
+            if (url.includes('.gov.in') || url.includes('.nic.in') || url.includes('.edu.in')) score += 40;
 
-            // 3. Keyword Match
+            // 3. Keyword Match Density
             const keywords = q.split(/\s+/).filter(k => k.length > 3);
             keywords.forEach(word => {
                 if (title.includes(word)) score += 10;
+                if (snippet.includes(word)) score += 5;
             });
+
+            // 4. Content Quality Penalty
+            if (title.includes('youtube') || title.includes('facebook') || title.includes('instagram')) score -= 50;
 
             return { ...res, score };
         });
 
         return scoredResults
-            .filter(r => r.score > -50) // Drop low-quality junk
+            .filter(r => r.score > -20)
             .sort((a, b) => b.score - a.score)
-            .slice(0, 3);
+            .slice(0, 3)
+            .map(r => ({
+                title: r.title,
+                snippet: r.description,
+                url: r.url
+            }));
     }
 }
 
