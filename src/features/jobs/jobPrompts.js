@@ -10,6 +10,7 @@ CRITICAL RULES:
 6. DATA FIDELITY: Your primary goal is accuracy. If the input has a table, the output MUST have that exact table with all its data.
 7. ALL COLUMNS MANDATORY: If a table has multiple columns in the source, it MUST have the same number of columns in the output. Do not merge, skip, or omit any columns.
 8. NO JUDGMENT: Do not decide what is important. Every cell in every table provided in the raw data is important. Parse it all.
+9. COLUMN COUNT VERIFICATION: You must ensure that the number of columns in each table of your output 'html_content' matches the input source exactly. If a table has 6 columns for categories, your output MUST also have those same 6 columns.
 
 [HTML CONTENT RULES]:
 - Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
