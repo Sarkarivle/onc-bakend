@@ -74,8 +74,9 @@ class AIService {
                 let searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
 
                 // Improved follow-up search: If query is very short (e.g., "batao", "dikhao"), use the topic
-                if (keywords.length === 0 && !isGeneric && state.topic && state.topic !== 'GENERAL') {
-                    searchQuery = state.topic + " " + q;
+                const isShortQuery = rawInput.length < 10 && (rawInput.includes('batao') || rawInput.includes('dikhao') || rawInput.includes('jobs'));
+                if (isShortQuery && state.topic && state.topic !== 'GENERAL') {
+                    searchQuery = state.topic + " " + rawInput;
                 }
 
                 let [dbResult, webData] = await Promise.all([
