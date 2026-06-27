@@ -52,14 +52,23 @@
                     <button class="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-100">Edit</button>
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-4 flex justify-between items-center">
                     <button class="flex items-center gap-2 px-3 py-1.5 border rounded text-xs font-semibold hover:bg-gray-50">
                         <span>🖼️</span> Add Media
                     </button>
+                    <div class="flex bg-gray-100 p-1 rounded-lg">
+                        <button onclick="toggleEditorMode('visual')" id="btn-visual" class="px-4 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm transition">Visual</button>
+                        <button onclick="toggleEditorMode('code')" id="btn-code" class="px-4 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-700 transition">Code (HTML)</button>
+                    </div>
                 </div>
 
-                <!-- TinyMCE Editor -->
-                <textarea id="job-content"></textarea>
+                <!-- Editor Container -->
+                <div id="visual-editor-container">
+                    <textarea id="job-content"></textarea>
+                </div>
+                <div id="code-editor-container" class="hidden">
+                    <textarea id="job-content-raw" class="w-full h-[600px] bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm border-0 focus:ring-0 leading-relaxed overflow-y-auto"></textarea>
+                </div>
             </div>
 
             <!-- Structure Data (Optional/Expert Mode) -->
@@ -145,6 +154,46 @@
             content_style: 'body { font-family:Inter,Helvetica,Arial,sans-serif; font-size:14px }'
         });
 
+        let currentMode = 'visual';
+
+        function toggleEditorMode(mode) {
+            if (mode === currentMode) return;
+
+            const visualBtn = document.getElementById('btn-visual');
+            const codeBtn = document.getElementById('btn-code');
+            const visualContainer = document.getElementById('visual-editor-container');
+            const codeContainer = document.getElementById('code-editor-container');
+            const editor = tinymce.get('job-content');
+            const rawTextarea = document.getElementById('job-content-raw');
+
+            if (mode === 'code') {
+                // Sync Visual -> Code
+                const content = editor ? editor.getContent() : "";
+                rawTextarea.value = content;
+
+                visualContainer.classList.add('hidden');
+                codeContainer.classList.remove('hidden');
+
+                codeBtn.classList.add('bg-white', 'shadow-sm');
+                codeBtn.classList.remove('text-gray-500');
+                visualBtn.classList.remove('bg-white', 'shadow-sm');
+                visualBtn.classList.add('text-gray-500');
+            } else {
+                // Sync Code -> Visual
+                const content = rawTextarea.value;
+                if (editor) editor.setContent(content);
+
+                codeContainer.classList.add('hidden');
+                visualContainer.classList.remove('hidden');
+
+                visualBtn.classList.add('bg-white', 'shadow-sm');
+                visualBtn.classList.remove('text-gray-500');
+                codeBtn.classList.remove('bg-white', 'shadow-sm');
+                codeBtn.classList.add('text-gray-500');
+            }
+            currentMode = mode;
+        }
+
         async function loadJob() {
             try {
                 console.log('Fetching Job ID:', jobId);
@@ -188,10 +237,12 @@
                     const editor = tinymce.get('job-content');
                     if (editor) {
                         editor.setContent(data.fullHtmlContent || "");
+                        document.getElementById('job-content-raw').value = data.fullHtmlContent || "";
                         clearInterval(setContentInterval);
                     } else if (attempts > 20) {
                         // Fallback if editor doesn't load
                         document.getElementById('job-content').value = data.fullHtmlContent || "";
+                        document.getElementById('job-content-raw').value = data.fullHtmlContent || "";
                         clearInterval(setContentInterval);
                     }
                 }, 500);
@@ -208,11 +259,11 @@
             const applyLink = document.getElementById('job-link').value;
 
             let content = "";
-            const editor = tinymce.get('job-content');
-            if (editor) {
-                content = editor.getContent();
+            if (currentMode === 'visual') {
+                const editor = tinymce.get('job-content');
+                content = editor ? editor.getContent() : document.getElementById('job-content').value;
             } else {
-                content = document.getElementById('job-content').value;
+                content = document.getElementById('job-content-raw').value;
             }
 
             // Get selected category
