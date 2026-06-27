@@ -305,6 +305,16 @@ const getAllJobs = async (req, res) => {
   res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
 };
 
+const getJob = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
+    res.status(200).json({ status: 'success', data: job });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
 const updateJob = async (req, res) => {
   const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
   res.status(200).json({ status: 'success', data: job });

@@ -62,6 +62,7 @@ app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, '../publ
 app.get('/admin/dashboard', (req, res) => res.sendFile(path.join(__dirname, '../public/dashboard.html')));
 app.get('/admin/jansewa', (req, res) => res.sendFile(path.join(__dirname, '../public/jansewa.html')));
 app.get('/admin/jobs', (req, res) => res.sendFile(path.join(__dirname, '../public/jobs.html')));
+app.get('/admin/edit-job', (req, res) => res.sendFile(path.join(__dirname, '../public/edit-job.html')));
 app.get('/admin/settings', (req, res) => res.sendFile(path.join(__dirname, '../public/settings.html')));
 app.get('/', (req, res) => res.redirect('/admin/login'));
 

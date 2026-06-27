@@ -16,6 +16,7 @@ const handle = (fnName) => (req, res, next) => {
 };
 
 router.get('/', handle('getAllJobs'));
+router.get('/:id', handle('getJob'));
 
 router.use(authMiddleware.protect);
 router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));

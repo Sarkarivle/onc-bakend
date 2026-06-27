@@ -143,13 +143,7 @@
         }
 
         function openEdit(id) {
-            const job = allJobs.find(x => x._id === id);
-            document.getElementById('edit-id').value = job._id;
-            document.getElementById('edit-title').value = job.title;
-            document.getElementById('edit-category').value = job.category;
-            const { _id, title, organization, category, createdAt, isActive, ...rest } = job;
-            document.getElementById('edit-json').value = JSON.stringify(rest, null, 4);
-            document.getElementById('edit-modal').classList.remove('hidden');
+            window.location.href = `/admin/edit-job?id=${id}`;
         }
 
         async function saveChanges() {
