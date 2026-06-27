@@ -1,58 +1,52 @@
-const InMemoryStore = require('./memory/inMemoryStore');
-const RedisStore = require('./memory/redisStore');
-const Settings = require('../settings/settingsModel');
-
 /**
- * ConversationState (Stateless Orchestrator)
+ * ConversationState Module
+ * Responsibility: Persist conversation context across turns.
  */
 class ConversationState {
-    static store = null;
-
-    static async _getStore() {
-        if (this.store) return this.store;
-
-        const redisUrl = await Settings.findOne({ key: 'REDIS_URL' });
-        if (redisUrl && redisUrl.value) {
-            // Production: Initialize Redis
-            // const redis = require('redis').createClient({ url: redisUrl.value });
-            // this.store = new RedisStore(redis);
-            console.log("🚀 [MEMORY] Redis Store Initialized (Simulated)");
-            this.store = new InMemoryStore(); // Fallback for now
-        } else {
-            console.log("🏠 [MEMORY] Using In-Memory Store");
-            this.store = new InMemoryStore();
-        }
-        return this.store;
-    }
+    static sessionState = new Map();
 
     static async get(sessionId) {
-        const store = await this._getStore();
-        return await store.get(`state:${sessionId}`) || { topic: "", lastIntent: null };
+        return this.sessionState.get(sessionId) || {
+            topic: "GENERAL",
+            lastDomain: "GENERAL",
+            lastAct: "GREET",
+            pendingAction: null,
+            turnCount: 0
+        };
     }
 
-    static async update(sessionId, query, intents) {
-        const store = await this._getStore();
+    /**
+     * @param {string[]} acts - Intent acts.
+     * @param {string[]} domains - Intent domains.
+     * @param {string} aiResponse - Raw response for pending action detection.
+     */
+    static async update(sessionId, query, acts, domains, aiResponse = "") {
         const currentState = await this.get(sessionId);
 
-        let newTopic = currentState.topic;
-        const jobKeywords = ['ssc', 'upsc', 'railway', 'police', 'gd', 'cgl', 'chsl', 'mts', 'army', 'constable', 'daroga'];
-        const q = query.toLowerCase();
+        let pendingAction = null;
+        const lastMsg = aiResponse.toLowerCase();
 
-        for (const word of jobKeywords) {
-            if (q.includes(word)) {
-                const match = q.match(new RegExp(`(${word}\\s+\\w+)`, 'i'));
-                newTopic = match ? match[0].toUpperCase() : word.toUpperCase();
-                break;
-            }
+        // Generic Question Detection for Pending Actions
+        if (lastMsg.match(/(qualification|padhai|education|degree)/)) {
+            pendingAction = "WAITING_FOR_QUALIFICATION";
+        } else if (lastMsg.match(/(date of birth|dob|birthday|janm)/)) {
+            pendingAction = "WAITING_FOR_DOB";
+        } else if (lastMsg.match(/(state|location|city|shehar|rehte)/)) {
+            pendingAction = "WAITING_FOR_LOCATION";
+        } else if (lastMsg.match(/(category|cast|sc|st|obc)/)) {
+            pendingAction = "WAITING_FOR_CATEGORY";
         }
 
         const updatedState = {
-            topic: newTopic,
-            lastIntent: intents[0],
+            topic: domains[0] || currentState.topic,
+            lastDomain: domains[0] !== 'GENERAL' ? domains[0] : currentState.lastDomain,
+            lastAct: acts[0],
+            pendingAction: pendingAction,
+            turnCount: currentState.turnCount + 1,
             updatedAt: Date.now()
         };
 
-        await store.set(`state:${sessionId}`, updatedState, 3600); // 1-hour TTL
+        this.sessionState.set(sessionId, updatedState);
         return updatedState;
     }
 }

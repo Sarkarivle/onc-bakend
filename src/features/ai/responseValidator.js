@@ -1,39 +1,57 @@
 class ResponseValidator {
     /**
-     * Actively validates the response against the Ground Truth.
+     * Actively validates the response against the Ground Truth and Policy.
      */
     static validate(response, { query, liveData, intent }) {
         const issues = [];
         const resLower = response.toLowerCase();
 
-        // Skip strict factual check for simple conversations
-        if (intent && ['GREETING', 'THANKS', 'SMALL_TALK'].includes(intent)) {
-            return { isValid: true, issues: [], score: 100 };
+        // 1. RULE EXPOSURE CHECK (Strict)
+        const forbiddenPhrases = [
+            'verified source recommended',
+            'backend rule',
+            'system rule',
+            'sarkari naukri ka niyam',
+            'i must not guess',
+            'as per my rule',
+            'internal validation',
+            'source recommended',
+            'hallucination guard',
+            'sourceverified',
+            'validation failed',
+            'official source recommended',
+            'sapni wala data',
+            'please respond with one of the following'
+        ];
+
+        for (const phrase of forbiddenPhrases) {
+            if (resLower.includes(phrase)) {
+                issues.push(`Internal rule exposure detected: ${phrase}`);
+            }
         }
 
-        // 1. Check for hallucinated numbers/dates
-        const numbersInResponse = response.match(/\d+/g) || [];
-        const combinedData = (liveData.jobs + liveData.web).toLowerCase();
-
-        // If a number appears in the response but not in the liveData, it's a risk (unless it's a common greeting/filler)
-        numbersInResponse.forEach(num => {
-            if (num.length > 2 && !combinedData.includes(num)) {
-                // Potential hallucination of dates/salaries/vacancies
-                issues.push(`Unverified number detected: ${num}`);
+        // 2. GREETING POLICY CHECK
+        if (intent === 'GENERAL' || intent === 'GREETING') {
+            if (resLower.includes('career') || resLower.includes('government job') || resLower.includes('qualification') || resLower.includes('vacancy')) {
+                 if (!query.toLowerCase().match(/(career|job|vacancy|qualification)/)) {
+                     issues.push("Greeting response contains unnecessary job/career lecture");
+                 }
             }
-        });
+        }
 
-        // 2. Check for "guessed" official websites
-        if (resLower.includes('.gov.in') || resLower.includes('.nic.in')) {
-            const urls = response.match(/[a-zA-Z0-9.-]+\.(gov|nic)\.in/g) || [];
-            urls.forEach(url => {
-                if (!combinedData.includes(url.toLowerCase())) {
-                    issues.push(`Unverified government URL: ${url}`);
+        // 3. Check for hallucinated numbers/dates (Skip for simple conversations)
+        if (!['GREETING', 'THANKS', 'SMALL_TALK'].includes(intent)) {
+            const numbersInResponse = response.match(/\d+/g) || [];
+            const combinedData = (liveData.jobs + liveData.web).toLowerCase();
+
+            numbersInResponse.forEach(num => {
+                if (num.length > 2 && !combinedData.includes(num)) {
+                    issues.push(`Unverified number detected: ${num}`);
                 }
             });
         }
 
-        // 3. Structural Integrity
+        // 4. Structural Integrity
         if (!response.includes('<USER_MESSAGE>')) issues.push("Missing <USER_MESSAGE> tags");
 
         return {

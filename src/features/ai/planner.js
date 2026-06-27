@@ -1,69 +1,78 @@
+const UserProfile = require('./userProfile');
+
 /**
- * Planner Module
- * Responsibility: Decide the execution strategy for the request.
- *
- * Rules:
- * - Never generates prompts.
- * - Only makes decisions.
- * - Returns a structured Decision Object.
+ * Planner Module (Enterprise Generalized Orchestrator)
+ * Responsibility: Pure behavior logic based on context resolution.
  */
 class Planner {
     /**
-     * @param {string} query - The rewritten query.
-     * @param {string[]} intents - Detected intents from IntentDetector.
-     * @returns {Object} Decision Object
+     * @param {string} query - Raw input.
+     * @param {Object} intentObj - { acts, domains } from IntentDetector.
+     * @param {Object} state - ConversationState { pendingAction, turnCount, lastDomain }.
+     * @param {Object} profile - UserProfile.
      */
-    static plan(query, intents) {
-        const q = query.toLowerCase();
+    static plan(query, intentObj, state, profile) {
+        const { acts, domains } = intentObj;
+        const missingFields = UserProfile.getMissingFields(profile);
 
-        // 1. Identify primary intent
-        const primaryIntent = intents.length > 0 ? intents[intents.length - 1] : "GENERAL_QUESTION";
+        let behavior = 'RESPOND';
+        let activeDomain = domains[0];
+        let priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT', 'CONTEXT'];
 
-        // 2. Determine Formatting requirement
-        let formatting = "Standard";
-        if (intents.some(i => ['GREETING', 'THANKS', 'GOODBYE', 'SMALL_TALK'].includes(i))) {
-            formatting = "Short";
-        } else if (intents.some(i => ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP', 'STUDENT_GUIDANCE'].includes(i))) {
-            formatting = "Detailed";
-        } else if (q.includes('compare') || q.includes('versus') || q.includes('vs') || q.includes('difference')) {
-            formatting = "Table";
+        // 1. CONTEXT RESOLUTION (State-Driven)
+        const isFollowUpAct = acts.includes('CONFIRM') || acts.includes('NEGATE') || acts.includes('EXTEND');
+        const isResolvingPending = state.pendingAction && (acts.includes('CONFIRM') || acts.includes('INFORM'));
+
+        if (isResolvingPending) {
+            // Priority: Stay in previous domain if resolving a pending request
+            activeDomain = state.lastDomain !== 'GENERAL' ? state.lastDomain : activeDomain;
+            behavior = 'PROCESS_INPUT';
+        } else if (isFollowUpAct && state.lastDomain !== 'GENERAL') {
+            // General follow-up (e.g. "yes", "aur batao") in a specific context
+            activeDomain = state.lastDomain;
+            behavior = 'RESPOND';
         }
 
-        // 3. Search Decision Logic
-        const searchTriggers = ['SEARCH', 'LATEST_VACANCY', 'NEWS', 'GOVT_JOB', 'RESULT', 'ADMIT_CARD'];
-        const needsSearch = intents.some(intent => searchTriggers.includes(intent)) ||
-                           q.includes('latest') || q.includes('current') || q.includes('2024') || q.includes('kab aayega');
+        // 2. GREETING OVERRIDE (Minimalist Policy)
+        // If it's a greeting and NOT mixed with a domain request, force minimalist behavior.
+        if (acts.includes('GREET') && domains.includes('GENERAL')) {
+            return {
+                behavior: 'GREET',
+                intent: 'GENERAL',
+                primaryAct: 'GREET',
+                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'], // NO Gov Jobs, NO Career
+                missingFields: [],
+                needSearch: false,
+                needReasoning: false
+            };
+        }
 
-        // 4. Memory Decision
-        // Memory is needed unless it's a completely fresh greeting or standalone simple fact
-        const needsMemory = !intents.includes('GREETING') || intents.length > 1;
-
-        // 5. Reasoning Decision
-        // Reasoning is skipped for simple social interactions
-        const needsReasoning = !(['GREETING', 'THANKS', 'GOODBYE', 'SMALL_TALK'].includes(primaryIntent) && intents.length === 1);
-
-        // 6. Map Intents to Priority Prompt Modules
-        // We ensure 'CORE' and 'PERSONALITY' are always present
-        const priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
-
-        // Add domain modules based on intents
-        intents.forEach(intent => {
-            if (!priorityModules.includes(intent)) {
-                priorityModules.push(intent);
+        // 3. DOMAIN EVALUATION (Knowledge-Aware)
+        const factualDomains = ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP', 'COLLEGE'];
+        if (factualDomains.includes(activeDomain) && !acts.includes('GREET')) {
+            // Check if profile gaps exist for domains that require eligibility checks
+            if (missingFields.length > 0) {
+                behavior = 'DATA_GATHERING';
             }
-        });
+        }
 
-        // Ensure specific logic modules are included if needed
-        if (needsReasoning) priorityModules.push('REASONING');
-        if (needsSearch) priorityModules.push('SEARCH_DECISION');
+        // 4. DYNAMIC MODULE REGISTRY LOADING
+        if (activeDomain !== 'GENERAL') {
+            priorityModules.push(activeDomain);
+        }
+
+        // 5. BEHAVIORAL DIRECTIVES
+        if (behavior === 'DATA_GATHERING') priorityModules.push('INTELLIGENCE');
+        if (behavior === 'RESPOND' && activeDomain !== 'GENERAL') priorityModules.push('REASONING', 'VALIDATOR');
 
         return {
-            intent: primaryIntent,
-            needSearch: needsSearch,
-            needMemory: needsMemory,
-            needReasoning: needsReasoning,
-            needFormatting: formatting,
-            priorityModules: priorityModules
+            behavior,
+            intent: activeDomain,
+            primaryAct: acts[0],
+            priorityModules: [...new Set(priorityModules)],
+            missingFields,
+            needSearch: factualDomains.includes(activeDomain) && !acts.includes('GREET'),
+            needReasoning: behavior === 'RESPOND'
         };
     }
 }

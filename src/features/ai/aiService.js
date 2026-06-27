@@ -7,7 +7,7 @@ const constants = require('../../config/constants');
 
 // Pipeline Modules
 const IntentDetector = require('./intentDetector');
-const ConversationState = require('./conversationState'); // Now async & pluggable
+const ConversationState = require('./conversationState');
 const UserProfile = require('./userProfile');
 const QueryRewriter = require('./queryRewriter');
 const Planner = require('./planner');
@@ -16,194 +16,161 @@ const PromptComposer = require('./promptComposer');
 const SearchService = require('./searchService');
 const ResponseValidator = require('./responseValidator');
 const ConfidenceEngine = require('./confidenceEngine');
+const ProgressEmitter = require('./progressEmitter');
 
-// Enterprise Layers
+// Infrastructure Layers
 const RunpodProvider = require('./providers/runpodProvider');
 const Metrics = require('./observability/metrics');
 const SearchReranker = require('./searchReranker');
 
 class AIService {
     /**
-     * Enterprise AI Orchestration Pipeline
-     * Target Architecture Score: 10/10
+     * Enterprise AI Orchestrator (Phase 1-12)
      */
     static async processRequest(input) {
         const startTime = Date.now();
-        const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = input;
+        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const { userMessage, question, userName, history } = input;
 
-        // Ensure sessionId exists to prevent Validation Errors
         const sessionId = input.sessionId || `session_${Date.now()}`;
-        const rawInput = userMessage || question || "";
+        const rawInput = (userMessage || question || "").trim();
 
-        let metrics = { intent: 'UNKNOWN', provider: 'NONE', searchUsed: false };
+        ProgressEmitter.emit(sessionId, 'REQUEST_RECEIVED');
+
+        if (!rawInput) return { success: false, message: "Empty input.", requestId };
+
+        ProgressEmitter.emit(sessionId, 'INPUT_PROCESSING');
+
+        let metrics = { intent: 'UNKNOWN', provider: 'NONE', searchUsed: false, requestId };
 
         try {
-            // 0. Save User Message (Missing in previous refactor)
-            if (rawInput && userName) {
-                await Chat.create({ userName, sessionId, role: 'user', content: rawInput }).catch(e => console.error("Chat Save Error:", e));
-            }
+            // --- PHASE 3: Context Acquisition ---
+            ProgressEmitter.emit(sessionId, 'CONVERSATION_STATE_LOADING');
+            const [state, profile] = await Promise.all([
+                ConversationState.get(sessionId),
+                Promise.resolve(UserProfile.format({ name: userName, ...input }))
+            ]);
+            ProgressEmitter.emit(sessionId, 'USER_PROFILE_LOADING');
 
-            // 1. Intelligence Phase
-            const intents = IntentDetector.detect(rawInput);
-            metrics.intent = intents[0] || 'GENERAL';
+            // --- PHASE 4: Intent Resolution ---
+            ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
+            const intentObj = IntentDetector.detect(rawInput);
 
-            const state = await ConversationState.update(sessionId, rawInput, intents);
+            // --- PHASE 5: Planning ---
+            ProgressEmitter.emit(sessionId, 'PLANNING');
+            const plan = Planner.plan(rawInput, intentObj, state, profile);
+            metrics.intent = plan.intent;
 
-            // 2. Context & Rewriting
+            // --- PHASE 6: Knowledge Routing ---
             const rewrittenQuery = QueryRewriter.rewrite(rawInput, state.topic);
-            const plan = Planner.plan(rewrittenQuery, intents);
             const routes = KnowledgeRouter.route(plan, rewrittenQuery);
 
-            // 3. User Profile Fetching
-            const userLearnings = await Feedback.find({ userName }).sort({ timestamp: -1 }).limit(5);
-            const insights = userLearnings.map(l => l.rating === 'up' ? `LIKED: ${l.aiResponse.substring(0, 20)}` : `DISLIKED: ${l.aiResponse.substring(0, 20)}`).join(' | ');
-            const profile = UserProfile.format({ name: userName, loc: userLocation, dob: userDOB, cat: userCategory, qual: userQualification, insights });
+            // --- PHASE 7: Data Collection ---
+            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile) };
+            if (routes.shouldFetchLiveData) {
+                if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
+                if (routes.selectedSources.includes('SEARCH')) ProgressEmitter.emit(sessionId, 'SEARCHING_VERIFIED_SOURCES');
 
-            // 4. Knowledge Acquisition (Strict DATABASE PRIORITY POLICY)
-            let liveData = { jobs: "", kendras: "", web: "" };
-            let dbFound = false;
-
-            if (routes.selectedSources.includes('DATABASE')) {
-                const dbResults = await this._fetchDbData(rewrittenQuery);
-                liveData.jobs = dbResults.jobs;
-                liveData.kendras = dbResults.kendras;
-                if (dbResults.count > 0) dbFound = true;
+                const [dbData, webData] = await Promise.all([
+                    routes.selectedSources.includes('DATABASE') ? this._fetchDatabaseKnowledge(rewrittenQuery, profile) : null,
+                    routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(rewrittenQuery) : null
+                ]);
+                if (dbData) knowledgeContext.jobs = dbData;
+                if (webData) knowledgeContext.web = webData;
             }
 
-            // Rule: Only search if Database had no matching jobs AND search is enabled
-            if (!dbFound && routes.shouldCheckSearchIfDbFails) {
-                metrics.searchUsed = true;
-                const searchResults = await this._fetchWebData(rewrittenQuery);
-                liveData.web = searchResults;
-
-                // Rule: If search found verified data, we could "Shadow Save" it
-                // (Implementation for future: Auto-seed DB from high-confidence search)
-            }
-
-            // 5. Prompt Construction (ENTERPRISE: Versioned & Async)
+            // --- PHASE 8 & 9: LLM Execution ---
+            ProgressEmitter.emit(sessionId, 'PROMPT_COMPOSING');
             const indiaDate = new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" });
-            const meta = {
-                currentDate: indiaDate.split(',')[0],
-                currentYear: indiaDate.split('/')[2],
-                sessionId
-            };
+            const promptMeta = { currentDate: indiaDate.split(',')[0], currentYear: indiaDate.split('/')[2], sessionId, behavior: plan.behavior };
+            const systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
 
-            const systemInstruction = await PromptComposer.build(plan.priorityModules, profile, liveData, meta);
-            metrics.promptSize = systemInstruction.length;
+            ProgressEmitter.emit(sessionId, 'LLM_THINKING');
 
-            // 6. LLM Provider Layer
             const llm = await this._getLLMProvider();
             metrics.provider = llm.provider;
 
             const aiResponse = await llm.chat([
-                { role: 'system', content: systemInstruction },
+                { role: 'system', content: systemInstruction + `\n\nBEHAVIOR: ${plan.behavior}. DATA STATUS: ${knowledgeContext.profileStr}.` },
                 ...(history || []),
                 { role: 'user', content: rewrittenQuery }
             ]);
 
-            // 7. Quality Assurance & Hallucination Check
             let finalContent = aiResponse.content;
-            const hasFactualData = !!(liveData.jobs || liveData.web);
-            const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData, intent: plan.intent });
 
-            // 8. SMART FALLBACK LOGIC
-            if (!validation.isValid) {
-                if (!hasFactualData) {
-                    // Scenario: Database/Search khali hai.
-                    // LLM ko bolo ki generic career advice de par fake numbers na likhe.
-                    const fallbackResponse = await llm.chat([
-                        { role: 'system', content: systemInstruction + "\n\nNOTE: Official notification data for this specific query is currently unavailable. DO NOT invent dates or salaries. Provide general career guidance and typical eligibility." },
-                        { role: 'user', content: rewrittenQuery }
-                    ]);
-                    finalContent = fallbackResponse.content;
-                } else {
-                    // Data tha par LLM ne galti ki, ek baar sudharne ka mauka dein
-                    const correction = await llm.chat([
-                        { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your last response was rejected for unverified numbers. Use ONLY provided data." },
-                        { role: 'user', content: rewrittenQuery }
-                    ]);
-                    finalContent = correction.content;
-                }
+            // --- PHASE 10: Validation ---
+            ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
+            const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData: knowledgeContext, intent: plan.intent });
+
+            if (!validation.isValid && plan.needReasoning) {
+                const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
+                finalContent = correction.content;
             }
 
-            const confidence = ConfidenceEngine.calculate(plan, liveData, validation);
-            metrics.confidence = confidence.score;
-
-            // 9. Output Processing
+            ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
+            const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, validation);
             const processed = this._finalProcess(finalContent, confidence);
 
-            // 9. Metrics & Persistence
+            // --- PHASE 11 & 12: Analytics ---
+            await ConversationState.update(sessionId, rawInput, intentObj.acts, intentObj.domains, finalContent);
             metrics.latency = Date.now() - startTime;
             Metrics.logRequest(metrics);
+            await this._persistChat(userName, sessionId, rawInput, processed, metrics, state.topic);
 
-            await this._persistChat(userName, sessionId, processed, metrics, state.topic, rewrittenQuery);
+            ProgressEmitter.emit(sessionId, 'FINAL_RESPONSE_READY');
 
-            return {
-                success: true,
-                ...processed,
-                confidence: confidence.score,
-                topic: state.topic
-            };
+            return { success: true, ...processed, confidence: confidence.score, topic: state.topic, requestId };
 
         } catch (error) {
+            ProgressEmitter.emit(sessionId, 'ERROR');
             metrics.error = error.message;
             Metrics.logRequest(metrics);
-            console.error("❌ Enterprise Pipeline Error:", error);
+            console.error("❌ Orchestration Error:", error);
             return { success: false, message: "Service temporarily unavailable." };
         }
     }
 
-    // --- Enterprise Infrastructure Helpers ---
-
     static async _getLLMProvider() {
-        const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        const runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
-
-        // Strategy: We can easily add 'if (useOpenAI) return new OpenAIProvider(...)'
-        return new RunpodProvider({
-            baseUrl: runpodUrl.includes('/api/chat') ? runpodUrl : runpodUrl.replace(/\/$/, '') + '/api/chat',
-            model: constants.AI_MODEL_NAME
-        });
+        const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
+        return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
     }
 
-    static async _fetchDbData(query) {
+    static async _fetchDatabaseKnowledge(query, profile) {
         const q = query.toLowerCase();
-        const keywords = q.split(/\s+/).filter(w => w.length > 3 && !['jobs', 'jankari', 'bharti', 'vacancy'].includes(w));
+        const keywords = q.split(/\s+/).filter(w => w.length > 3 && !['jobs', 'bharti', 'vacancy'].includes(w));
 
-        let searchCriteria = { isActive: true };
+        const now = new Date();
+        let criteria = {
+            isActive: true,
+            lastDate: { $gte: now } // Expiry Rule: Only show future or today's last date
+        };
+
+        // Profile-based filtering
+        if (profile?.qualification) {
+            criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
+        }
 
         if (keywords.length > 0) {
-            searchCriteria.$or = [
+            criteria.$or = [
                 { title: { $regex: keywords.join('|'), $options: 'i' } },
                 { organization: { $regex: keywords.join('|'), $options: 'i' } }
             ];
         }
 
-        const [jobs, kendras] = await Promise.all([
-            Job.find(searchCriteria).sort({ _id: -1 }).limit(8),
-            Jansewa.find().limit(2)
-        ]);
+        // Sort by nearest last date first
+        const jobs = await Job.find(criteria).sort({ lastDate: 1 }).limit(5);
 
-        return {
-            count: jobs.length,
-            jobs: jobs.length > 0
-                ? jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Vacancy: ${j.totalVacancy || "Check Notification"} | Date: ${j.importantDates?.applicationLastDate || "NA"} | Salary: ${j.salary || "As per rules"}`).join("\n")
-                : "",
-            kendras: kendras.map(k => k.name).join(", ")
-        };
+        return jobs.length > 0
+            ? jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || j.lastDate?.toDateString()} | Eligibility: ${j.eligibility?.education} | Salary: ${j.salary}`).join("\n")
+            : "";
     }
 
-    static async _fetchWebData(query) {
-        const [key, cx] = await Promise.all([
-            Settings.findOne({ key: 'GOOGLE_SEARCH_API_KEY' }),
-            Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })
-        ]);
+    static async _fetchWebKnowledge(query) {
+        const [key, cx] = await Promise.all([Settings.findOne({ key: 'GOOGLE_SEARCH_API_KEY' }), Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })]);
         if (!key?.value) return "";
-        const rawResults = await SearchService.search(query, key.value, cx.value);
-
-        // ENTERPRISE OPTIMIZATION: Rerank and pick only the best snippets
-        const topResults = SearchReranker.rank(query, rawResults);
-        return topResults.length > 0 ? JSON.stringify(topResults) : "";
+        const results = await SearchService.search(query, key.value, cx.value);
+        const reranked = SearchReranker.rank(query, results);
+        return JSON.stringify(reranked);
     }
 
     static _finalProcess(content, confidence) {
@@ -211,31 +178,59 @@ class AIService {
         const msg = content.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
         let message = msg ? msg[1].trim() : content.replace(/<(HIDDEN_MATH|USER_MESSAGE)>[\s\S]*?<\/\1>/gi, '').trim();
 
-        if (!confidence.isReliable) message += `\n\n*(Verified Source Recommended)*`;
+        // 1. STRICT INTERNAL RULE CLEANER
+        const systemNotes = [
+            /verified source recommended/gi,
+            /backend rule/gi,
+            /system rule/gi,
+            /sarkari naukri ka niyam/gi,
+            /i must not guess/gi,
+            /as per my rule/gi,
+            /internal validation/gi,
+            /source recommended/gi,
+            /hallucination guard/gi,
+            /sourceverified/gi,
+            /validation failed/gi,
+            /official source recommended/gi,
+            /maine sapni wala data nikala/gi,
+            /please respond with one of the following/gi,
+            /planner decision/gi,
+            /intent detected/gi,
+            /confidence score/gi,
+            /search router/gi,
+            /database miss/gi,
+            /internal database/gi,
+            /note:/gi,
+            /validation note:/gi
+        ];
+
+        systemNotes.forEach(regex => {
+            message = message.replace(regex, '');
+        });
+
+        // 2. Formatting cleanup
+        message = message.replace(/\s+/g, ' ').replace(/\n\s*\n/g, '\n\n').trim();
+
+        // 3. Extract Suggestions
+        const suggestMatch = content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
+        let suggestions = suggestMatch ? suggestMatch[1].split(',').map(s => s.trim()) : [];
+
+        // Remove suggestions if they contain system rules
+        suggestions = suggestions.filter(s => !systemNotes.some(regex => s.match(regex)));
 
         return {
             message,
             calculation: math ? math[1].trim() : "",
-            suggestions: (content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i) || ["", ""])[1].split(',').map(s => s.trim())
+            suggestions: suggestions.slice(0, 3)
         };
     }
 
-    static async _persistChat(user, session, processed, metrics, topic, query) {
-        if (!processed.message || !user) return;
-        await Chat.create({
-            userName: user,
-            sessionId: session,
-            role: 'assistant',
-            content: processed.message,
-            calculation: processed.calculation,
-            suggestions: processed.suggestions,
-            metadata: {
-                confidence: metrics.confidence,
-                latency: metrics.latency,
-                provider: metrics.provider,
-                topic
-            }
-        });
+    static async _persistChat(user, session, input, processed, metrics, topic) {
+        if (!user || !processed.message) return;
+        await Promise.all([
+            Chat.create({ userName: user, sessionId: session, role: 'user', content: input }),
+            Chat.create({ userName: user, sessionId: session, role: 'assistant', content: processed.message, calculation: processed.calculation, suggestions: processed.suggestions, metadata: { confidence: metrics.confidence, topic } })
+        ]);
     }
 }
 

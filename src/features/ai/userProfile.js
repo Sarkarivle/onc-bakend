@@ -1,30 +1,44 @@
+/**
+ * UserProfile Module
+ * Responsibility: Normalize and manage user data.
+ */
 class UserProfile {
     /**
-     * Normalizes user data into a structured profile.
-     * Matches Phase 4 Pipeline: User Profile.
+     * Normalizes user data into a structured profile object.
      */
-    static format(userData) {
-        if (!userData) return "General User";
-
-        const profile = {
-            name: userData.name || "User",
-            location: userData.loc || "Bareilly, Uttar Pradesh",
-            dob: userData.dob || "Not specified",
-            category: userData.cat || "General",
-            qualification: userData.qual || "Not specified",
-            learningInsights: userData.insights || "None"
+    static format(data) {
+        return {
+            name: data.name || "User",
+            qualification: data.qual || data.qualification || null,
+            dob: data.dob || null,
+            age: data.age || null,
+            state: data.loc || data.state || null,
+            category: data.cat || data.category || null,
+            gender: data.gender || null,
+            goal: data.goal || null,
+            insights: data.insights || ""
         };
-
-        // Add derived context (e.g., age calculation if DOB is available)
-        return profile;
     }
 
     /**
-     * Converts profile object to a string for prompt injection.
+     * Identifies which fields are missing from the profile.
      */
-    static toString(profile) {
-        if (typeof profile === 'string') return profile;
-        return `Name: ${profile.name} | Location: ${profile.location} | Qual: ${profile.qualification} | Category: ${profile.category} | Insights: ${profile.learningInsights}`;
+    static getMissingFields(profile) {
+        const required = ['qualification', 'dob', 'state', 'category'];
+        return required.filter(field => !profile[field]);
+    }
+
+    /**
+     * Converts profile to a natural language summary for the AI.
+     */
+    static toContextString(profile) {
+        const parts = [];
+        if (profile.qualification) parts.push(`Qualification: ${profile.qualification}`);
+        if (profile.dob) parts.push(`DOB: ${profile.dob}`);
+        if (profile.state) parts.push(`Location: ${profile.state}`);
+        if (profile.category) parts.push(`Category: ${profile.category}`);
+
+        return parts.length > 0 ? parts.join(" | ") : "User Profile is currently empty.";
     }
 }
 
