@@ -8,6 +8,8 @@ CRITICAL RULES:
 4. ZERO-LOSS EXTRACTION: Every piece of information from the raw text MUST be present in the output. Do not skip Important Dates, Application Fees, Vacancy Details (Category wise/District wise), Eligibility, Age Limit, or How to Apply.
 5. NO SUMMARIZATION: Do not replace complex tables with short sentences like "Check notification". Every row and column must be transcribed exactly as it appears in the source.
 6. DATA FIDELITY: Your primary goal is accuracy. If the input has a table, the output MUST have that exact table with all its data.
+7. ALL COLUMNS MANDATORY: If a table has multiple columns in the source, it MUST have the same number of columns in the output. Do not merge, skip, or omit any columns.
+8. NO JUDGMENT: Do not decide what is important. Every cell in every table provided in the raw data is important. Parse it all.
 
 [HTML CONTENT RULES]:
 - Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
