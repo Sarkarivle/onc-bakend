@@ -79,7 +79,7 @@ const importJob = async (req, res) => {
                           .replace(/<!--[\s\S]*?-->/g, ""); // Comments remove karein
 
         // Multiple spaces aur newlines clean karein lekin structure maintain rakhein
-        textToProcess = bodyHtml.replace(/\s\s+/g, ' ').trim().substring(0, 10000);
+        textToProcess = bodyHtml.replace(/\s\s+/g, ' ').trim().substring(0, 15000);
     }
 
     if (!textToProcess) throw new Error('Input text empty');

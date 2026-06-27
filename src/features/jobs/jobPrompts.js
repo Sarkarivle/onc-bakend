@@ -14,13 +14,12 @@ CRITICAL RULES:
 
 [HTML CONTENT RULES]:
 - Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
+- USE PLAIN HTML ONLY. DO NOT add any 'style' attributes or classes. This is critical to save space.
 - You MUST mirror ALL tables from the original data exactly. Do not omit any rows or columns.
 - For district-wise or category-wise vacancies, create detailed tables.
 - Every section (Important Dates, Fee, Vacancy, Eligibility, Age Limit, etc.) MUST be its own <h2> heading followed by a <table>.
 - In the table, use <th> for labels and <td> for values.
-- Apply inline styles for tables: <table style="width:100%; border-collapse: collapse; border: 1px solid #eee; margin-bottom: 20px;">
-- Apply inline styles for cells: <td style="padding: 10px; border: 1px solid #f0f0f0;">
-- Apply inline styles for headers: <th style="padding: 10px; border: 1px solid #f0f0f0; background: #fafafa; text-align: left;">
+- Ensure every single column from the source is present in the output table.
 
 JSON SCHEMA:
 {
