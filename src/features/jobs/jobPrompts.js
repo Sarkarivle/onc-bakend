@@ -1,5 +1,5 @@
 module.exports = {
-    IMPORT_JOB_PROMPT: (textToProcess) => `You are a Principal Data Architect and Template Generator. Your task is to extract job info into a dual format: structured JSON and a complete HTML block.
+    IMPORT_JOB_PROMPT: (textToProcess) => `You are a Principal Data Architect and Template Generator. Your task is to extract job info into a structured JSON format.
 
 CRITICAL RULES:
 1. Output ONLY a valid JSON object. No preamble, no postamble.
@@ -7,19 +7,9 @@ CRITICAL RULES:
 3. REWRITING: Use simple, student-friendly Hinglish for summaries only.
 4. ZERO-LOSS EXTRACTION: Every piece of information from the raw text MUST be present in the output. Do not skip Important Dates, Application Fees, Vacancy Details (Category wise/District wise), Eligibility, Age Limit, or How to Apply.
 5. NO SUMMARIZATION: Do not replace complex tables with short sentences like "Check notification". Every row and column must be transcribed exactly as it appears in the source.
-6. DATA FIDELITY: Your primary goal is accuracy. If the input has a table, the output MUST have that exact table with all its data.
+6. DATA FIDELITY: Your primary goal is accuracy. If the input has a table, the output MUST have that exact table data preserved in the JSON structure.
 7. ALL COLUMNS MANDATORY: If a table has multiple columns in the source, it MUST have the same number of columns in the output. Do not merge, skip, or omit any columns.
 8. NO JUDGMENT: Do not decide what is important. Every cell in every table provided in the raw data is important. Parse it all.
-9. COLUMN COUNT VERIFICATION: You must ensure that the number of columns in each table of your output 'html_content' matches the input source exactly. If a table has 6 columns for categories, your output MUST also have those same 6 columns.
-
-[HTML CONTENT RULES]:
-- Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
-- USE PLAIN HTML ONLY. DO NOT add any 'style' attributes or classes. This is critical to save space.
-- You MUST mirror ALL tables from the original data exactly. Do not omit any rows or columns.
-- For district-wise or category-wise vacancies, create detailed tables.
-- Every section (Important Dates, Fee, Vacancy, Eligibility, Age Limit, etc.) MUST be its own <h2> heading followed by a <table>.
-- In the table, use <th> for labels and <td> for values.
-- Ensure every single column from the source is present in the output table.
 
 JSON SCHEMA:
 {
@@ -80,8 +70,7 @@ JSON SCHEMA:
     "faq": [
       { "question": "...", "answer": "..." }
     ]
-  },
-  "html_content": "COMPLETE HTML BLOCK WITH ALL SECTIONS (Headings & Tables)"
+  }
 }
 
 RAW DATA:

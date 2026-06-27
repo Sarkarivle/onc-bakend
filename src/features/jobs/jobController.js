@@ -107,12 +107,14 @@ const importJob = async (req, res) => {
     const cleanedJson = cleanAIResponse(rawAiOutput);
 
     let result;
-    let htmlContent = "";
     try {
         const fullResult = JSON.parse(cleanedJson);
         // Supports dual structure from prompt
         result = fullResult.structured_data || fullResult;
-        htmlContent = fullResult.html_content || "";
+    } catch (parseErr) {
+        console.error('Raw AI Output that failed:', rawAiOutput);
+        throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
+    }
     } catch (parseErr) {
         console.error('Raw AI Output that failed:', rawAiOutput);
         throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
@@ -148,7 +150,7 @@ const importJob = async (req, res) => {
       description: result.about_post || '',
       applyLink: url || result.important_links?.apply_online || '',
       lastDate: parseDate(result.important_dates?.last_date || result.job_overview?.last_date),
-      fullHtmlContent: htmlContent,
+      fullHtmlContent: textToProcess,
       importantDates: {
         applicationBegin: toStr(result.important_dates?.begin || result.job_overview?.application_start),
         applicationLastDate: toStr(result.important_dates?.last_date || result.job_overview?.last_date),
