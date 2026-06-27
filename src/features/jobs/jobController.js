@@ -132,24 +132,24 @@ const importJob = async (req, res) => {
       salary: toStr(result.job_overview?.salary_approx),
       category: category || 'Latest Jobs',
       applyLink: url || result.important_links?.apply_online || '',
-      lastDate: parseDate(result.job_overview?.last_date),
+      lastDate: parseDate(result.important_dates?.last_date || result.job_overview?.last_date),
       fullHtmlContent: htmlContent,
       importantDates: {
-        applicationBegin: toStr(result.job_overview?.application_start),
-        applicationLastDate: toStr(result.job_overview?.last_date),
-        feePaymentLastDate: 'Check Below',
-        examDate: 'Check Below'
+        applicationBegin: toStr(result.important_dates?.begin || result.job_overview?.application_start),
+        applicationLastDate: toStr(result.important_dates?.last_date || result.job_overview?.last_date),
+        feePaymentLastDate: toStr(result.important_dates?.fee_last_date),
+        examDate: toStr(result.important_dates?.exam_date)
       },
       applicationFee: {
-        generalObcEws: 'Check Below',
-        scStPh: 'Check Below',
-        female: 'Check Below'
+        generalObcEws: toStr(result.application_fee?.gen_obc_ews),
+        scStPh: toStr(result.application_fee?.sc_st_ph),
+        female: toStr(result.application_fee?.female)
       },
       eligibility: {
-        education: 'Check Details Below',
-        minAge: 'N/A',
-        maxAge: 'N/A',
-        ageLimit: 'N/A'
+        education: toStr(result.eligibility?.education),
+        minAge: toStr(result.eligibility?.min_age),
+        maxAge: toStr(result.eligibility?.max_age),
+        ageLimit: toStr(result.eligibility?.age_limit_as_on)
       },
       jobSpecifications: [],
       aiCoreSummary: { summary: result.about_post },

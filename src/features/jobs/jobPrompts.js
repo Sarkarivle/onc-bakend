@@ -5,10 +5,11 @@ CRITICAL RULES:
 1. Output ONLY a valid JSON object. No preamble, no postamble.
 2. BRANDING: Replace any website names with "Sarkari VLE".
 3. REWRITING: Use simple, student-friendly Hinglish.
+4. EXTRACT EVERYTHING: Do not skip any information like Important Dates, Application Fees, Vacancy Details (Category wise), Eligibility, Age Limit, or How to Apply.
 
 [HTML CONTENT RULES]:
 - Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
-- Every section (Important Dates, Fee, Vacancy, Eligibility, etc.) MUST be its own <h2> heading followed by a <table>.
+- Every section (Important Dates, Fee, Vacancy, Eligibility, Age Limit, etc.) MUST be its own <h2> heading followed by a <table>.
 - In the table, use <th> for labels and <td> for values.
 - Apply inline styles for tables: <table style="width:100%; border-collapse: collapse; border: 1px solid #eee;">
 - Apply inline styles for cells: <td style="padding: 12px; border: 1px solid #f0f0f0;">
@@ -17,10 +18,39 @@ CRITICAL RULES:
 JSON SCHEMA:
 {
   "structured_data": {
-    "title": "...", "subtitle": "...", "about_post": "...",
-    "job_overview": { "department": "...", "post_name": "...", "total_vacancies": "...", "application_start": "...", "last_date": "...", "salary_approx": "..." }
+    "title": "Full Post Name",
+    "subtitle": "Department/Organization Name",
+    "about_post": "Short summary in Hinglish",
+    "job_overview": {
+      "department": "...",
+      "post_name": "...",
+      "total_vacancies": "...",
+      "application_start": "...",
+      "last_date": "...",
+      "salary_approx": "..."
+    },
+    "important_dates": {
+      "begin": "...",
+      "last_date": "...",
+      "fee_last_date": "...",
+      "exam_date": "..."
+    },
+    "application_fee": {
+      "gen_obc_ews": "...",
+      "sc_st_ph": "...",
+      "female": "..."
+    },
+    "eligibility": {
+      "education": "Brief description",
+      "min_age": "...",
+      "max_age": "...",
+      "age_limit_as_on": "..."
+    },
+    "faq": [
+      { "question": "...", "answer": "..." }
+    ]
   },
-  "html_content": "COMPLETE HTML BLOCK WITH HEADINGS AND TABLES"
+  "html_content": "COMPLETE HTML BLOCK WITH ALL SECTIONS (Headings & Tables)"
 }
 
 RAW DATA:
