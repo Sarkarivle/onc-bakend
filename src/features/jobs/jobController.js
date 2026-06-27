@@ -96,6 +96,21 @@ const importJob = async (req, res) => {
         throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
     }
 
+    const parseDate = (dateStr) => {
+        if (!dateStr || dateStr === 'N/A' || dateStr.includes('Soon')) return null;
+        try {
+            if (dateStr.includes('-')) {
+                const parts = dateStr.split('-');
+                if (parts.length === 3 && isNaN(parts[1])) {
+                    const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct':9, 'nov':10, 'dec':11 };
+                    const m = months[parts[1].toLowerCase().substring(0,3)];
+                    return new Date(parseInt(parts[2]), m, parseInt(parts[0]));
+                }
+            }
+            return new Date(dateStr);
+        } catch (e) { return null; }
+    };
+
     const newJob = await Job.create({
       title: result.title || 'N/A',
       organization: result.subtitle || 'N/A',
@@ -103,26 +118,30 @@ const importJob = async (req, res) => {
       salary: toStr(result.job_overview?.salary_approx),
       category: category || 'Latest Jobs',
       applyLink: url || result.important_links?.apply_online || '',
+      lastDate: parseDate(result.job_overview?.last_date),
       importantDates: {
         applicationBegin: toStr(result.job_overview?.application_start),
         applicationLastDate: toStr(result.job_overview?.last_date),
-        feePaymentLastDate: toStr(result.important_dates?.find(d => d.event.includes('Fee'))?.date),
-        examDate: toStr(result.important_dates?.find(d => d.event.includes('Exam'))?.date || 'As per Schedule')
+        feePaymentLastDate: 'Check Specification',
+        examDate: 'Check Specification'
       },
       applicationFee: {
-        generalObcEws: toStr(result.application_fee?.[0]?.fee),
-        scStPh: toStr(result.application_fee?.[1]?.fee),
-        female: 'N/A'
+        generalObcEws: 'Check Specification',
+        scStPh: 'Check Specification',
+        female: 'Check Specification'
       },
       eligibility: {
-        education: result.eligibility_summary || 'Check Notification',
-        minAge: result.age_limit || 'N/A',
+        education: 'Check Specification below',
+        minAge: 'N/A',
         maxAge: 'N/A',
-        ageLimit: result.age_limit
+        ageLimit: 'N/A'
       },
-      jobSpecifications: result.extra_sections || [],
+      jobSpecifications: (result.sections || []).map(s => ({
+          heading: s.heading,
+          details: s.content
+      })),
       aiCoreSummary: { summary: result.about_post },
-      fullData: result // Storing the entire JSON for AI Advice context
+      fullData: result
     });
 
     res.status(201).json({ status: 'success', data: newJob });
@@ -160,29 +179,39 @@ const getAiMatchAdvice = async (req, res) => {
         if (jobCat.includes('exam')) eventsToCheck.unshift("exam date");
 
         let foundEvent = null;
+        // Check new structure (label/value) and fallback to old (event/date)
         const allDates = job.fullData?.important_dates || [];
         const overviewLastDate = job.fullData?.job_overview?.last_date;
 
-        // Try to find the FIRST future event or the LAST expired event
         for (const eventName of eventsToCheck) {
             let dateStr = (eventName === "last date") ? overviewLastDate : null;
             let actualEventName = (eventName === "last date") ? "Apply Last Date" : eventName;
 
-            const dObj = allDates.find(d => d.event.toLowerCase().includes(eventName));
+            const dObj = allDates.find(d => (d.label || d.event || "").toLowerCase().includes(eventName));
             if (dObj) {
-                dateStr = dObj.date;
-                actualEventName = dObj.event;
+                dateStr = dObj.value || dObj.date;
+                actualEventName = dObj.label || dObj.event;
             }
 
-            if (dateStr && dateStr !== "Available Soon") {
+            if (dateStr && dateStr !== "Available Soon" && dateStr !== "N/A") {
                 let targetDate;
-                if (dateStr.includes('-')) targetDate = new Date(dateStr);
+                if (dateStr.includes('-')) {
+                    // Try to parse DD-MMM-YYYY
+                    const parts = dateStr.split('-');
+                    if (parts.length === 3 && isNaN(parts[1])) {
+                        const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct':9, 'nov':10, 'dec':11 };
+                        const m = months[parts[1].toLowerCase().substring(0,3)];
+                        targetDate = new Date(parseInt(parts[2]), m, parseInt(parts[0]));
+                    } else {
+                        targetDate = new Date(dateStr);
+                    }
+                }
                 else if (dateStr.includes('/')) {
                     const [d, m, y] = dateStr.split('/');
                     targetDate = new Date(`${y}-${m}-${d}`);
                 }
 
-                if (targetDate && !isNaN(targetDate)) {
+                if (targetDate && !isNaN(targetDate.getTime())) {
                     const diffTime = targetDate - new Date();
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -193,12 +222,10 @@ const getAiMatchAdvice = async (req, res) => {
                         dateStr: dateStr
                     };
 
-                    // If we find a future event, that's our primary one!
                     if (info.status === "future") {
                         foundEvent = info;
                         break;
                     }
-                    // If it's expired, keep it as fallback if we don't find any future ones
                     if (!foundEvent || (foundEvent.status === "expired" && eventName === "last date")) {
                         foundEvent = info;
                     }
@@ -214,7 +241,7 @@ const getAiMatchAdvice = async (req, res) => {
         overview: job.fullData?.job_overview,
         dates: job.fullData?.important_dates,
         fees: job.fullData?.application_fee,
-        eligibility: job.fullData?.eligibility_summary || job.fullData?.vacancy_details,
+        eligibility: job.fullData?.eligibility || job.fullData?.vacancy_details || job.fullData?.eligibility_summary,
         vacancy: job.totalVacancy,
         primaryDateInfo: primaryDateInfo
     };

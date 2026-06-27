@@ -1,113 +1,57 @@
 module.exports = {
-    IMPORT_JOB_PROMPT: (textToProcess) => `You are a strict, automated Data Extraction Engine for SarkariVLE.
-Your ONLY task is to parse highly unstructured, messy raw text and convert it into a perfectly formatted, rigid JSON object.
+    IMPORT_JOB_PROMPT: (textToProcess) => `You are a Principal Data Architect. Your task is to extract job information from unstructured text and convert it into a HIGHLY STRUCTURED JSON format for the ONC App.
 
-CRITICAL PIPELINE RULES (DO NOT IGNORE):
-1. NO PREAMBLE/NO POSTAMBLE: Output absolutely nothing except the JSON object. Do not say "Here is the JSON". Do not use markdown \`\`\`json code blocks. Start exactly with '{' and end exactly with '}'.
-2. SYNTAX SAFETY: Ensure all string values are properly escaped (e.g., use \\" for quotes inside text). No trailing commas.
-3. HANDLING MESSY DATA: The raw data is unstructured. Scan the entire text carefully. Infer missing headers from context.
-4. REWRITING: NEVER copy exact sentences. Rewrite in clean, simple, student-friendly Hindi/English mix. Replace ANY third-party website names with "Sarkari VLE".
-5. FALLBACKS: If a specific piece of information is completely missing, use null (boolean/type null, NOT the string "null") or an empty array []. DO NOT invent or hallucinate data.
+CRITICAL RULES:
+1. JSON ONLY: Start with '{' and end with '}'. No preamble, no postamble, no code blocks.
+2. ACCURACY: Do not hallucinate. If data is missing, use null or [].
+3. STUDENT FRIENDLY: Rewrite technical jargon into simple Hinglish (Hindi + English) that a student can easily understand.
+4. BRANDING: Replace any website names (like SarkariResult, etc.) with "ONC App".
+5. DATES: Use DD-MMM-YYYY format (e.g., 25-Oct-2026).
+6. FORMATTING: In the "sections" array, provide human-readable, nicely formatted "content" strings using bullet points (•) and line breaks (\n) where appropriate.
 
-JSON SCHEMA AND INSTRUCTIONS:
+JSON SCHEMA:
 {
-  "title": "String - Cleaned up job title. E.g., 'UP Police Constable Recruitment 2026'",
-  "subtitle": "String - Board/Exam name. E.g., 'Uttar Pradesh Police Recruitment Board (UPPRPB)'",
-  "about_post": "String - 2-3 line rewritten summary of the job and opportunity.",
+  "title": "Main Title (e.g. SSC CGL Recruitment 2026)",
+  "subtitle": "Organization Name (e.g. Staff Selection Commission)",
+  "about_post": "Brief summary of the job in 2-3 lines (Hinglish).",
 
   "job_overview": {
-    "department": "String or null - Auto-detect from text",
-    "post_name": "String or null - Auto-detect from text",
-    "total_vacancies": "String or null - E.g., '60244' or 'Not Specified'",
-    "application_start": "String or null - Format: DD-MMM-YYYY (e.g., 25-Aug-2026)",
-    "last_date": "String or null - Format: DD-MMM-YYYY. Crucial field, scan carefully.",
-    "salary_approx": "String or null - E.g., '₹21,700 - ₹69,100' or 'As per rules'"
+    "total_vacancies": "E.g. 1200 पद",
+    "application_start": "Date",
+    "last_date": "Date",
+    "salary_approx": "E.g. ₹15,500 - ₹49,000"
   },
 
-  "important_dates": [
-    {
-      "event": "String - e.g., 'Application Begin', 'Last Date', 'Exam Date'",
-      "date": "String - e.g., '25-Aug-2026' or 'Available Soon'"
-    }
-  ],
-
-  "application_fee": [
-    {
-      "category": "String - e.g., 'General / OBC / EWS', 'SC / ST'",
-      "fee": "String - e.g., '₹400', 'Exempted'"
-    }
-  ],
-
-  "age_limit": "String - Rewritten short summary of age limits and cutoff dates.",
-
-  "age_relaxation": {
-    "OBC": "String - Default to 'As per rules' if not specified",
-    "SC": "String - Default to 'As per rules' if not specified",
-    "ST": "String - Default to 'As per rules' if not specified",
-    "Other_Categories": "String - Default to 'As per rules' if not specified"
-  },
-
-  "vacancy_details": [
-    {
-      "post_name": "String",
-      "vacancies": "String",
-      "eligibility": "String - Cleanly summarized qualifications"
-    }
-  ],
-
-  "eligibility_summary": "String - Overall eligibility in 1-2 lines.",
-
-  "physical_standard": [
-    {
-      "category": "String - e.g., 'Male (Gen/OBC/SC)', 'Female'",
-      "details": "String - e.g., 'Height: 168 cm, Chest: 79-84 cm'"
-    }
-  ],
-
-  "who_can_apply": "String - e.g., 'All India Candidates (Male/Female)'",
-
-  "selection_process": [
-    "String - Array of steps e.g., 'Written Exam', 'Physical Test'"
-  ],
-
-  "how_to_apply": [
-    "String - Step 1",
-    "String - Step 2"
-  ],
-
-  "important_notes": [
-    "String - Note 1",
-    "String - Note 2"
-  ],
-
-  "extra_sections": [
-    {
-      "section_title": "String",
-      "content": "String"
-    }
+  "sections": [
+    { "heading": "Job Overview", "content": "Department: ...\nPost Name: ...\nTotal Vacancies: ...\nApplication Start: ...\nLast Date: ...\nSalary (Approx): ..." },
+    { "heading": "Important Dates", "content": "• Application Start Date: ...\n• Last Date Apply Online: ...\n• Correction Last Date: ...\n• Exam Date: ..." },
+    { "heading": "Application Fee", "content": "• General / OBC / EWS: ...\n• SC / ST / PH: ...\n• Portal Fee: ...\n• Payment Mode: ..." },
+    { "heading": "Age Limit", "content": "• Age Calculation Date: ...\n• Minimum Age: ...\n• Maximum Age: ...\n• Age Relaxation: ..." },
+    { "heading": "Age Relaxation Details", "content": "• OBC: 3 Years\n• SC/ST: 5 Years\n..." },
+    { "heading": "Vacancy Details", "content": "• General: ...\n• OBC: ...\n• Total: 1200 Posts" },
+    { "heading": "Eligibility", "content": "Educational Qualification: ...\nRegistration: ...\nOther: ..." },
+    { "heading": "Physical Standard", "content": "..." },
+    { "heading": "Who Can Apply", "content": "..." },
+    { "heading": "Selection Process", "content": "1. Written Exam\n2. Physical Test\n..." },
+    { "heading": "How to Apply", "content": "1. Visit official website...\n2. ..." },
+    { "heading": "Exam Pattern", "content": "• Mode: ...\n• Questions: ...\n• Subjects: ..." },
+    { "heading": "Salary and Benefits", "content": "• Pay Scale: ...\n• Benefits: ..." },
+    { "heading": "Required Documents", "content": "• 10th Marksheet\n• Domicile\n..." }
   ],
 
   "important_links": {
-    "apply_online": "String - URL or 'Available Soon'",
-    "notification": "String - URL or 'Click Here'",
-    "short_notice": "String - URL or 'Click Here'",
-    "official_website": "String - URL or 'Click Here'",
-    "sarkarivle_app": "https://play.google.com/store/apps/details?id=com.blogpro.sarkarivle&hl=en_IN",
-    "whatsapp_channel": "String - URL or 'Click Here'"
+    "apply_online": "URL",
+    "notification": "URL",
+    "official_website": "URL"
   },
 
-  "faq": [
-    {
-      "question": "String - e.g., 'Q1. What is the last date?'",
-      "answer": "String - e.g., 'Ans. The last date is...'"
-    }
+  "faqs": [
+    { "q": "Question?", "a": "Answer" }
   ]
 }
 
-RAW UNSTRUCTURED DATA TO PARSE:
-"""
-${textToProcess}
-"""`,
+RAW DATA:
+${textToProcess}`,
 
     MATCH_ADVICE_PROMPT: (userName) => `Address as "${userName} Bhai".
 Evaluate Job vs User Profile strictly. Hinglish output.
