@@ -325,4 +325,4 @@ const deleteJob = async (req, res) => {
   res.status(204).json({ status: 'success', data: null });
 };
 
-module.exports = { getAllJobs, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob };
+module.exports = { getAllJobs, getJob, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob };

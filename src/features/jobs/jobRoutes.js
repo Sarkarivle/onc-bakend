@@ -16,14 +16,15 @@ const handle = (fnName) => (req, res, next) => {
 };
 
 router.get('/', handle('getAllJobs'));
-router.get('/:id', handle('getJob'));
 
 router.use(authMiddleware.protect);
-router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 
 // Admin / Scraper Routes
 router.get('/admin/discover', handle('discoverNewJobs'));
-router.post('/admin/import', handle('importJob')); // Fixed: changed from importFromUrl to importJob
+router.post('/admin/import', handle('importJob'));
+
+router.get('/:id', handle('getJob'));
+router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
 router.patch('/:id', handle('updateJob'));
 router.delete('/:id', handle('deleteJob'));
 

@@ -37,12 +37,12 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase">Organization</label>
-                        <input id="job-org" type="text" class="w-full border-b border-gray-100 py-1 focus:border-blue-500 outline-none text-sm">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Organization</label>
+                        <input id="job-org" type="text" class="w-full border border-gray-200 rounded px-3 py-2 focus:border-blue-500 outline-none text-sm bg-gray-50">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase">Apply Link</label>
-                        <input id="job-link" type="text" class="w-full border-b border-gray-100 py-1 focus:border-blue-500 outline-none text-sm">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Apply Link</label>
+                        <input id="job-link" type="text" class="w-full border border-gray-200 rounded px-3 py-2 focus:border-blue-500 outline-none text-sm bg-gray-50">
                     </div>
                 </div>
 
@@ -147,26 +147,25 @@
 
         async function loadJob() {
             try {
+                console.log('Fetching Job ID:', jobId);
                 const res = await fetch(`/api/v1/jobs/${jobId}`, {
                     headers: { 'Authorization': `Bearer ${admin_token}` }
                 });
-                const { data } = await res.json();
 
-                document.getElementById('job-title').value = data.title;
+                const responseData = await res.json();
+                console.log('Response:', responseData);
+
+                if (!res.ok) {
+                    throw new Error(responseData.message || 'Failed to fetch job');
+                }
+
+                const data = responseData.data;
+                if (!data) throw new Error('No data found in response');
+
+                document.getElementById('job-title').value = data.title || "";
                 document.getElementById('job-org').value = data.organization || "";
                 document.getElementById('job-link').value = data.applyLink || "";
-                document.getElementById('permalink').innerText = `https://onc.app/jobs/${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-
-                // Content loading with delay for TinyMCE to be ready
-                setTimeout(() => {
-                    tinymce.get('job-content').setContent(data.fullHtmlContent || "");
-                }, 500);
-
-                // Check Category
-                const checkboxes = document.querySelectorAll('#category-list input');
-                checkboxes.forEach(cb => {
-                    if (cb.value === data.category) cb.checked = true;
-                });
+                document.getElementById('permalink').innerText = `https://onc.app/jobs/${(data.title || "").toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
                 // Structured Data
                 const { _id, title, organization, applyLink, category, createdAt, isActive, fullHtmlContent, ...rest } = data;
@@ -176,9 +175,30 @@
                     document.getElementById('date-display').innerText = new Date(data.createdAt).toLocaleString();
                 }
 
+                // Check Category
+                const radios = document.querySelectorAll('#category-list input');
+                radios.forEach(rb => {
+                    if (rb.value === data.category) rb.checked = true;
+                });
+
+                // Content loading with delay for TinyMCE to be ready
+                let attempts = 0;
+                const setContentInterval = setInterval(() => {
+                    attempts++;
+                    const editor = tinymce.get('job-content');
+                    if (editor) {
+                        editor.setContent(data.fullHtmlContent || "");
+                        clearInterval(setContentInterval);
+                    } else if (attempts > 20) {
+                        // Fallback if editor doesn't load
+                        document.getElementById('job-content').value = data.fullHtmlContent || "";
+                        clearInterval(setContentInterval);
+                    }
+                }, 500);
+
             } catch (e) {
-                console.error(e);
-                alert('Failed to load job');
+                console.error('Load Error:', e);
+                alert('Error loading job: ' + e.message);
             }
         }
 
@@ -186,7 +206,14 @@
             const title = document.getElementById('job-title').value;
             const organization = document.getElementById('job-org').value;
             const applyLink = document.getElementById('job-link').value;
-            const content = tinymce.get('job-content').getContent();
+
+            let content = "";
+            const editor = tinymce.get('job-content');
+            if (editor) {
+                content = editor.getContent();
+            } else {
+                content = document.getElementById('job-content').value;
+            }
 
             // Get selected category
             let category = "Latest Jobs";
