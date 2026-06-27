@@ -11,25 +11,16 @@ class Planner {
      * @param {Object} state - ConversationState { pendingAction, turnCount, lastDomain }.
      * @param {Object} profile - UserProfile.
      */
-    static plan(query, intentObj, state, profile) {
-        const { acts, domains } = intentObj;
-        const missingFields = UserProfile.getMissingFields(profile);
-
-        let behavior = 'RESPOND';
-        let activeDomain = domains[0];
-        let priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT', 'CONTEXT'];
-
         // 1. CONTEXT RESOLUTION (State-Driven)
         const isFollowUpAct = acts.includes('CONFIRM') || acts.includes('NEGATE') || acts.includes('EXTEND');
         const isResolvingPending = state.pendingAction && (acts.includes('CONFIRM') || acts.includes('INFORM'));
 
-        if (isResolvingPending) {
-            // Priority: Stay in previous domain if resolving a pending request
+        if (acts.includes('NEGATE')) {
+            behavior = 'RESPOND';
+            activeDomain = 'GENERAL'; // Stop job flow if user says no
+            priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
+        } else if (isResolvingPending || (isFollowUpAct && state.lastDomain !== 'GENERAL')) {
             activeDomain = state.lastDomain !== 'GENERAL' ? state.lastDomain : activeDomain;
-            behavior = 'PROCESS_INPUT';
-        } else if (isFollowUpAct && state.lastDomain !== 'GENERAL') {
-            // General follow-up (e.g. "yes", "aur batao") in a specific context
-            activeDomain = state.lastDomain;
             behavior = 'RESPOND';
         }
 
