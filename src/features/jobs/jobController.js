@@ -65,7 +65,7 @@ const importJob = async (req, res) => {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
         $('script, style, ins, nav, footer, header').remove();
-        textToProcess = $('body').text().replace(/\s\s+/g, ' ').trim().substring(0, 4500);
+        textToProcess = $('body').text().replace(/\s\s+/g, ' ').trim().substring(0, 8000);
     }
 
     if (!textToProcess) throw new Error('Input text empty');
@@ -85,7 +85,7 @@ const importJob = async (req, res) => {
       stream: false,
       options: {
         temperature: 0.1,
-        max_tokens: 3500 // Increased for full HTML content
+        max_tokens: 6000 // Increased significantly for full HTML content including tables
       }
     });
 

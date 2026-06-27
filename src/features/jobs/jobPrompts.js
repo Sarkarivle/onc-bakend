@@ -9,6 +9,9 @@ CRITICAL RULES:
 
 [HTML CONTENT RULES]:
 - Generate ONE complete HTML block using tags like <h2>, <table>, <tr>, <th>, <td>.
+- You MUST include ALL tables from the original data (Dates, Fees, Vacancy, Eligibility, District-wise vacancy, How to Apply, etc.).
+- Do not summarize tables; extract every single row and column.
+- If the data is long, continue until every section is covered in HTML.
 - Every section (Important Dates, Fee, Vacancy, Eligibility, Age Limit, etc.) MUST be its own <h2> heading followed by a <table>.
 - In the table, use <th> for labels and <td> for values.
 - Apply inline styles for tables: <table style="width:100%; border-collapse: collapse; border: 1px solid #eee;">
