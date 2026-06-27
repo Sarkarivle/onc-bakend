@@ -16,11 +16,118 @@ JSON SCHEMA:
   "about_post": "Brief summary of the job in 2-3 lines (Hinglish).",
 
   "job_overview": {
+    "department": "Department name (e.g. MPESB)",
+    "post_name": "Full name of the post (e.g. Hospital Assistant)",
     "total_vacancies": "E.g. 1200 पद",
     "application_start": "Date",
     "last_date": "Date",
     "salary_approx": "E.g. ₹15,500 - ₹49,000"
   },
+
+  "important_dates": [
+    { "label": "Application Start Date", "value": "Date" },
+    { "label": "Last Date Apply Online", "value": "Date" },
+    { "label": "Last Date for Fee Payment", "value": "Date" },
+    { "label": "Correction Last Date", "value": "Date" },
+    { "label": "Exam Date", "value": "Date or Status" }
+  ],
+
+  "application_fee": {
+    "categories": [
+      { "category": "General / OBC / EWS", "fee": "Amount" },
+      { "category": "SC / ST / PH", "fee": "Amount" },
+      { "category": "Female (All Categories)", "fee": "Amount" }
+    ],
+    "portal_fee": "Mention portal fee if any",
+    "payment_mode": "Online / Kiosk etc."
+  },
+
+  "age_limit": {
+    "calculation_date": "Date as on which age is calculated",
+    "min_age": "Minimum age (e.g. 18 Years)",
+    "max_age": "Maximum age (e.g. 40 Years)",
+    "relaxation_summary": "Short summary of relaxation rules"
+  },
+
+  "age_relaxation_details": [
+    { "category": "OBC", "relaxation": "Duration (e.g. 3 Years)" },
+    { "category": "SC/ST", "relaxation": "Duration" }
+  ],
+
+  "vacancy_details": [
+    { "category": "General", "posts": "Count" },
+    { "category": "OBC", "posts": "Count" },
+    { "category": "SC", "posts": "Count" },
+    { "category": "ST", "posts": "Count" },
+    { "category": "EWS", "posts": "Count" },
+    { "category": "Total", "posts": "Count" }
+  ],
+
+  "eligibility": {
+    "educational": "Detailed Hinglish summary of education required",
+    "registration": "Any specific registration (e.g. Employment Exchange)",
+    "other": "Other mandatory requirements"
+  },
+
+  "physical_standard": "Details about Height, Chest, Weight, Running if applicable or 'Not Specified'",
+
+  "who_can_apply": {
+    "gender": "Male / Female / Both",
+    "state_eligibility": "Who is eligible state-wise",
+    "other_state": "Rules for other state candidates"
+  },
+
+  "selection_process": [
+    "Step 1: Description",
+    "Step 2: Description"
+  ],
+
+  "how_to_apply": [
+    "Step 1: ...",
+    "Step 2: ..."
+  ],
+
+  "important_notes": [
+    "Important tip or warning 1",
+    "Important tip or warning 2"
+  ],
+
+  "required_documents": [
+    "Document 1",
+    "Document 2"
+  ],
+
+  "exam_pattern": {
+    "mode": "Online (CBT) / Offline",
+    "type": "Objective / Subjective",
+    "total_questions": "Count",
+    "total_marks": "Count",
+    "duration": "e.g. 2 Hours",
+    "level": "e.g. 10th Level",
+    "subjects": "List of subjects"
+  },
+
+  "salary_benefits": {
+    "pay_scale": "Range",
+    "pay_level": "Level",
+    "allowances": "DA, HRA etc.",
+    "other_benefits": "Medical, NPS etc."
+  },
+
+  "result_process": [
+    "Step 1 to check result",
+    "Step 2 ..."
+  ],
+
+  "important_links": {
+    "apply_online": "URL",
+    "notification": "URL",
+    "official_website": "URL"
+  },
+
+  "faqs": [
+    { "q": "Question?", "a": "Answer" }
+  ],
 
   "sections": [
     { "heading": "Job Overview", "content": "Department: ...\nPost Name: ...\nTotal Vacancies: ...\nApplication Start: ...\nLast Date: ...\nSalary (Approx): ..." },
@@ -37,16 +144,6 @@ JSON SCHEMA:
     { "heading": "Exam Pattern", "content": "• Mode: ...\n• Questions: ...\n• Subjects: ..." },
     { "heading": "Salary and Benefits", "content": "• Pay Scale: ...\n• Benefits: ..." },
     { "heading": "Required Documents", "content": "• 10th Marksheet\n• Domicile\n..." }
-  ],
-
-  "important_links": {
-    "apply_online": "URL",
-    "notification": "URL",
-    "official_website": "URL"
-  },
-
-  "faqs": [
-    { "q": "Question?", "a": "Answer" }
   ]
 }
 

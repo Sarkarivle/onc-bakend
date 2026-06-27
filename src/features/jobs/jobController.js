@@ -144,10 +144,10 @@ const importJob = async (req, res) => {
         female: 'Check Specification'
       },
       eligibility: {
-        education: 'Check Specification below',
-        minAge: 'N/A',
-        maxAge: 'N/A',
-        ageLimit: 'N/A'
+        education: result.eligibility?.educational || 'Check Specification below',
+        minAge: result.age_limit?.min_age || 'N/A',
+        maxAge: result.age_limit?.max_age || 'N/A',
+        ageLimit: result.age_limit?.relaxation_summary || 'N/A'
       },
       jobSpecifications: (result.sections || []).map(s => ({
           heading: s.heading,
