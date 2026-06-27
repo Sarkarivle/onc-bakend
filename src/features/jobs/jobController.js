@@ -26,21 +26,27 @@ const toStr = (val) => {
 const cleanAIResponse = (text) => {
     try {
         if (!text) return "{}";
+        // Remove markdown code blocks if present
         let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        // Find the first { and last }
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
-        if (start === -1 || end === -1) return cleaned;
-        let jsonStr = cleaned.substring(start, end + 1);
-        jsonStr = jsonStr.replace(/[\x00-\x1F\x7F-\x9F]/g, " ");
-        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
-        let openBraces = (jsonStr.match(/{/g) || []).length;
-        let closeBraces = (jsonStr.match(/}/g) || []).length;
-        while (openBraces > closeBraces) {
-            jsonStr += '}';
-            closeBraces++;
+
+        if (start !== -1 && end !== -1) {
+            cleaned = cleaned.substring(start, end + 1);
         }
-        return jsonStr;
-    } catch (e) { return text; }
+
+        // Remove control characters
+        cleaned = cleaned.replace(/[\x00-\x1F\x7F-\x9F]/g, " ");
+        // Fix trailing commas
+        cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
+        return cleaned;
+    } catch (e) {
+        console.error('Cleaning Error:', e);
+        return text;
+    }
 };
 
 const discoverNewJobs = async (req, res) => {
@@ -288,13 +294,22 @@ const getAiMatchAdvice = async (req, res) => {
 
     const aiRes = await axios.post(runpodUrl, {
         model: constants.AI_MODEL_NAME,
-        prompt: fullPrompt,
+        prompt: `System: Return ONLY a valid JSON object. No preamble. No conversation.\n\nUser: ${fullPrompt}`,
         stream: false,
         options: { temperature: 0.1, top_p: 0.9, max_tokens: 1500 }
     });
 
-    const cleaned = cleanAIResponse(aiRes.data.response);
-    res.status(200).json({ status: 'success', ...JSON.parse(cleaned) });
+    const rawOutput = aiRes.data.response;
+    const cleaned = cleanAIResponse(rawOutput);
+
+    try {
+        const parsed = JSON.parse(cleaned);
+        res.status(200).json({ status: 'success', ...parsed });
+    } catch (parseErr) {
+        console.error('Failed to parse AI advice:', cleaned);
+        // Fallback: try to find JSON in raw output if cleaning failed
+        res.status(200).json({ status: 'error', message: 'JSON Parse Error' });
+    }
   } catch (err) {
     console.error('Match Advice Error:', err.message);
     res.status(200).json({ status: 'error', advice: null });
