@@ -171,53 +171,38 @@ class AIService {
     }
 
     static _finalProcess(content, confidence) {
-        const math = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
-        const msg = content.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
-        let message = msg ? msg[1].trim() : content.replace(/<(HIDDEN_MATH|USER_MESSAGE)>[\s\S]*?<\/\1>/gi, '').trim();
+        // 1. EXTRACTION: Strictly extract only user message content
+        const userMessageMatch = content.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
+        const mathMatch = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
+        const thinkMatch = content.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
 
-        // 1. STRICT INTERNAL RULE CLEANER
-        const systemNotes = [
-            /verified source recommended/gi,
-            /backend rule/gi,
-            /system rule/gi,
-            /sarkari naukri ka niyam/gi,
-            /i must not guess/gi,
-            /as per my rule/gi,
-            /internal validation/gi,
-            /source recommended/gi,
-            /hallucination guard/gi,
-            /sourceverified/gi,
-            /validation failed/gi,
-            /official source recommended/gi,
-            /maine sapni wala data nikala/gi,
-            /please respond with one of the following/gi,
-            /planner decision/gi,
-            /intent detected/gi,
-            /confidence score/gi,
-            /search router/gi,
-            /database miss/gi,
-            /internal database/gi,
-            /note:/gi,
-            /validation note:/gi
+        let message = userMessageMatch ? userMessageMatch[1].trim() : content;
+
+        // Remove ANY system tags that might have leaked
+        message = message.replace(/<(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>[\s\S]*?<\/\1>/gi, '').trim();
+        message = message.replace(/<(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>/gi, '').replace(/<\/(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>/gi, '');
+
+        // 2. CLEANUP: Remove rules and debug phrases
+        const blacklisted = [
+            /verified source recommended/gi, /backend rule/gi, /system rule/gi,
+            /sarkari naukri ka niyam/gi, /i must not guess/gi, /as per my rule/gi,
+            /internal validation/gi, /source recommended/gi, /hallucination guard/gi,
+            /sourceverified/gi, /validation failed/gi, /official source recommended/gi,
+            /sapni wala data/gi, /aapne yes kaha/gi, /you said yes/gi
         ];
 
-        systemNotes.forEach(regex => {
-            message = message.replace(regex, '');
-        });
+        blacklisted.forEach(reg => { message = message.replace(reg, ''); });
 
-        // 2. Formatting cleanup
-        message = message.replace(/\s+/g, ' ').replace(/\n\s*\n/g, '\n\n').trim();
+        // 3. FORMATTING: Clean up spaces
+        message = message.trim();
 
-        // 3. Extract Suggestions
+        // 4. Suggestions extraction
         const suggestMatch = content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
         let suggestions = suggestMatch ? suggestMatch[1].split(',').map(s => s.trim()) : [];
 
-        // Remove suggestions if they contain system rules
-        suggestions = suggestions.filter(s => !systemNotes.some(regex => s.match(regex)));
-
         return {
             message,
-            calculation: math ? math[1].trim() : "",
+            calculation: mathMatch ? mathMatch[1].trim() : (thinkMatch ? thinkMatch[1].trim() : ""),
             suggestions: suggestions.slice(0, 3)
         };
     }
