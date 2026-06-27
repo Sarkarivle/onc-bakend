@@ -59,27 +59,24 @@ const discoverNewJobs = async (req, res) => {
 const importJob = async (req, res) => {
   try {
     const { url, rawText, category } = req.body;
-    let textToProcess = rawText;
+    let textToProcess = rawText; // AI ke liye
+    let finalHtmlToSave = rawText; // Database ke liye
 
-    if (url && !textToProcess) {
+    if (url && !rawText) {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
 
-        // Sirf kachra (scripts, styles, ads) remove karein, tables aur structure rehne dein
+        // Sirf scripts aur ads remove karein for DB
         $('script, style, ins, nav, footer, header, link, iframe').remove();
+        finalHtmlToSave = $('body').html() || "";
 
-        // Tables, Headings aur Lists ko preserve karte hue HTML uthayein
-        // Hum pure body ka html le rahe hain lekin tags clean karke
-        let bodyHtml = $('body').html() || "";
-
-        // Unwanted attributes remove karein taaki prompt size chota rahe
-        bodyHtml = bodyHtml.replace(/style="[^"]*"/g, "")
+        // AI ke liye extra cleaning (tags/classes remove)
+        let bodyHtmlForAi = finalHtmlToSave.replace(/style="[^"]*"/g, "")
                           .replace(/class="[^"]*"/g, "")
                           .replace(/id="[^"]*"/g, "")
-                          .replace(/<!--[\s\S]*?-->/g, ""); // Comments remove karein
+                          .replace(/<!--[\s\S]*?-->/g, "");
 
-        // Multiple spaces aur newlines clean karein lekin structure maintain rakhein
-        textToProcess = bodyHtml.replace(/\s\s+/g, ' ').trim().substring(0, 15000);
+        textToProcess = bodyHtmlForAi.replace(/\s\s+/g, ' ').trim().substring(0, 15000);
     }
 
     if (!textToProcess) throw new Error('Input text empty');
@@ -99,7 +96,7 @@ const importJob = async (req, res) => {
       stream: false,
       options: {
         temperature: 0.1,
-        max_tokens: 20000 // Max limit for very long jobs with many tables
+        max_tokens: 20000
       }
     });
 
@@ -109,7 +106,6 @@ const importJob = async (req, res) => {
     let result;
     try {
         const fullResult = JSON.parse(cleanedJson);
-        // Supports dual structure from prompt
         result = fullResult.structured_data || fullResult;
     } catch (parseErr) {
         console.error('Raw AI Output that failed:', rawAiOutput);
@@ -146,7 +142,7 @@ const importJob = async (req, res) => {
       description: result.about_post || '',
       applyLink: url || result.important_links?.apply_online || '',
       lastDate: parseDate(result.important_dates?.last_date || result.job_overview?.last_date),
-      fullHtmlContent: textToProcess,
+      fullHtmlContent: finalHtmlToSave,
       importantDates: {
         applicationBegin: toStr(result.important_dates?.begin || result.job_overview?.application_start),
         applicationLastDate: toStr(result.important_dates?.last_date || result.job_overview?.last_date),
@@ -195,20 +191,15 @@ const getAiMatchAdvice = async (req, res) => {
 
     const advicePrompt = jobPrompts.MATCH_ADVICE_PROMPT(user.name);
 
-    // AI ko sirf zaroori fields bhej rahe hain taaki speed badhe
-    // Accurate Primary Date Calculation for AI context
     let primaryDateInfo = { event: "Apply Last Date", daysRemaining: "N/A", status: "future", dateStr: "" };
     try {
         const jobCat = (job.category || "").toLowerCase();
-
-        // Potential events to check in order of importance
         const eventsToCheck = ["last date", "exam date", "admit card", "result", "answer key"];
         if (jobCat.includes('admit')) eventsToCheck.unshift("admit card");
         if (jobCat.includes('result')) eventsToCheck.unshift("result");
         if (jobCat.includes('exam')) eventsToCheck.unshift("exam date");
 
         let foundEvent = null;
-        // Check new structure (label/value) and fallback to old (event/date)
         const allDates = job.fullData?.important_dates || [];
         const overviewLastDate = job.fullData?.job_overview?.last_date;
 
@@ -225,7 +216,6 @@ const getAiMatchAdvice = async (req, res) => {
             if (dateStr && dateStr !== "Available Soon" && dateStr !== "N/A") {
                 let targetDate;
                 if (dateStr.includes('-')) {
-                    // Try to parse DD-MMM-YYYY
                     const parts = dateStr.split('-');
                     if (parts.length === 3 && isNaN(parts[1])) {
                         const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct':9, 'nov':10, 'dec':11 };
@@ -298,7 +288,7 @@ const getAiMatchAdvice = async (req, res) => {
         model: constants.AI_MODEL_NAME,
         prompt: fullPrompt,
         stream: false,
-        options: { temperature: 0.1, top_p: 0.9, max_tokens: 1500 } // Increased for detailed advice
+        options: { temperature: 0.1, top_p: 0.9, max_tokens: 1500 }
     });
 
     const cleaned = cleanAIResponse(aiRes.data.response);
