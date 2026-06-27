@@ -137,7 +137,7 @@ class AIService {
         return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
     }
 
-    static async _fetchDbData(query, profile) {
+    static async _fetchDatabaseKnowledge(query, profile) {
         const q = query.toLowerCase();
         // Skip filtering for generic "latest" or "top" queries
         const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy');

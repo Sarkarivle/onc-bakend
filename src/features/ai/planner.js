@@ -11,6 +11,14 @@ class Planner {
      * @param {Object} state - ConversationState { pendingAction, turnCount, lastDomain }.
      * @param {Object} profile - UserProfile.
      */
+    static plan(query, intentObj, state, profile) {
+        const { acts, domains } = intentObj;
+        const missingFields = UserProfile.getMissingFields(profile);
+
+        let behavior = 'RESPOND';
+        let activeDomain = domains[0];
+        let priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT', 'CONTEXT'];
+
         // 1. CONTEXT RESOLUTION (State-Driven)
         const isFollowUpAct = acts.includes('CONFIRM') || acts.includes('NEGATE') || acts.includes('EXTEND');
         const isResolvingPending = state.pendingAction && (acts.includes('CONFIRM') || acts.includes('INFORM'));
@@ -25,13 +33,12 @@ class Planner {
         }
 
         // 2. GREETING OVERRIDE (Minimalist Policy)
-        // If it's a greeting and NOT mixed with a domain request, force minimalist behavior.
         if (acts.includes('GREET') && domains.includes('GENERAL')) {
             return {
                 behavior: 'GREET',
                 intent: 'GENERAL',
                 primaryAct: 'GREET',
-                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'], // NO Gov Jobs, NO Career
+                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'],
                 missingFields: [],
                 needSearch: false,
                 needReasoning: false
@@ -41,7 +48,6 @@ class Planner {
         // 3. DOMAIN EVALUATION (Knowledge-Aware)
         const factualDomains = ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP', 'COLLEGE'];
         if (factualDomains.includes(activeDomain) && !acts.includes('GREET')) {
-            // Check if profile gaps exist for domains that require eligibility checks
             if (missingFields.length > 0) {
                 behavior = 'DATA_GATHERING';
             }
