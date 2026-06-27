@@ -12,6 +12,7 @@ const Jansewa = require('./features/jansewa/jansewaModel');
 const Settings = require('./features/settings/settingsModel');
 const Feedback = require('./features/feedback/feedbackModel');
 const Chat = require('./features/chat/chatModel');
+const Correction = require('./features/ai/correctionModel');
 const SearchService = require('./features/ai/searchService');
 const aiPrompts = require('./features/ai/aiPrompts');
 const constants = require('./config/constants');
@@ -85,6 +86,24 @@ app.post('/api/v1/ai/feedback', async (req, res) => {
     }
 });
 
+// Admin Correction Route (The "Gold" Standard Learning)
+app.post('/api/v1/ai/correct', async (req, res) => {
+    try {
+        const { originalQuestion, correctedResponse, badResponse, category } = req.body;
+
+        await Correction.create({
+            originalQuestion,
+            correctedResponse,
+            badResponse,
+            category
+        });
+
+        res.json({ success: true, message: "AI has learned the correct answer!" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Get Chat History
 app.get('/api/v1/ai/history/:userName', async (req, res) => {
     try {
@@ -135,21 +154,19 @@ app.post('/api/v1/ai/ask', async (req, res) => {
         - DISLIKED STYLES: ${negativeStyles || "No specific dislikes yet"}
         `;
 
-        // --- STEP 3: CALCULATE SERVER FACT (AGE) ---
+        // --- STEP 3: CALCULATE SERVER FACT (AGE & DATE) ---
         let calculatedAge = "Unknown";
-        const today = new Date();
 
-        // Format date to DD/MM/YYYY
-        const day = String(today.getDate()).padStart(2, '0');
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const year = today.getFullYear();
-        const formattedToday = `${day}/${month}/${year}`;
+        // India/Kolkata Timezone Date Calculation
+        const indiaDate = new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" });
+        const formattedToday = indiaDate.split(',')[0]; // Extract DD/MM/YYYY
 
         if (userDOB) {
+            const todayKolkata = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
             const birthDate = new Date(userDOB);
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const m = today.getMonth() - birthDate.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+            let age = todayKolkata.getFullYear() - birthDate.getFullYear();
+            const m = todayKolkata.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && todayKolkata.getDate() < birthDate.getDate())) age--;
             calculatedAge = age;
         }
 
@@ -200,7 +217,21 @@ app.post('/api/v1/ai/ask', async (req, res) => {
                 searchResults.map(r => `Title: ${r.title}\nDescription: ${r.description}\nSource: ${r.url}`).join("\n\n");
         }
 
-        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(userName, userLocation, userDOB, userCategory, userQualification, jobInfo, kendraInfo, userInsights);
+        // Extract current year from formattedToday (DD/MM/YYYY)
+        const currentYear = formattedToday.split('/')[2];
+
+        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(
+            userName,
+            userLocation,
+            userDOB,
+            userCategory,
+            userQualification,
+            jobInfo,
+            kendraInfo,
+            userInsights,
+            formattedToday,
+            currentYear
+        );
 
         // Inject Web Context
         const finalSystemPrompt = systemInstruction + webContext;
