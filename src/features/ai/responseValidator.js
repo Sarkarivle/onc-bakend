@@ -2,9 +2,14 @@ class ResponseValidator {
     /**
      * Actively validates the response against the Ground Truth.
      */
-    static validate(response, { query, liveData }) {
+    static validate(response, { query, liveData, intent }) {
         const issues = [];
         const resLower = response.toLowerCase();
+
+        // Skip strict factual check for simple conversations
+        if (intent && ['GREETING', 'THANKS', 'SMALL_TALK'].includes(intent)) {
+            return { isValid: true, issues: [], score: 100 };
+        }
 
         // 1. Check for hallucinated numbers/dates
         const numbersInResponse = response.match(/\d+/g) || [];

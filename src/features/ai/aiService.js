@@ -59,21 +59,25 @@ class AIService {
             const insights = userLearnings.map(l => l.rating === 'up' ? `LIKED: ${l.aiResponse.substring(0, 20)}` : `DISLIKED: ${l.aiResponse.substring(0, 20)}`).join(' | ');
             const profile = UserProfile.format({ name: userName, loc: userLocation, dob: userDOB, cat: userCategory, qual: userQualification, insights });
 
-            // 4. Knowledge Acquisition (Parallel)
+            // 4. Knowledge Acquisition (Strict DATABASE PRIORITY POLICY)
             let liveData = { jobs: "", kendras: "", web: "" };
-            if (routes.shouldFetchLiveData) {
+            let dbFound = false;
+
+            if (routes.selectedSources.includes('DATABASE')) {
+                const dbResults = await this._fetchDbData(rewrittenQuery);
+                liveData.jobs = dbResults.jobs;
+                liveData.kendras = dbResults.kendras;
+                if (dbResults.count > 0) dbFound = true;
+            }
+
+            // Rule: Only search if Database had no matching jobs AND search is enabled
+            if (!dbFound && routes.shouldCheckSearchIfDbFails) {
                 metrics.searchUsed = true;
-                const fetchPromises = [];
-                if (routes.selectedSources.includes('DATABASE')) {
-                    fetchPromises.push(this._fetchDbData(rewrittenQuery).then(res => {
-                        liveData.jobs = res.jobs;
-                        liveData.kendras = res.kendras;
-                    }));
-                }
-                if (routes.selectedSources.includes('SEARCH')) {
-                    fetchPromises.push(this._fetchWebData(rewrittenQuery).then(res => liveData.web = res));
-                }
-                await Promise.all(fetchPromises);
+                const searchResults = await this._fetchWebData(rewrittenQuery);
+                liveData.web = searchResults;
+
+                // Rule: If search found verified data, we could "Shadow Save" it
+                // (Implementation for future: Auto-seed DB from high-confidence search)
             }
 
             // 5. Prompt Construction (ENTERPRISE: Versioned & Async)
@@ -99,19 +103,27 @@ class AIService {
 
             // 7. Quality Assurance & Hallucination Check
             let finalContent = aiResponse.content;
-            const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData });
+            const hasFactualData = !!(liveData.jobs || liveData.web);
+            const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData, intent: plan.intent });
 
-            // 8. Self-Correction / Reject Hallucination
-            if (!validation.isValid && plan.needSearch && !liveData.web && !liveData.jobs) {
-                // Search failed and LLM tried to guess
-                finalContent = "<USER_MESSAGE>I couldn't retrieve verified official information right now. Rather than guessing, I prefer not to provide incorrect details. Please try again in a few moments.</USER_MESSAGE>";
-            } else if (!validation.isValid) {
-                // LLM hallucinated despite having data, attempt one correction
-                const correction = await llm.chat([
-                    { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your last response was rejected for having unverified numbers or dates. Only use data from [REAL-TIME DATA SOURCE]. Do not guess." },
-                    { role: 'user', content: rewrittenQuery }
-                ]);
-                finalContent = correction.content;
+            // 8. SMART FALLBACK LOGIC
+            if (!validation.isValid) {
+                if (!hasFactualData) {
+                    // Scenario: Database/Search khali hai.
+                    // LLM ko bolo ki generic career advice de par fake numbers na likhe.
+                    const fallbackResponse = await llm.chat([
+                        { role: 'system', content: systemInstruction + "\n\nNOTE: Official notification data for this specific query is currently unavailable. DO NOT invent dates or salaries. Provide general career guidance and typical eligibility." },
+                        { role: 'user', content: rewrittenQuery }
+                    ]);
+                    finalContent = fallbackResponse.content;
+                } else {
+                    // Data tha par LLM ne galti ki, ek baar sudharne ka mauka dein
+                    const correction = await llm.chat([
+                        { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your last response was rejected for unverified numbers. Use ONLY provided data." },
+                        { role: 'user', content: rewrittenQuery }
+                    ]);
+                    finalContent = correction.content;
+                }
             }
 
             const confidence = ConfidenceEngine.calculate(plan, liveData, validation);
@@ -155,17 +167,28 @@ class AIService {
     }
 
     static async _fetchDbData(query) {
-        const keywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        const q = query.toLowerCase();
+        const keywords = q.split(/\s+/).filter(w => w.length > 3 && !['jobs', 'jankari', 'bharti', 'vacancy'].includes(w));
+
         let searchCriteria = { isActive: true };
+
         if (keywords.length > 0) {
-            searchCriteria.$or = [{ title: { $regex: keywords.join('|'), $options: 'i' } }];
+            searchCriteria.$or = [
+                { title: { $regex: keywords.join('|'), $options: 'i' } },
+                { organization: { $regex: keywords.join('|'), $options: 'i' } }
+            ];
         }
+
         const [jobs, kendras] = await Promise.all([
-            Job.find(searchCriteria).sort({ _id: -1 }).limit(5),
+            Job.find(searchCriteria).sort({ _id: -1 }).limit(8),
             Jansewa.find().limit(2)
         ]);
+
         return {
-            jobs: jobs.map(j => `- ${j.title} | ${j.organization}`).join("\n"),
+            count: jobs.length,
+            jobs: jobs.length > 0
+                ? jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Vacancy: ${j.totalVacancy || "Check Notification"} | Date: ${j.importantDates?.applicationLastDate || "NA"} | Salary: ${j.salary || "As per rules"}`).join("\n")
+                : "",
             kendras: kendras.map(k => k.name).join(", ")
         };
     }

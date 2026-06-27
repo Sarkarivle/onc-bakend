@@ -1,8 +1,6 @@
 /**
  * KnowledgeRouter Module
- * Responsibility: Decide and orchestrate where the information should be fetched from.
- *
- * Sources: Prompt Module, Conversation Memory, Search, Database, LLM.
+ * Implements DATABASE PRIORITY POLICY.
  */
 class KnowledgeRouter {
     /**
@@ -12,40 +10,23 @@ class KnowledgeRouter {
      */
     static route(plan, query) {
         const q = query.toLowerCase();
-        const sources = [];
+        const sources = ['PROMPT_MODULES', 'LLM_BASE'];
 
-        // 1. Memory Route
-        if (plan.needMemory) {
-            sources.push('MEMORY'); // Chat history and User Insights
-        }
+        // Rule: Internal Database is ALWAYS Priority 1 for Jobs/Jansewa
+        const isFactualQuery = ['GOVT_JOB', 'LATEST_VACANCY', 'JANSEWA', 'ELIGIBILITY', 'SALARY'].includes(plan.intent);
 
-        // 2. Database Route (Internal Job Listings / Jansewa)
-        const dbIntents = ['GOVT_JOB', 'LATEST_VACANCY', 'JANSEWA'];
-        if (dbIntents.includes(plan.intent)) {
+        if (isFactualQuery) {
             sources.push('DATABASE');
         }
 
-        // 3. Search Route (External real-time data)
-        // Rule: Never search greetings or simple calculations
-        const searchExclusions = ['GREETING', 'THANKS', 'SMALL_TALK'];
-        const isCalculation = q.match(/\d+[\+\-\*\/]\d+/) || q.includes('calculate') || q.includes('hisab');
-
-        if (plan.needSearch && !searchExclusions.includes(plan.intent) && !isCalculation) {
-            // Rule: Always search latest government notifications
-            sources.push('SEARCH');
-        }
-
-        // 4. Prompt Route (Expert System Knowledge)
-        sources.push('PROMPT_MODULES');
-
-        // 5. LLM (Inherent Knowledge)
-        sources.push('LLM_BASE');
+        // Rule: Search is Priority 3 (Only if DB fails, handled in service)
+        // But we must enable the capability here if needed.
+        const needsLiveUpdate = q.includes('latest') || q.includes('current') || q.includes('2024') || q.includes('notification');
 
         return {
             selectedSources: sources,
-            isHybrid: sources.length > 1,
-            primarySource: sources.includes('DATABASE') ? 'DATABASE' : (sources.includes('SEARCH') ? 'SEARCH' : 'LLM_BASE'),
-            shouldFetchLiveData: sources.includes('DATABASE') || sources.includes('SEARCH')
+            shouldCheckSearchIfDbFails: plan.needSearch || needsLiveUpdate,
+            isFactualQuery: isFactualQuery
         };
     }
 }
