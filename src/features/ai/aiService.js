@@ -67,17 +67,17 @@ class AIService {
 
             // --- PHASE 7: Data Collection ---
             let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile) };
-            if (routes.shouldFetchLiveData || plan.behavior === 'PROCESS_INPUT') {
+            if (routes.shouldFetchLiveData || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
-                // Smart context: If query is very short, use the previous topic/domain to fetch jobs
                 const searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
 
-                const [dbData, webData] = await Promise.all([
-                    (routes.selectedSources.includes('DATABASE') || plan.intent === 'GOVT_JOB') ? this._fetchDatabaseKnowledge(searchQuery, profile) : null,
+                const [dbResult, webData] = await Promise.all([
+                    this._fetchDatabaseKnowledge(searchQuery, profile),
                     routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
-                if (dbData) knowledgeContext.jobs = dbData;
+
+                if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
                 if (webData) knowledgeContext.web = webData;
             }
 
