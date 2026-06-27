@@ -64,8 +64,22 @@ const importJob = async (req, res) => {
     if (url && !textToProcess) {
         const pageRes = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
         const $ = cheerio.load(pageRes.data);
-        $('script, style, ins, nav, footer, header').remove();
-        textToProcess = $('body').text().replace(/\s\s+/g, ' ').trim().substring(0, 8000);
+
+        // Sirf kachra (scripts, styles, ads) remove karein, tables aur structure rehne dein
+        $('script, style, ins, nav, footer, header, link, iframe').remove();
+
+        // Tables, Headings aur Lists ko preserve karte hue HTML uthayein
+        // Hum pure body ka html le rahe hain lekin tags clean karke
+        let bodyHtml = $('body').html() || "";
+
+        // Unwanted attributes remove karein taaki prompt size chota rahe
+        bodyHtml = bodyHtml.replace(/style="[^"]*"/g, "")
+                          .replace(/class="[^"]*"/g, "")
+                          .replace(/id="[^"]*"/g, "")
+                          .replace(/<!--[\s\S]*?-->/g, ""); // Comments remove karein
+
+        // Multiple spaces aur newlines clean karein lekin structure maintain rakhein
+        textToProcess = bodyHtml.replace(/\s\s+/g, ' ').trim().substring(0, 10000);
     }
 
     if (!textToProcess) throw new Error('Input text empty');
@@ -85,7 +99,7 @@ const importJob = async (req, res) => {
       stream: false,
       options: {
         temperature: 0.1,
-        max_tokens: 6000 // Increased significantly for full HTML content including tables
+        max_tokens: 20000 // Max limit for very long jobs with many tables
       }
     });
 
