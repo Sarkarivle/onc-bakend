@@ -39,16 +39,17 @@ class ResponseValidator {
             }
         }
 
-        // 3. Check for hallucinated numbers/dates (Skip for simple conversations)
+        // 3. Factual Number Enforcement
         if (!['GREETING', 'THANKS', 'SMALL_TALK'].includes(intent)) {
-            const numbersInResponse = response.match(/\d+/g) || [];
+            const numbersInResponse = response.match(/\d{3,}/g) || []; // Check numbers with 3+ digits (salaries, vacancies)
             const combinedData = (liveData.jobs + liveData.web).toLowerCase();
 
-            numbersInResponse.forEach(num => {
-                if (num.length > 2 && !combinedData.includes(num)) {
-                    issues.push(`Unverified number detected: ${num}`);
+            for (const num of numbersInResponse) {
+                if (!combinedData.includes(num)) {
+                    issues.push(`Hallucination detected: AI invented a number not in source data: ${num}`);
+                    break;
                 }
-            });
+            }
         }
 
         // 4. Structural Integrity

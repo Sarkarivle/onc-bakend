@@ -135,34 +135,29 @@ class AIService {
         return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
     }
 
-    static async _fetchDatabaseKnowledge(query, profile) {
+    static async _fetchDbData(query, profile) {
         const q = query.toLowerCase();
-        const keywords = q.split(/\s+/).filter(w => w.length > 3 && !['jobs', 'bharti', 'vacancy'].includes(w));
+        // Skip filtering for generic "latest" or "top" queries
+        const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy');
+        const keywords = q.split(/\s+/).filter(w => w.length > 3 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao'].includes(w));
 
         const now = new Date();
-        let criteria = {
-            isActive: true,
-            lastDate: { $gte: now } // Expiry Rule: Only show future or today's last date
-        };
+        let criteria = { isActive: true, lastDate: { $gte: now } };
 
-        // Profile-based filtering
+        if (!isGeneric && keywords.length > 0) {
+            criteria.$or = [{ title: { $regex: keywords.join('|'), $options: 'i' } }, { organization: { $regex: keywords.join('|'), $options: 'i' } }];
+        }
+
+        // If user profile has qualification, filter by it
         if (profile?.qualification) {
             criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
         }
 
-        if (keywords.length > 0) {
-            criteria.$or = [
-                { title: { $regex: keywords.join('|'), $options: 'i' } },
-                { organization: { $regex: keywords.join('|'), $options: 'i' } }
-            ];
-        }
-
-        // Sort by nearest last date first
-        const jobs = await Job.find(criteria).sort({ lastDate: 1 }).limit(5);
-
-        return jobs.length > 0
-            ? jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || j.lastDate?.toDateString()} | Eligibility: ${j.eligibility?.education} | Salary: ${j.salary}`).join("\n")
-            : "";
+        const jobs = await Job.find(criteria).sort({ lastDate: 1 }).limit(10);
+        return {
+            count: jobs.length,
+            jobs: jobs.length > 0 ? jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Vacancy: ${j.totalVacancy} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`).join("\n") : ""
+        };
     }
 
     static async _fetchWebKnowledge(query) {
