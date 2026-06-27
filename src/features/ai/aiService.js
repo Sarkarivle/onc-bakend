@@ -72,12 +72,19 @@ class AIService {
 
                 const searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
 
-                const [dbResult, webData] = await Promise.all([
+                let [dbResult, webData] = await Promise.all([
                     this._fetchDatabaseKnowledge(searchQuery, profile),
                     routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
 
                 if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
+
+                // Fallback to search if DB is empty and router allows it
+                if (!knowledgeContext.jobs && routes.shouldCheckSearchIfDbFails && !webData) {
+                    ProgressEmitter.emit(sessionId, 'WEB_SEARCHING');
+                    webData = await this._fetchWebKnowledge(searchQuery);
+                }
+
                 if (webData) knowledgeContext.web = webData;
             }
 
@@ -172,7 +179,11 @@ class AIService {
         const jobs = await Job.find(criteria).sort({ lastDate: 1 }).limit(10);
         return {
             count: jobs.length,
-            jobs: jobs.length > 0 ? jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Vacancy: ${j.totalVacancy} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`).join("\n") : ""
+            jobs: jobs.length > 0 ? jobs.map(j => {
+                let info = `- JOB: ${j.title} | Org: ${j.organization} | Vacancy: ${j.totalVacancy} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`;
+                if (j.eligibility?.education) info += ` | Qualification: ${j.eligibility.education}`;
+                return info;
+            }).join("\n") : ""
         };
     }
 

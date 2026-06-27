@@ -17,7 +17,7 @@ class PromptComposer {
         const cleanUser = this._sanitizeData(userData);
 
         // 1. Fetch all required modules in parallel (Performance Optimization)
-        const allKeys = ['CORE', 'PERSONALITY', 'HALLUCINATION_PREVENTION', ...priorityModules];
+        const allKeys = ['CORE', 'PERSONALITY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
         const uniqueKeys = [...new Set(allKeys)];
 
         const moduleMap = {};
