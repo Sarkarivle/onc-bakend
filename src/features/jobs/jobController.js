@@ -116,7 +116,6 @@ const importJob = async (req, res) => {
                 d = new Date(dateStr);
             }
 
-            // Final check to prevent "Invalid Date" object from being returned
             if (!d || isNaN(d.getTime())) return null;
             return d;
         } catch (e) {
@@ -135,22 +134,22 @@ const importJob = async (req, res) => {
       importantDates: {
         applicationBegin: toStr(result.job_overview?.application_start),
         applicationLastDate: toStr(result.job_overview?.last_date),
-        feePaymentLastDate: 'Check Specification',
-        examDate: 'Check Specification'
+        feePaymentLastDate: toStr(result.important_dates?.find(d => d.event.toLowerCase().includes('fee'))?.date || 'Check Specification'),
+        examDate: toStr(result.important_dates?.find(d => d.event.toLowerCase().includes('exam'))?.date || 'As per Schedule')
       },
       applicationFee: {
-        generalObcEws: 'Check Specification',
-        scStPh: 'Check Specification',
-        female: 'Check Specification'
+        generalObcEws: toStr(result.application_fee?.find(f => f.category.toLowerCase().match(/gen|obc|ews/))?.fee || 'Check Specification'),
+        scStPh: toStr(result.application_fee?.find(f => f.category.toLowerCase().match(/sc|st|ph/))?.fee || 'Check Specification'),
+        female: toStr(result.application_fee?.find(f => f.category.toLowerCase().includes('female'))?.fee || 'N/A')
       },
       eligibility: {
-        education: result.eligibility?.educational || 'Check Specification below',
-        minAge: result.age_limit?.min_age || 'N/A',
-        maxAge: result.age_limit?.max_age || 'N/A',
-        ageLimit: result.age_limit?.relaxation_summary || 'N/A'
+        education: result.eligibility_summary || 'Check Specification below',
+        minAge: 'N/A',
+        maxAge: 'N/A',
+        ageLimit: 'N/A'
       },
-      jobSpecifications: (result.sections || []).map(s => ({
-          heading: s.heading,
+      jobSpecifications: (result.extra_sections || []).map(s => ({
+          heading: s.section_title,
           details: s.content
       })),
       aiCoreSummary: { summary: result.about_post },
