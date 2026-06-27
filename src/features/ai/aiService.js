@@ -83,8 +83,19 @@ class AIService {
 
             // --- PHASE 8 & 9: LLM Execution ---
             ProgressEmitter.emit(sessionId, 'PROMPT_COMPOSING');
-            const indiaDate = new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" });
-            const promptMeta = { currentDate: indiaDate.split(',')[0], currentYear: indiaDate.split('/')[2], sessionId, behavior: plan.behavior };
+
+            // Get Current Date in Kolkata Timezone (IST)
+            const options = { timeZone: "Asia/Kolkata", day: '2-digit', month: 'long', year: 'numeric' };
+            const indiaDateStr = new Intl.DateTimeFormat('en-GB', options).format(new Date());
+            const currentYear = new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata", year: 'numeric' });
+
+            const promptMeta = {
+                currentDate: indiaDateStr,
+                currentYear: currentYear,
+                sessionId,
+                behavior: plan.behavior
+            };
+
             const systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
 
             ProgressEmitter.emit(sessionId, 'LLM_THINKING');
@@ -104,8 +115,11 @@ class AIService {
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
             const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData: knowledgeContext, intent: plan.intent });
 
-            if (!validation.isValid && plan.needReasoning) {
-                const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
+            if (!validation.isValid && !knowledgeContext.jobs && !knowledgeContext.web) {
+                // If data is missing, don't let AI guess
+                finalContent = "<USER_MESSAGE>Mujhe abhi is query se judi koi verified official notification nahi mili hai. Kripya official website check karein.</USER_MESSAGE>";
+            } else if (!validation.isValid && plan.needReasoning) {
+                const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
                 finalContent = correction.content;
             }
 

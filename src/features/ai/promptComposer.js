@@ -49,7 +49,13 @@ class PromptComposer {
         promptChunks.push(contextSection);
 
         // 4. Critical Rules (Last for maximum weight)
-        if (moduleMap.OUTPUT) promptChunks.push(`[CRITICAL OUTPUT RULES]:\n${moduleMap.OUTPUT}`);
+        if (moduleMap.OUTPUT) {
+            const outputContent = typeof moduleMap.OUTPUT === 'function'
+                ? moduleMap.OUTPUT(currentDate)
+                : moduleMap.OUTPUT;
+            promptChunks.push(`[CRITICAL OUTPUT RULES]:\n${outputContent}`);
+        }
+
         if (moduleMap.HALLUCINATION_PREVENTION) promptChunks.push(`[GUARDRAILS]:\n${moduleMap.HALLUCINATION_PREVENTION}`);
 
         let finalPrompt = promptChunks.join('\n\n---\n\n');
