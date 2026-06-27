@@ -204,7 +204,7 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             jobInfo = jobs.map(j => {
                 const edu = j.eligibility?.education || "10th/12th/Graduate";
                 const age = j.eligibility?.ageLimit || `${j.eligibility?.minAge}-${j.eligibility?.maxAge}`;
-                return `JOB: ${j.title}\n- Organization: ${j.organization}\n- Eligibility: ${edu}\n- Age: ${age}\n- Last Date: ${j.importantDates?.applicationLastDate || 'N/A'}`;
+                return `JOB: ${j.title}\n- Organization: ${j.organization}\n- Eligibility: ${edu}\n- Age: ${age}\n- Last Date: ${j.importantDates?.applicationLastDate || 'N/A'}\n- Source: ${j.applyLink || 'Official Website'}`;
             }).join("\n\n");
 
             kendraInfo = kendras.map(k => `${k.name} (${k.address || 'Bareilly'})`).join(", ");
