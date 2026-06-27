@@ -169,30 +169,56 @@ class AIService {
         const q = query.toLowerCase();
         // Skip filtering for generic "latest" or "top" queries
         const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy');
-        const keywords = q.split(/\s+/).filter(w => w.length > 3 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao'].includes(w));
+        const keywords = q.split(/\s+/).filter(w => w.length > 2 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao', 'karein', 'kijiye', 'bare', 'mein'].includes(w));
 
         const now = new Date();
-        let criteria = { isActive: true, lastDate: { $gte: now } };
+        // Allow jobs that are active, even if lastDate is missing (fallback to null check)
+        let criteria = {
+            isActive: true,
+            $or: [
+                { lastDate: { $gte: now } },
+                { lastDate: null },
+                { lastDate: { $exists: false } }
+            ]
+        };
 
         if (!isGeneric && keywords.length > 0) {
-            criteria.$or = [
-                { title: { $regex: keywords.join('|'), $options: 'i' } },
-                { organization: { $regex: keywords.join('|'), $options: 'i' } },
-                { fullHtmlContent: { $regex: keywords.join('|'), $options: 'i' } }
+            criteria.$and = [
+                { isActive: true },
+                { $or: criteria.$or }, // Keep the date/active filter
+                {
+                    $or: [
+                        { title: { $regex: keywords.join('|'), $options: 'i' } },
+                        { organization: { $regex: keywords.join('|'), $options: 'i' } },
+                        { fullHtmlContent: { $regex: keywords.join('|'), $options: 'i' } }
+                    ]
+                }
             ];
+            delete criteria.isActive;
+            delete criteria.$or;
         }
 
-        // If user profile has qualification, filter by it
+        // If user profile has qualification, we attempt to filter, but we don't make it mandatory if 0 results
+        let jobs = [];
         if (profile?.qualification) {
-            criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
+            let qualCriteria = { ...criteria };
+            const qualRegex = { $regex: profile.qualification, $options: 'i' };
+            if (qualCriteria.$and) {
+                qualCriteria.$and.push({ 'eligibility.education': qualRegex });
+            } else {
+                qualCriteria['eligibility.education'] = qualRegex;
+            }
+            jobs = await Job.find(qualCriteria).sort({ createdAt: -1 }).limit(10);
         }
 
-        let sortCriteria = { lastDate: 1 };
-        if (q.includes('new') || q.includes('latest') || q.includes('fresh')) {
-            sortCriteria = { createdAt: -1 };
+        if (jobs.length === 0) {
+            let sortCriteria = { lastDate: 1 };
+            if (q.includes('new') || q.includes('latest') || q.includes('fresh') || isGeneric) {
+                sortCriteria = { createdAt: -1 };
+            }
+            jobs = await Job.find(criteria).sort(sortCriteria).limit(10);
         }
 
-        const jobs = await Job.find(criteria).sort(sortCriteria).limit(10);
         return {
             count: jobs.length,
             jobs: jobs.length > 0 ? jobs.map(j => {
