@@ -17,6 +17,7 @@ const SearchService = require('./searchService');
 const ResponseValidator = require('./responseValidator');
 const ConfidenceEngine = require('./confidenceEngine');
 const ProgressEmitter = require('./progressEmitter');
+const cheerio = require('cheerio');
 
 // Infrastructure Layers
 const RunpodProvider = require('./providers/runpodProvider');
@@ -70,7 +71,12 @@ class AIService {
             if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
-                const searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
+                let searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
+
+                // Improved follow-up search: If query is very short (e.g., "batao", "dikhao"), use the topic
+                if (keywords.length === 0 && !isGeneric && state.topic && state.topic !== 'GENERAL') {
+                    searchQuery = state.topic + " " + q;
+                }
 
                 let [dbResult, webData] = await Promise.all([
                     this._fetchDatabaseKnowledge(searchQuery, profile),
@@ -168,7 +174,11 @@ class AIService {
         let criteria = { isActive: true, lastDate: { $gte: now } };
 
         if (!isGeneric && keywords.length > 0) {
-            criteria.$or = [{ title: { $regex: keywords.join('|'), $options: 'i' } }, { organization: { $regex: keywords.join('|'), $options: 'i' } }];
+            criteria.$or = [
+                { title: { $regex: keywords.join('|'), $options: 'i' } },
+                { organization: { $regex: keywords.join('|'), $options: 'i' } },
+                { fullHtmlContent: { $regex: keywords.join('|'), $options: 'i' } }
+            ];
         }
 
         // If user profile has qualification, filter by it
@@ -176,12 +186,32 @@ class AIService {
             criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
         }
 
-        const jobs = await Job.find(criteria).sort({ lastDate: 1 }).limit(10);
+        let sortCriteria = { lastDate: 1 };
+        if (q.includes('new') || q.includes('latest') || q.includes('fresh')) {
+            sortCriteria = { createdAt: -1 };
+        }
+
+        const jobs = await Job.find(criteria).sort(sortCriteria).limit(10);
         return {
             count: jobs.length,
             jobs: jobs.length > 0 ? jobs.map(j => {
-                let info = `- JOB: ${j.title} | Org: ${j.organization} | Vacancy: ${j.totalVacancy} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`;
+                let title = j.title;
+                let org = j.organization || "N/A";
+                let htmlDetails = "";
+
+                if (j.fullHtmlContent) {
+                    const $ = cheerio.load(j.fullHtmlContent);
+                    if (!title || title === "N/A") {
+                        title = $('h1, h2, h3, b, strong').first().text().trim().substring(0, 100);
+                    }
+                    $('script, style, nav, footer').remove();
+                    htmlDetails = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 600);
+                }
+
+                let info = `- JOB: ${title || "N/A"} | Org: ${org} | Vacancy: ${j.totalVacancy || "N/A"} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`;
+                if (htmlDetails) info += ` | Summary: ${htmlDetails}...`;
                 if (j.eligibility?.education) info += ` | Qualification: ${j.eligibility.education}`;
+
                 return info;
             }).join("\n") : ""
         };
