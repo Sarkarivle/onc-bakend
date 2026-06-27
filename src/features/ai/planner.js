@@ -30,6 +30,10 @@ class Planner {
         } else if (isResolvingPending || (isFollowUpAct && state.lastDomain !== 'GENERAL')) {
             activeDomain = state.lastDomain !== 'GENERAL' ? state.lastDomain : activeDomain;
             behavior = 'RESPOND';
+        } else if (isFollowUpAct && state.lastDomain === 'GENERAL' && acts.includes('CONFIRM')) {
+            // User said "yes" to a general prompt - likely a follow-up to whatever AI just said
+            behavior = 'RESPOND';
+            activeDomain = 'GOVT_JOB'; // Default to jobs if they say yes to a career assistant
         }
 
         // 2. GREETING OVERRIDE (Minimalist Policy)

@@ -32,10 +32,12 @@ class ResponseValidator {
 
         // 2. GREETING POLICY CHECK
         if (intent === 'GENERAL' || intent === 'GREETING') {
-            if (resLower.includes('career') || resLower.includes('government job') || resLower.includes('qualification') || resLower.includes('vacancy')) {
-                 if (!query.toLowerCase().match(/(career|job|vacancy|qualification)/)) {
-                     issues.push("Greeting response contains unnecessary job/career lecture");
-                 }
+            const forbiddenInGreeting = ['government job', 'qualification', 'vacancy', 'eligibility', 'salary structure'];
+            for (const phrase of forbiddenInGreeting) {
+                if (resLower.includes(phrase) && !query.toLowerCase().includes(phrase)) {
+                    issues.push(`Greeting response contains unnecessary info: ${phrase}`);
+                    break;
+                }
             }
         }
 

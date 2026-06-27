@@ -117,7 +117,7 @@ class AIService {
 
             if (!validation.isValid && !knowledgeContext.jobs && !knowledgeContext.web && ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent)) {
                 // If data is missing, don't let AI guess
-                finalContent = "<USER_MESSAGE>Mujhe abhi is query se judi koi verified official notification nahi mili hai. Kripya official website check karein.</USER_MESSAGE>";
+                finalContent = "<USER_MESSAGE>Maaf kijiye, mujhe is baare mein abhi koi verified notification ya jankari nahi mili hai. Aap ek baar official website zaroor check kar lein.</USER_MESSAGE>";
             } else if (!validation.isValid && plan.needReasoning) {
                 const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
                 finalContent = correction.content;
