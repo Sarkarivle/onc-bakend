@@ -38,7 +38,7 @@ class Planner {
                 behavior: 'GREET',
                 intent: 'GENERAL',
                 primaryAct: 'GREET',
-                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'],
+                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE'],
                 missingFields: [],
                 needSearch: false,
                 needReasoning: false

@@ -40,7 +40,7 @@ class ResponseValidator {
         }
 
         // 3. Factual Number Enforcement
-        if (!['GREETING', 'THANKS', 'SMALL_TALK'].includes(intent)) {
+        if (!['GREETING', 'THANKS', 'SMALL_TALK', 'GENERAL'].includes(intent)) {
             const numbersInResponse = response.match(/\d{3,}/g) || []; // Check numbers with 3+ digits (salaries, vacancies)
             const combinedData = (liveData.jobs + liveData.web).toLowerCase();
 
@@ -53,7 +53,8 @@ class ResponseValidator {
         }
 
         // 4. Structural Integrity
-        if (!response.includes('<USER_MESSAGE>')) issues.push("Missing <USER_MESSAGE> tags");
+        const isConversational = ['GREETING', 'THANKS', 'SMALL_TALK', 'GENERAL'].includes(intent);
+        if (!isConversational && !response.includes('<USER_MESSAGE>')) issues.push("Missing <USER_MESSAGE> tags");
 
         return {
             isValid: issues.length === 0,

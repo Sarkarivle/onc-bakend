@@ -67,7 +67,7 @@ class AIService {
 
             // --- PHASE 7: Data Collection ---
             let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile) };
-            if (routes.shouldFetchLiveData || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
+            if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
                 const searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
@@ -115,7 +115,7 @@ class AIService {
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
             const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData: knowledgeContext, intent: plan.intent });
 
-            if (!validation.isValid && !knowledgeContext.jobs && !knowledgeContext.web) {
+            if (!validation.isValid && !knowledgeContext.jobs && !knowledgeContext.web && ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent)) {
                 // If data is missing, don't let AI guess
                 finalContent = "<USER_MESSAGE>Mujhe abhi is query se judi koi verified official notification nahi mili hai. Kripya official website check karein.</USER_MESSAGE>";
             } else if (!validation.isValid && plan.needReasoning) {
