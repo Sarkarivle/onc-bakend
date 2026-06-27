@@ -14,7 +14,8 @@ const Feedback = require('./features/feedback/feedbackModel');
 const Chat = require('./features/chat/chatModel');
 const Correction = require('./features/ai/correctionModel');
 const SearchService = require('./features/ai/searchService');
-const aiPrompts = require('./features/ai/aiPrompts');
+const IntentDetector = require('./features/ai/intentDetector');
+const PromptComposer = require('./features/ai/promptComposer');
 const constants = require('./config/constants');
 
 
@@ -161,39 +162,20 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             await Chat.create({ userName, sessionId, role: 'user', content: rawInput });
         }
 
-        const userQuery = rawInput.toLowerCase();
-
         // --- STEP 1: INTENT DETECTION & TONE ANALYSIS ---
-        const isJobRelated = userQuery.match(/(job|naukri|form|eligibility|age|qualification|salary|vacancy|bhar sakta|apply|scheme|yojana|scholarship|paisa|bolo|yes|details|options|career|ssc|upsc|railway|police|cgl|chsl)/i);
+        const rawInput = userMessage || question || "";
+        const userQuery = rawInput.toLowerCase();
+        const intents = IntentDetector.detect(rawInput);
 
-        // Dynamic Tone Detection from History
-        let detectedTone = "Natural Hinglish";
-        if (history && history.length > 0) {
-            const userMessages = history.filter(m => m.role === 'user').map(m => m.content).join(" ");
-            if (userMessages.length > 20) {
-                if (userMessages.match(/(bhai|yaar|bol|tu|ab)/i)) detectedTone = "Informal & Friendly (Brotherly)";
-                else if (userMessages.match(/(ji|aap|kripya|mahoday)/i)) detectedTone = "Respectful & Formal";
-                else if (userMessages.match(/[a-zA-Z]{5,}/) && !userMessages.match(/[क-ह]/)) detectedTone = "English-Dominant Professional";
-            }
-        }
-
-        // --- STEP 2: FETCH USER LEARNINGS (FEEDBACK HISTORY) ---
+        // --- STEP 2: FETCH USER LEARNINGS ---
         const userLearnings = await Feedback.find({ userName }).sort({ timestamp: -1 }).limit(5);
-        const positiveStyles = userLearnings.filter(f => f.rating === 'up').map(f => f.aiResponse.substring(0, 50)).join(", ");
-        const negativeStyles = userLearnings.filter(f => f.rating === 'down').map(f => f.aiResponse.substring(0, 50)).join(", ");
-
-        const userInsights = `
-        - DETECTED USER TONE: ${detectedTone}
-        - LIKED STYLES: ${positiveStyles || "No specific preference yet"}
-        - DISLIKED STYLES: ${negativeStyles || "No specific dislikes yet"}
-        `;
+        const insights = userLearnings.map(l => l.rating === 'up' ? `LIKED: ${l.aiResponse.substring(0,20)}` : `DISLIKED: ${l.aiResponse.substring(0,20)}`).join(' | ');
 
         // --- STEP 3: CALCULATE SERVER FACT (AGE & DATE) ---
         let calculatedAge = "Unknown";
-
-        // India/Kolkata Timezone Date Calculation
         const indiaDate = new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" });
-        const formattedToday = indiaDate.split(',')[0]; // Extract DD/MM/YYYY
+        const formattedToday = indiaDate.split(',')[0];
+        const currentYear = formattedToday.split('/')[2];
 
         if (userDOB) {
             const todayKolkata = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
@@ -204,13 +186,12 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             calculatedAge = age;
         }
 
-        // --- STEP 3: CONTEXT PREPARATION ---
+        // --- STEP 4: CONTEXT PREPARATION (Modular) ---
         let jobInfo = "";
         let kendraInfo = "";
         let searchResults = null;
 
-        if (isJobRelated) {
-            // Smart Search: Try to find jobs that match the user's keywords
+        if (intents.includes('GOVT_JOB')) {
             const keywords = userQuery.split(/\s+/).filter(w => w.length > 2);
             let searchCriteria = { isActive: true };
 
@@ -226,7 +207,6 @@ app.post('/api/v1/ai/ask', async (req, res) => {
                 Jansewa.find().limit(3)
             ]);
 
-            // Fallback to Google Search if no jobs found in database
             if (jobs.length === 0) {
                 const [searchKey, searchCx] = await Promise.all([
                     Settings.findOne({ key: 'GOOGLE_SEARCH_API_KEY' }),
@@ -235,43 +215,17 @@ app.post('/api/v1/ai/ask', async (req, res) => {
                 searchResults = await SearchService.search(rawInput, searchKey?.value, searchCx?.value);
             }
 
-            jobInfo = jobs.map(j => {
-                const edu = j.eligibility?.education || "10th/12th/Graduate";
-                const age = j.eligibility?.ageLimit || `${j.eligibility?.minAge}-${j.eligibility?.maxAge}`;
-                return `JOB: ${j.title}\n- Organization: ${j.organization}\n- Eligibility: ${edu}\n- Age: ${age}\n- Last Date: ${j.importantDates?.applicationLastDate || 'N/A'}\n- Source: ${j.applyLink || 'Official Website'}`;
-            }).join("\n\n");
-
+            jobInfo = jobs.map(j => `- JOB: ${j.title} | Org: ${j.organization} | Age: ${j.eligibility?.ageLimit || "18-40"}`).join("\n");
             kendraInfo = kendras.map(k => `${k.name} (${k.address || 'Bareilly'})`).join(", ");
         }
 
-        // Add Web Search Results to context if available
-        let webContext = "";
-        if (searchResults) {
-            webContext = "\n\n# WEB SEARCH RESULTS (Latest info from Google):\n" +
-                searchResults.map(r => `Title: ${r.title}\nDescription: ${r.description}\nSource: ${r.url}`).join("\n\n");
-        }
+        const userData = { name: userName, loc: userLocation, dob: userDOB, cat: userCategory, qual: userQualification, insights };
+        const liveData = { jobs: jobInfo, kendras: kendraInfo, web: searchResults ? JSON.stringify(searchResults) : "" };
 
-        // Extract current year from formattedToday (DD/MM/YYYY)
-        const currentYear = formattedToday.split('/')[2];
-
-        const systemInstruction = aiPrompts.ASSISTANT_SYSTEM_PROMPT(
-            userName,
-            userLocation,
-            userDOB,
-            userCategory,
-            userQualification,
-            jobInfo,
-            kendraInfo,
-            userInsights,
-            formattedToday,
-            currentYear
-        );
-
-        // Inject Web Context
-        const finalSystemPrompt = systemInstruction + webContext;
+        const systemInstruction = PromptComposer.build(intents, userData, liveData, formattedToday, currentYear);
 
         const messages = [
-            { role: 'system', content: finalSystemPrompt },
+            { role: 'system', content: systemInstruction },
             ...(history || []),
             { role: 'user', content: rawInput }
         ];
