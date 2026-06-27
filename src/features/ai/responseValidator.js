@@ -1,55 +1,40 @@
-/**
- * ResponseValidator Module
- * Responsibility: Validate the LLM response against intent, context, and formatting rules.
- */
 class ResponseValidator {
     /**
-     * @param {string} response - The LLM generated response.
-     * @param {Object} context - { query, intent, plan, liveData }
-     * @returns {Object} Validation result { isValid, issues, score }
+     * Actively validates the response against the Ground Truth.
      */
-    static validate(response, { query, intent, plan, liveData }) {
+    static validate(response, { query, liveData }) {
         const issues = [];
-        let score = 100;
-
-        // 1. Tag Check (Essential for parsing)
-        if (!response.includes('<USER_MESSAGE>')) {
-            issues.push("Missing <USER_MESSAGE> tags");
-            score -= 30;
-        }
-
-        // 2. Intent Alignment
         const resLower = response.toLowerCase();
-        const qLower = query.toLowerCase();
 
-        if (intent === 'GOVT_JOB' && !resLower.match(/job|vacancy|naukri|post/)) {
-            issues.push("Response does not seem to address the Job query");
-            score -= 20;
+        // 1. Check for hallucinated numbers/dates
+        const numbersInResponse = response.match(/\d+/g) || [];
+        const combinedData = (liveData.jobs + liveData.web).toLowerCase();
+
+        // If a number appears in the response but not in the liveData, it's a risk (unless it's a common greeting/filler)
+        numbersInResponse.forEach(num => {
+            if (num.length > 2 && !combinedData.includes(num)) {
+                // Potential hallucination of dates/salaries/vacancies
+                issues.push(`Unverified number detected: ${num}`);
+            }
+        });
+
+        // 2. Check for "guessed" official websites
+        if (resLower.includes('.gov.in') || resLower.includes('.nic.in')) {
+            const urls = response.match(/[a-zA-Z0-9.-]+\.(gov|nic)\.in/g) || [];
+            urls.forEach(url => {
+                if (!combinedData.includes(url.toLowerCase())) {
+                    issues.push(`Unverified government URL: ${url}`);
+                }
+            });
         }
 
-        // 3. Completeness (Check if search was needed but results weren't utilized)
-        if (plan.needSearch && liveData.web && !resLower.includes('http')) {
-            // This is a heuristic: usually search results include links
-            issues.push("Search was performed but links are missing in response");
-            score -= 15;
-        }
-
-        // 4. Hallucination / Safety (Basic Heuristic)
-        if (resLower.includes('password') || resLower.includes('otp')) {
-            issues.push("Safety violation: possible sensitive data request");
-            score -= 50;
-        }
-
-        // 5. Formatting Check
-        if (plan.needFormatting === 'Detailed' && response.length < 100) {
-            issues.push("Detailed response expected but got a short answer");
-            score -= 10;
-        }
+        // 3. Structural Integrity
+        if (!response.includes('<USER_MESSAGE>')) issues.push("Missing <USER_MESSAGE> tags");
 
         return {
-            isValid: score > 70,
+            isValid: issues.length === 0,
             issues: issues,
-            score: Math.max(0, score)
+            score: issues.length === 0 ? 100 : Math.max(0, 100 - (issues.length * 20))
         };
     }
 }

@@ -1,56 +1,38 @@
-/**
- * SearchReranker Module
- * Responsibility: Rank and filter raw search results for maximum LLM context quality.
- */
 class SearchReranker {
     /**
-     * @param {string} query - The user's query.
-     * @param {Array} results - Raw results from Google Search.
-     * @returns {Array} Top 3 reranked results.
+     * Aggressively prioritizes official government sources.
      */
     static rank(query, results) {
         if (!results || !Array.isArray(results)) return [];
 
         const q = query.toLowerCase();
-        const currentYear = "2024";
-
         const scoredResults = results.map(res => {
             let score = 0;
-            const title = res.title.toLowerCase();
-            const snippet = res.description.toLowerCase();
             const url = res.url.toLowerCase();
+            const title = res.title.toLowerCase();
 
-            // 1. Recency Bonus (Extremely important for Gov Jobs)
-            if (title.includes(currentYear) || snippet.includes(currentYear)) score += 50;
+            // 1. Extreme Priority: Official Government Portals
+            if (url.includes('.gov.in') || url.includes('.nic.in') || url.includes('.edu.in')) score += 100;
+            if (url.includes('upsc.') || url.includes('ssc.') || url.includes('ibps.')) score += 80;
+            if (url.includes('recruitment') || url.includes('notification')) score += 20;
 
-            // 2. Official Source Bonus
-            if (url.includes('.gov.in') || url.includes('.nic.in') || url.includes('upsc.gov') || url.includes('ssc.nic')) {
-                score += 40;
-            }
+            // 2. Penalize Blogs and Social Media
+            if (url.includes('facebook.com') || url.includes('youtube.com') || url.includes('instagram.com')) score -= 100;
+            if (url.includes('sarkari-result-naukri') || url.includes('blog')) score -= 30; // Unofficial aggregators
 
-            // 3. Keyword Match Density
+            // 3. Keyword Match
             const keywords = q.split(/\s+/).filter(k => k.length > 3);
             keywords.forEach(word => {
                 if (title.includes(word)) score += 10;
-                if (snippet.includes(word)) score += 5;
             });
-
-            // 4. Content Quality Penalty
-            if (title.includes('youtube') || title.includes('facebook')) score -= 20;
 
             return { ...res, score };
         });
 
-        // Sort by score descending and return top 3
         return scoredResults
+            .filter(r => r.score > -50) // Drop low-quality junk
             .sort((a, b) => b.score - a.score)
-            .slice(0, 3)
-            .map(r => ({
-                title: r.title,
-                snippet: r.description,
-                url: r.url,
-                isOfficial: r.url.includes('.in')
-            }));
+            .slice(0, 3);
     }
 }
 

@@ -87,7 +87,7 @@ class AIService {
             const systemInstruction = await PromptComposer.build(plan.priorityModules, profile, liveData, meta);
             metrics.promptSize = systemInstruction.length;
 
-            // 6. LLM Provider Layer (Enterprise Strategy: Adaptable)
+            // 6. LLM Provider Layer
             const llm = await this._getLLMProvider();
             metrics.provider = llm.provider;
 
@@ -97,13 +97,28 @@ class AIService {
                 { role: 'user', content: rewrittenQuery }
             ]);
 
-            // 7. Quality Assurance Phase
-            const validation = ResponseValidator.validate(aiResponse.content, { query: rewrittenQuery, intent: plan.intent, plan, liveData });
+            // 7. Quality Assurance & Hallucination Check
+            let finalContent = aiResponse.content;
+            const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData });
+
+            // 8. Self-Correction / Reject Hallucination
+            if (!validation.isValid && plan.needSearch && !liveData.web && !liveData.jobs) {
+                // Search failed and LLM tried to guess
+                finalContent = "<USER_MESSAGE>I couldn't retrieve verified official information right now. Rather than guessing, I prefer not to provide incorrect details. Please try again in a few moments.</USER_MESSAGE>";
+            } else if (!validation.isValid) {
+                // LLM hallucinated despite having data, attempt one correction
+                const correction = await llm.chat([
+                    { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your last response was rejected for having unverified numbers or dates. Only use data from [REAL-TIME DATA SOURCE]. Do not guess." },
+                    { role: 'user', content: rewrittenQuery }
+                ]);
+                finalContent = correction.content;
+            }
+
             const confidence = ConfidenceEngine.calculate(plan, liveData, validation);
             metrics.confidence = confidence.score;
 
-            // 8. Output Processing
-            const processed = this._finalProcess(aiResponse.content, confidence);
+            // 9. Output Processing
+            const processed = this._finalProcess(finalContent, confidence);
 
             // 9. Metrics & Persistence
             metrics.latency = Date.now() - startTime;
