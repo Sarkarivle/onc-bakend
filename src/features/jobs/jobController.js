@@ -82,7 +82,11 @@ const importJob = async (req, res) => {
     const aiRes = await axios.post(runpodUrl, {
       model: constants.AI_MODEL_NAME,
       prompt: `System: Return ONLY a valid JSON object. No conversation. No preamble.\n\nUser: ${prompt}`,
-      stream: false, options: { temperature: 0.1 }
+      stream: false,
+      options: {
+        temperature: 0.1,
+        max_tokens: 3500 // Increased for full HTML content
+      }
     });
 
     const rawAiOutput = aiRes.data.response;
@@ -164,6 +168,10 @@ const getAiMatchAdvice = async (req, res) => {
     const { jobId } = req.params;
     const user = req.user;
     const job = await Job.findById(jobId);
+
+    if (!job) {
+        return res.status(404).json({ status: 'error', message: 'Job not found' });
+    }
 
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
@@ -277,7 +285,7 @@ const getAiMatchAdvice = async (req, res) => {
         model: constants.AI_MODEL_NAME,
         prompt: fullPrompt,
         stream: false,
-        options: { temperature: 0.1, top_p: 0.9, max_tokens: 500 } // Faster inference
+        options: { temperature: 0.1, top_p: 0.9, max_tokens: 1500 } // Increased for detailed advice
     });
 
     const cleaned = cleanAIResponse(aiRes.data.response);
