@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const chatSchema = new mongoose.Schema({
   userName: { type: String, required: true },
+  sessionId: { type: String, required: true }, // Naya field session tracking ke liye
   role: { type: String, enum: ['user', 'assistant'], required: true },
   content: { type: String, required: true },
   calculation: String,
@@ -10,6 +11,6 @@ const chatSchema = new mongoose.Schema({
 });
 
 // Indexing for faster history retrieval
-chatSchema.index({ userName: 1, timestamp: 1 });
+chatSchema.index({ userName: 1, sessionId: 1, timestamp: 1 });
 
 module.exports = mongoose.model('Chat', chatSchema);

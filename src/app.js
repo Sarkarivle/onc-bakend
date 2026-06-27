@@ -104,7 +104,41 @@ app.post('/api/v1/ai/correct', async (req, res) => {
     }
 });
 
-// Get Chat History
+// Get Unique Chat Sessions for a user
+app.get('/api/v1/ai/sessions/:userName', async (req, res) => {
+    try {
+        const sessions = await Chat.aggregate([
+            { $match: { userName: req.params.userName } },
+            { $sort: { timestamp: 1 } },
+            {
+                $group: {
+                    _id: "$sessionId",
+                    firstMessage: { $first: "$content" },
+                    timestamp: { $first: "$timestamp" }
+                }
+            },
+            { $sort: { timestamp: -1 } }
+        ]);
+        res.json({ success: true, sessions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Chat history for a specific session
+app.get('/api/v1/ai/history/:userName/:sessionId', async (req, res) => {
+    try {
+        const history = await Chat.find({
+            userName: req.params.userName,
+            sessionId: req.params.sessionId
+        }).sort({ timestamp: 1 });
+        res.json({ success: true, history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Purana route backup ke liye (Optional, but let's keep the new session logic clean)
 app.get('/api/v1/ai/history/:userName', async (req, res) => {
     try {
         const history = await Chat.find({ userName: req.params.userName })
@@ -119,12 +153,12 @@ app.get('/api/v1/ai/history/:userName', async (req, res) => {
 // 3. AI ASSISTANT ROUTE (Personalized & Intelligent Routing)
 app.post('/api/v1/ai/ask', async (req, res) => {
     try {
-        const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = req.body;
+        const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history, sessionId } = req.body;
         const rawInput = userMessage || question || "";
 
-        // Save User Message to History
-        if (rawInput && userName) {
-            await Chat.create({ userName, role: 'user', content: rawInput });
+        // Save User Message to History with SessionId
+        if (rawInput && userName && sessionId) {
+            await Chat.create({ userName, sessionId, role: 'user', content: rawInput });
         }
 
         const userQuery = rawInput.toLowerCase();
@@ -289,10 +323,11 @@ app.post('/api/v1/ai/ask', async (req, res) => {
             suggestions = suggestMatch[1].split(',').map(s => s.trim());
         }
 
-        // Save AI Response to History
-        if (message && userName) {
+        // Save AI Response to History with SessionId
+        if (message && userName && sessionId) {
             await Chat.create({
                 userName,
+                sessionId,
                 role: 'assistant',
                 content: message,
                 calculation: calculation,
