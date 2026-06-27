@@ -29,12 +29,20 @@ class AIService {
      */
     static async processRequest(input) {
         const startTime = Date.now();
-        const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history, sessionId } = input;
+        const { question, userMessage, userName, userLocation, userDOB, userCategory, userQualification, history } = input;
+
+        // Ensure sessionId exists to prevent Validation Errors
+        const sessionId = input.sessionId || `session_${Date.now()}`;
         const rawInput = userMessage || question || "";
 
         let metrics = { intent: 'UNKNOWN', provider: 'NONE', searchUsed: false };
 
         try {
+            // 0. Save User Message (Missing in previous refactor)
+            if (rawInput && userName) {
+                await Chat.create({ userName, sessionId, role: 'user', content: rawInput }).catch(e => console.error("Chat Save Error:", e));
+            }
+
             // 1. Intelligence Phase
             const intents = IntentDetector.detect(rawInput);
             metrics.intent = intents[0] || 'GENERAL';
