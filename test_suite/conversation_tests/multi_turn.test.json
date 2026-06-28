@@ -41,7 +41,7 @@
     "userMessage": "form kaise bhare",
     "expected": {
       "intent": "APPLICATION_HELP",
-      "responseContains": ["form"],
+      "responseContains": ["form", "registration", "documents", "submit"],
       "responseMustNotContain": ["verified jankari nahi mili"]
     }
   },
@@ -56,7 +56,7 @@
     "userMessage": "fees kitni hai",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "followUpType": "FEES"
+      "responseContains": ["fee", "official notification"]
     }
   },
   {
@@ -70,7 +70,7 @@
     "userMessage": "last date kya hai",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "followUpType": "DATE"
+      "responseContains": ["27 July 2026"]
     }
   },
   {
@@ -84,7 +84,7 @@
     "userMessage": "official link do",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "followUpType": "LINK"
+      "responseContains": ["official link", "currently available nahi hai"]
     }
   },
   {

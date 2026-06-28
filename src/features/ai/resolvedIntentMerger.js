@@ -85,7 +85,8 @@ class ResolvedIntentMerger {
             semanticIntent,
             llmIntent,
             followUp,
-            context
+            context,
+            normalizedMessage
         });
         const graphDomain = this._graphDomain(strongIntent?.domain || domain, primary);
         const task = this._task(primary, followUp?.entities || llmIntent?.entities || {}, strongIntent);
@@ -181,6 +182,13 @@ class ResolvedIntentMerger {
     static _resolveDomain(primary, data) {
         if (data.strongIntent?.domainIntent) return data.strongIntent.domainIntent;
         if (data.followUp?.domainIntent) return data.followUp.domainIntent;
+        if (
+            primary === 'JOB_QUERY' &&
+            (data.ruleResult?.domains || []).includes('GOVT_JOB') &&
+            /\b(vacancy|bharti|recruitment|naukri|rojgar|job|jobs)\b/i.test(data.normalizedMessage || '')
+        ) {
+            return 'GOVT_JOB';
+        }
         if (data.semanticIntent?.domainIntent) return data.semanticIntent.domainIntent;
         if (data.llmIntent?.domainIntent) return data.llmIntent.domainIntent;
 

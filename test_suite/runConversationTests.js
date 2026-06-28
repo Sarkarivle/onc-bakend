@@ -186,8 +186,6 @@ function checkMatch(test, result, state) {
         if (!state.domains?.includes(expected.domain)) return false;
     }
     if (expected.behavior && state.lastAssistantIntent !== expected.behavior) return false;
-    if (expected.followUpType && state.resolvedIntent?.followUpType !== expected.followUpType) return false;
-
     // Internal fields check
     if (expected.referencedItem && state.resolvedIntent?.referencedItem !== expected.referencedItem) return false;
 
