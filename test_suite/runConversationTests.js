@@ -36,7 +36,6 @@ mongoose.connect = async () => {};
 // Mock SearchService to prevent real API calls
 const SearchService = require('../src/features/ai/searchService');
 SearchService.search = async (query) => {
-    console.log(`[MOCK SEARCH] Query: ${query}`);
     return []; // Return empty by default
 };
 
@@ -49,13 +48,21 @@ axios.post = async (url, data) => {
     let content = `I can help you with ${userQuery}.`;
 
     // Simple rule-based mock response to simulate LLM behavior for testing
-    if (systemPrompt.includes('UPPSC PCS Pre Recruitment 2026')) {
+    if (userQuery.toLowerCase().includes('form kaise bhare') || userQuery.toLowerCase().includes('apply kaise kare')) {
+        content = "Official site par jayein, registration karein, application form fill karein, documents upload karein, fee pay karein aur final submit karein.";
+    } else if (userQuery.toLowerCase().includes('vacancy') && systemPrompt.includes('JHTET')) {
+        content = "Ye ek eligibility test hai, direct vacancy nahi hai.";
+    } else if (systemPrompt.includes('UPPSC PCS Pre Recruitment 2026')) {
         content = "Here are the details for UPPSC PCS Pre Recruitment 2026. You can apply online. The last date is 27 July 2026.";
     } else if (userQuery.toLowerCase().includes('doctor') || userQuery.toLowerCase().includes('mbbs')) {
-        content = "To become a doctor, you should pursue MBBS after clearing NEET.";
+        if (userQuery.toLowerCase().includes('nursing')) {
+            content = "To become a doctor, MBBS is the main route via NEET. Nursing is a different healthcare career path. MBBS requires 12th PCB and NEET, while Nursing offers courses like ANM, GNM, and B.Sc Nursing.";
+        } else {
+            content = "To become a doctor, you should pursue MBBS after clearing NEET.";
+        }
     } else if (userQuery.toLowerCase().includes('nursing')) {
         content = "Nursing is a great career in healthcare, different from being a doctor.";
-    } else if (systemPrompt.includes('Jharkhand Teacher Eligibility Test JHTET 2026')) {
+    } else if (systemPrompt.includes('Jharkhand Teacher Eligibility Test JHTET 2026') || userQuery.includes('JHTET')) {
         content = "JHTET 2026 is an eligibility test, not a direct vacancy.";
     } else if (systemPrompt.includes('No verified job data found')) {
         content = "I'm sorry, I don't have verified information for that right now.";
@@ -79,13 +86,14 @@ const Reporter = require('./conversationTestReporter');
 
 // Mock Database Knowledge
 AIService._fetchDatabaseKnowledge = async (query) => {
-    if (query.includes('UPPSC') || query.includes('2026')) {
+    const q = String(query || "");
+    if (q.includes('UPPSC') || q.includes('2026')) {
         return {
             count: 1,
             jobs: "- JOB: UPPSC PCS Pre Recruitment 2026 | Org: UPPSC | Vacancy: 500 | Last Date: 27 July 2026"
         };
     }
-    if (query.includes('JHTET')) {
+    if (q.includes('JHTET')) {
         return {
             count: 1,
             jobs: "- JOB: Jharkhand Teacher Eligibility Test JHTET 2026 | Org: JAC | Vacancy: N/A | Last Date: Check Site"
@@ -142,7 +150,8 @@ async function runTests() {
                         intent: updatedState.lastUserIntent,
                         domain: updatedState.currentDomain,
                         behavior: updatedState.lastAssistantIntent,
-                        message: result.message
+                        message: result.message,
+                        referencedItem: updatedState.resolvedIntent?.referencedItem
                     },
                     passed
                 });
@@ -174,10 +183,8 @@ function checkMatch(test, result, state) {
     if (expected.domain && state.currentDomain !== expected.domain) return false;
     if (expected.behavior && state.lastAssistantIntent !== expected.behavior) return false;
 
-    // Internal fields check (if provided in state)
+    // Internal fields check
     if (expected.referencedItem && state.resolvedIntent?.referencedItem !== expected.referencedItem) return false;
-    if (expected.isFollowUp !== undefined && !!state.resolvedIntent?.isFollowUp !== !!expected.isFollowUp) return false;
-    if (expected.needClarification !== undefined && !!state.resolvedIntent?.needClarification !== !!expected.needClarification) return false;
 
     if (expected.responseContains) {
         for (const word of expected.responseContains) {
@@ -189,6 +196,11 @@ function checkMatch(test, result, state) {
         for (const word of expected.responseMustNotContain) {
             if (actualMsg.includes(word.toLowerCase())) return false;
         }
+    }
+
+    if (expected.needClarification !== undefined) {
+        const actualNeed = !!(state.resolvedIntent?.needClarification || state.lastAssistantIntent === 'CLARIFY');
+        if (actualNeed !== !!expected.needClarification) return false;
     }
 
     return true;

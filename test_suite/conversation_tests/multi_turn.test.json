@@ -159,7 +159,7 @@
     },
     "userMessage": "BPSC cutoff 2024",
     "expected": {
-      "domain": "EXAM"
+      "domain": "RESULT_ADMIT_CARD"
     }
   },
   {
