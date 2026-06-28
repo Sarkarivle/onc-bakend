@@ -12,11 +12,14 @@ class Planner {
         const domain = resolvedIntent.domainIntent || 'GENERAL';
 
         // 1. Context Relevance Gate (Gemini-like Reasoning)
-        const usePreviousContext = this._shouldUseContext(q, resolvedIntent, state);
+        let usePreviousContext = resolvedIntent.usePreviousContext;
+        if (usePreviousContext === undefined || usePreviousContext === null) {
+            usePreviousContext = this._shouldUseContext(q, resolvedIntent, state);
+        }
 
         // Handle numeric references from followUp resolver
-        const selectedItemIndex = resolvedIntent.entities?.itemIndex || null;
-        const referencedItem = usePreviousContext ? resolvedIntent.referencedItem : null;
+        const selectedItemIndex = resolvedIntent.entities?.itemIndex || resolvedIntent.selectedItemIndex || null;
+        const referencedItem = usePreviousContext ? (resolvedIntent.referencedItem || state.lastShownItems?.[0]) : null;
 
         // 2. Decide Mode
         const mode = this._decideMode(primary, domain, resolvedIntent);

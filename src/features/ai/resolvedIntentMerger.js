@@ -92,6 +92,8 @@ class ResolvedIntentMerger {
 
 
         let isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp || strongIntent?.isFollowUp);
+        const usePreviousContext = Boolean(followUp?.usePreviousContext || (isFollowUp && hasContext));
+
         if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
         if (isCareerLock) isFollowUp = false;
         if (primary === 'FIELD_DETAILS') isFollowUp = true;
@@ -116,6 +118,8 @@ class ResolvedIntentMerger {
             domainIntent: domain,
             resolvedIntent: primary,
             isFollowUp,
+            usePreviousContext,
+            followUpType: followUp?.followUpType || 'UNKNOWN',
             isPureGreeting,
             confidence,
             entities: {
