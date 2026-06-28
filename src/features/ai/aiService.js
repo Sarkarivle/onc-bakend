@@ -164,8 +164,11 @@ class AIService {
                     { role: 'user', content: rewrittenQuery }
                 ]);
                 finalContent = correction.content;
-            }
-                const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
+            } else if (!validation.isValid && plan.needReasoning) {
+                const correction = await llm.chat([
+                    { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." },
+                    { role: 'user', content: rewrittenQuery }
+                ]);
                 finalContent = correction.content;
             }
 
