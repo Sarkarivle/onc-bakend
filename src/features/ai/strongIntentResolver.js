@@ -10,7 +10,7 @@ class StrongIntentResolver {
         const acts = new Set(ruleResult.acts || []);
         const hasGreeting = acts.has('GREET') || /^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/.test(q);
 
-        const isFollowUp = /\b(sahi se batao|detail me batao|achhe se batao|clear batao|pura batao|vistaar se|explain|details? please)\b/i.test(q);
+        const isFollowUp = /\b(sahi\s+se\s+batao|detail(s)?\s+me\s+batao|achhe\s+se\s+batao|clear\s+batao|pura\s+batao|vistaar\s+se|explain|details?\s+please|thoda\s+explain(\s+karo)?|details\s+batao)\b/i.test(q);
         if (isFollowUp) {
             return {
                 primaryIntent: 'FIELD_DETAILS',
@@ -20,6 +20,32 @@ class StrongIntentResolver {
                 isFollowUp: true,
                 confidence: 0.96,
                 reason: 'Follow-up request for more details.'
+            };
+        }
+
+        const jobEntity = /\b(ssc|upsc|bpsc|uppsc|mppsc|rpsc|ctet|uptet|neet|jee|cuet|gate|police|constable|daroga|si|sub inspector|home guard|railway|rrb|rpf|alp|group d|ntpc|bank|ibps|sbi|rbi|clerk|po|so|army|navy|air force|agniveer|defence|bsf|crpf|cisf|itbp|ssb|teacher|teaching|prt|tgt|pgt|lecturer|professor|assistant professor|anganwadi|asha|anm|nurse|nursing|medical|health worker|health)\b/i;
+        const specificJobAction = /\b(latest|new|notification|recruitment|vacancy|vacancies|bharti|rally|opening|openings|apply online|online form|form open|form nikla|exam notification|naukri|naukari|jobs|listing)\b/i;
+        const examCycleAction = /\b(202[4-9]|details|update|updates|date)\b/i;
+        const narrowHealthJob = /\b(nursing|medical|health|nurse|anm|gnm|asha|anganwadi)\b.*\b(job|jobs|vacancy|vacancies|bharti|recruitment|naukri|naukari|post|posts|listing)\b|\b(job|jobs|vacancy|vacancies|bharti|recruitment|naukri|naukari|post|posts|listing)\b.*\b(nursing|medical|health|nurse|anm|gnm|asha|anganwadi)\b/i;
+        const explicitJobRequest = /\b(latest sarkari job|sarkari job latest|police vacancy|teacher ki vacancy|teacher vacancy|railway recruitment|ctet exam notification|ssc cgl 202[4-9]|naukri dikhao|job dikhao|koi vacancy|vacancy hai|latest vacancy)\b/i;
+        const policeTitle = /\b(police constable|police si|police daroga|delhi police|up police|bihar police|mp police|rajasthan police|haryana police)\b/i;
+
+        const hasPreciseJobIntent =
+            explicitJobRequest.test(q) ||
+            narrowHealthJob.test(q) ||
+            policeTitle.test(q) ||
+            (jobEntity.test(q) && (specificJobAction.test(q) || examCycleAction.test(q)));
+
+        if (hasPreciseJobIntent) {
+            const jobDomain = JobDomainResolver.resolve(q);
+            return {
+                primaryIntent: 'JOB_QUERY',
+                domainIntent: jobDomain.domain,
+                domain: jobDomain.graphDomain,
+                task: 'LATEST',
+                secondaryIntents: hasGreeting ? ['GREETING'] : [],
+                confidence: 0.94,
+                reason: 'Specific job/domain intent matched.'
             };
         }
 
@@ -76,32 +102,6 @@ class StrongIntentResolver {
                 secondaryIntents: hasGreeting ? ['GREETING'] : [],
                 confidence: 0.95,
                 reason: 'Strong independent domain intent matched.'
-            };
-        }
-
-        const jobEntity = /\b(ssc|upsc|bpsc|uppsc|mppsc|rpsc|ctet|uptet|neet|jee|cuet|gate|police|constable|daroga|si|sub inspector|home guard|railway|rrb|rpf|alp|group d|ntpc|bank|ibps|sbi|rbi|clerk|po|so|army|navy|air force|agniveer|defence|bsf|crpf|cisf|itbp|ssb|teacher|teaching|prt|tgt|pgt|lecturer|professor|assistant professor|anganwadi|asha|anm|nurse|nursing|medical|health worker|health)\b/i;
-        const specificJobAction = /\b(latest|new|notification|recruitment|vacancy|vacancies|bharti|rally|opening|openings|apply online|online form|form open|form nikla|exam notification|naukri|naukari|jobs|listing)\b/i;
-        const examCycleAction = /\b(202[4-9]|details|update|updates|date)\b/i;
-        const narrowHealthJob = /\b(nursing|medical|health|nurse|anm|gnm|asha|anganwadi)\b.*\b(job|jobs|vacancy|vacancies|bharti|recruitment|naukri|naukari|post|posts|listing)\b|\b(job|jobs|vacancy|vacancies|bharti|recruitment|naukri|naukari|post|posts|listing)\b.*\b(nursing|medical|health|nurse|anm|gnm|asha|anganwadi)\b/i;
-        const explicitJobRequest = /\b(latest sarkari job|sarkari job latest|police vacancy|teacher ki vacancy|teacher vacancy|railway recruitment|ctet exam notification|ssc cgl 202[4-9]|naukri dikhao|job dikhao|koi vacancy|vacancy hai|latest vacancy)\b/i;
-        const policeTitle = /\b(police constable|police si|police daroga|delhi police|up police|bihar police|mp police|rajasthan police|haryana police)\b/i;
-
-        const hasPreciseJobIntent =
-            explicitJobRequest.test(q) ||
-            narrowHealthJob.test(q) ||
-            policeTitle.test(q) ||
-            (jobEntity.test(q) && (specificJobAction.test(q) || examCycleAction.test(q)));
-
-        if (hasPreciseJobIntent) {
-            const jobDomain = JobDomainResolver.resolve(q);
-            return {
-                primaryIntent: 'JOB_QUERY',
-                domainIntent: jobDomain.domain,
-                domain: jobDomain.graphDomain,
-                task: 'LATEST',
-                secondaryIntents: hasGreeting ? ['GREETING'] : [],
-                confidence: 0.94,
-                reason: 'Specific job/domain intent matched.'
             };
         }
 
