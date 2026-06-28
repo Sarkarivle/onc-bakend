@@ -211,7 +211,7 @@ class FollowUpResolver {
 
         return {
             ...base,
-            resolvedQuery: `Explain application process for ${lastItem || domain || 'the previous item'}.`,
+            resolvedQuery: `Explain how to apply for ${lastItem || domain || 'the previous item'}.`,
             intent: 'APPLICATION_HELP',
             domainIntent: hasContext ? domain : 'GOVT_JOB',
             isFollowUp: hasContext,
@@ -223,7 +223,7 @@ class FollowUpResolver {
 
     static _resolveNumericReference(q, state, base) {
         const match = q.match(/(\d+)\s*(no|number|th|st|rd|nd|wala|item|job|position|vaale|wali|waali)/i) ||
-                      q.match(/^(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s*(wala|item|job|position)?$/i) ||
+                      q.match(/^(first|second|third|fourth|chouthi|fifth|sixth|seventh|eighth|ninth|tenth)\s*(wala|item|job|position)?$/i) ||
                       q.match(/^(\d+)$/) ||
                       q.match(/(upar|niche|pichhli|last|first)\s*(wali|waali|wala|vaale|job|no)/i);
 
@@ -239,7 +239,7 @@ class FollowUpResolver {
         if (fullMatch.includes('first') || fullMatch.includes('upar')) index = 0;
         else if (fullMatch.includes('second')) index = 1;
         else if (fullMatch.includes('third')) index = 2;
-        else if (fullMatch.includes('fourth')) index = 3;
+        else if (fullMatch.includes('fourth') || fullMatch.includes('chouthi')) index = 3;
         else if (fullMatch.includes('fifth')) index = 4;
         else if (/\d+/.test(numPart)) {
             index = parseInt(numPart) - 1;
@@ -253,7 +253,7 @@ class FollowUpResolver {
             const selectedItem = lastItems[index];
             let resolvedQuery = `Show details for ${selectedItem}.`;
 
-            if (selectedItem.match(/(jhtet|tet|ctet|eligibility test|reet|uptet|entrance)/i)) {
+            if (String(selectedItem).match(/(jhtet|tet|ctet|eligibility test|reet|uptet|entrance)/i)) {
                 resolvedQuery = `Note: ${selectedItem} is an eligibility test, not a direct vacancy. Show its details and clarify that vacancy count may not apply.`;
             }
 

@@ -66,14 +66,11 @@ class AIService {
             metrics.intent = plan.intent;
 
             // --- PHASE 6: Knowledge Routing ---
-            let queryForSearch = resolvedIntent.isFollowUp ? (resolvedIntent.resolvedQuery || rawInput) : rawInput;
+            let queryForSearch = resolvedIntent.isFollowUp ? resolvedIntent.normalizedMessage : rawInput;
 
             // If we have specific field details intent, make search more targeted
             if (resolvedIntent.primaryIntent === 'FIELD_DETAILS' && state.topic) {
                 queryForSearch = `${state.topic} ${rawInput}`;
-            }
-            if (plan.mode === 'JOB_DETAILS' && plan.referencedItem) {
-                queryForSearch = `${plan.referencedItem} ${resolvedIntent.entities?.field || rawInput}`;
             }
 
             const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state);
@@ -81,13 +78,10 @@ class AIService {
 
             // --- PHASE 7: Data Collection ---
             let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile) };
-            if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.needDatabase || plan.intent === 'GOVT_JOB') {
+            if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
                 let searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
-                if (routes.usePreviousContext && plan.referencedItem) {
-                    searchQuery = `${plan.referencedItem} ${resolvedIntent.entities?.field || rewrittenQuery}`;
-                }
 
                 // Improved follow-up search: If query is very short (e.g., "batao", "dikhao"), use the topic
                 const isShortQuery = rawInput.length < 10 && (rawInput.includes('batao') || rawInput.includes('dikhao') || rawInput.includes('jobs'));
@@ -96,14 +90,11 @@ class AIService {
                 }
 
                 let [dbResult, webData] = await Promise.all([
-                    this._fetchDatabaseKnowledge(searchQuery, profile, { pagination: routes.pagination }),
+                    this._fetchDatabaseKnowledge(searchQuery, profile),
                     routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
 
-                if (dbResult && dbResult.jobs) {
-                    knowledgeContext.jobs = dbResult.jobs;
-                    knowledgeContext.count = dbResult.count || 0;
-                }
+                if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
 
                 // Fallback to search if DB is empty and router allows it
                 if (!knowledgeContext.jobs && routes.shouldCheckSearchIfDbFails && !webData) {
@@ -139,31 +130,28 @@ class AIService {
             }
 
             // Add strict constraint if no live data is available
-            const requiresVerifiedData = ['DATABASE_FIRST', 'DATABASE_ONLY', 'PREVIOUS_ITEM_DATABASE', 'OFFICIAL_SEARCH_IF_DB_FAILS', 'SEARCH_FIRST'].includes(plan.dataPolicy);
-            if (plan.behavior !== 'CLARIFY' && plan.behavior !== 'GREET' && requiresVerifiedData && !knowledgeContext.jobs && !knowledgeContext.web) {
+            if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && plan.intent !== 'GENERAL') {
                 systemInstruction += "\n\nCRITICAL: No verified job data found in [DATABASE] or [SEARCH]. You MUST NOT mention any specific jobs, dates, or vacancies. Simply state that you don't have verified info right now.";
             }
 
-            const fieldResponse = this._buildContextualFieldResponse(plan, resolvedIntent, state, knowledgeContext);
-            let llm = null;
-            let finalContent = fieldResponse;
-
-            if (fieldResponse) {
-                metrics.provider = 'rule_based';
-            } else {
-                ProgressEmitter.emit(sessionId, 'LLM_THINKING');
-
-                llm = await this._getLLMProvider();
-                metrics.provider = llm.provider;
-
-                const aiResponse = await llm.chat([
-                    { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. The current year is ${currentYear}. Only discuss jobs active in ${currentYear} or later. Disregard any internal knowledge of previous years.` },
-                    ...(history || []),
-                    { role: 'user', content: rewrittenQuery }
-                ]);
-
-                finalContent = aiResponse.content;
+            // Eligibility Test Vacancy Handling (Issue 4)
+            const isEligibilityTest = state.topic && /(tet|jhtet|ctet|eligibility test)/i.test(state.topic);
+            if (isEligibilityTest && resolvedIntent.primaryIntent === 'FIELD_DETAILS' && /vacancy|post|seat/i.test(rawInput)) {
+                systemInstruction += "\n\nCRITICAL: The user is asking for vacancy count for an eligibility test. You MUST explain that it's an eligibility test, not a direct job vacancy, so a vacancy count doesn't apply. Do not search for a number.";
             }
+
+            ProgressEmitter.emit(sessionId, 'LLM_THINKING');
+
+            const llm = await this._getLLMProvider();
+            metrics.provider = llm.provider;
+
+            const aiResponse = await llm.chat([
+                { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. The current year is ${currentYear}. Only discuss jobs active in ${currentYear} or later. Disregard any internal knowledge of previous years.` },
+                ...(history || []),
+                { role: 'user', content: rewrittenQuery }
+            ]);
+
+            let finalContent = aiResponse.content;
 
             // --- PHASE 10: Validation & Repair Pipeline ---
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
@@ -175,8 +163,7 @@ class AIService {
                 userProfile: profile,
                 isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET',
                 resolvedIntent: resolvedIntent,
-                state: state,
-                plan: plan
+                state: state
             };
 
             let validation = ResponseValidator.validate(finalContent, validationInput);
@@ -185,7 +172,7 @@ class AIService {
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
             const sourceText = (knowledgeContext.jobs + " " + (knowledgeContext.web || "")).toLowerCase();
             let hasHallucinatedJob = false;
-            if (plan.domain === 'GOVT_JOB' || plan.intent === 'JOB_QUERY' || finalContent.toLowerCase().includes('vacancy')) {
+            if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy')) {
                 const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
                 if (jobMatches) {
                     for (const match of jobMatches) {
@@ -203,7 +190,7 @@ class AIService {
 
             // REPAIR LOGIC
             if (!validation.passed || hasHallucinatedJob) {
-                if (validation.shouldRetryLLM && llm) {
+                if (validation.shouldRetryLLM) {
                     ProgressEmitter.emit(sessionId, 'LLM_REPAIRING');
                     const repairPrompt = `\n\nCRITICAL: Your previous response was rejected due to: ${validation.issues.join(', ')}. Please re-write using ONLY verified data. Remove any invented facts or internal rules.`;
                     const repairResponse = await llm.chat([
@@ -224,7 +211,7 @@ class AIService {
             }
 
             // Fallback for failed strict validation
-            if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.domain) || ['JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.intent))) {
+            if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
                 finalContent = ResponseCleaner.getFactualFallback();
             } else if (!validation.passed && validationInput.isPureGreeting) {
                 finalContent = ResponseCleaner.getGreetingFallback();
@@ -240,7 +227,7 @@ class AIService {
             });
 
             // --- PHASE 11 & 12: Analytics & State Sync ---
-            const updatedState = await ConversationState.update(sessionId, {
+            await ConversationState.update(sessionId, {
                 query: rawInput,
                 acts: intentObj.acts,
                 domains: intentObj.domains,
@@ -254,11 +241,11 @@ class AIService {
 
             metrics.latency = Date.now() - startTime;
             Metrics.logRequest(metrics);
-            await this._persistChat(userName, sessionId, rawInput, processed, metrics, updatedState.topic);
+            await this._persistChat(userName, sessionId, rawInput, processed, metrics, state.topic);
 
             ProgressEmitter.emit(sessionId, 'FINAL_RESPONSE_READY');
 
-            return { success: true, ...processed, confidence: confidence.score, topic: updatedState.topic, requestId };
+            return { success: true, ...processed, confidence: confidence.score, topic: state.topic, requestId };
 
         } catch (error) {
             ProgressEmitter.emit(sessionId, 'ERROR');
@@ -274,83 +261,7 @@ class AIService {
         return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
     }
 
-    static _buildContextualFieldResponse(plan, resolvedIntent, state = {}, knowledgeContext = {}) {
-        if (!['JOB_DETAILS', 'RESULT'].includes(plan.mode)) return null;
-        if (!['FIELD_DETAILS', 'APPLICATION_HELP', 'SHOW_FULL_DETAILS'].includes(plan.intent)) return null;
-
-        const job = this._extractReferencedJob(plan.referencedItem || resolvedIntent.referencedItem, knowledgeContext.jobs, state);
-        const title = job.title || plan.referencedItem || resolvedIntent.referencedItem || state.currentTopic || state.topic;
-        if (!title || title === 'GENERAL') return null;
-
-        const followUpType = resolvedIntent.followUpType || 'UNKNOWN';
-        const q = String(resolvedIntent.originalMessage || '').toLowerCase();
-        const isEligibilityTest = /(eligibility test|jhtet|tet|ctet|reet|uptet)/i.test(`${title} ${job.summary || ''}`);
-
-        if (isEligibilityTest && /\b(vacancy|post|posts|seat|seats|kitni)\b/i.test(q)) {
-            return `${title} ek eligibility test hai, not a direct vacancy. Isme vacancy count apply nahi hota; isko qualify karne ke baad teaching vacancies ke liye eligible hote hain. Teaching vacancies alag notification me check karein.`;
-        }
-
-        if (plan.intent === 'APPLICATION_HELP' || followUpType === 'APPLY' || /\b(form|apply|registration|kaise bhare|kaise kare)\b/i.test(q)) {
-            return `${title} ka form bharne ke liye official link/notification open karein, registration karein, form fill karein, documents upload karein, fee applicable ho to pay karein, final submit karein, aur confirmation print/save kar lein.`;
-        }
-
-        if (followUpType === 'FEES' || /\b(fee|fees|shulk|charge|kitna paisa)\b/i.test(q)) {
-            return job.fee
-                ? `${title} ki fee: ${job.fee}. Apply karne se pehle official notification me category-wise fee confirm karein.`
-                : `${title} ki fee currently available nahi hai. Fee official notification me check karein; andaze se fee na manein.`;
-        }
-
-        if (followUpType === 'DATE' || /\b(last date|closing date|kab tak|aakhri)\b/i.test(q)) {
-            return job.lastDate
-                ? `${title} ki last date ${job.lastDate} hai. Final submit se pehle official notification me date confirm kar lein.`
-                : `${title} ki last date currently available nahi hai. Official notification me check karein.`;
-        }
-
-        if (followUpType === 'LINK' || /\b(official link|apply link|link do|website|site)\b/i.test(q)) {
-            return job.link
-                ? `${title} ka official link: ${job.link}`
-                : `${title} ka official link currently available nahi hai. Fake link use na karein; official notification/site par hi check karein.`;
-        }
-
-        if (followUpType === 'DETAILS' || plan.intent === 'SHOW_FULL_DETAILS' || resolvedIntent.isFollowUp) {
-            const parts = [`${title} ki details:`];
-            if (job.vacancy) parts.push(`Vacancy: ${job.vacancy}.`);
-            if (job.lastDate) parts.push(`Last date: ${job.lastDate}.`);
-            parts.push('Apply karna ho to official notification/link open karke registration, form fill, documents upload, fee payment if applicable, aur final submit karein.');
-            return parts.join(' ');
-        }
-
-        return null;
-    }
-
-    static _extractReferencedJob(referencedItem, jobsText = '', state = {}) {
-        const lines = String(jobsText || '').split('\n').filter(Boolean);
-        const target = String(referencedItem || state.currentTopic || state.topic || '').toLowerCase();
-        const line = lines.find(item => target && item.toLowerCase().includes(target)) || lines[0] || '';
-        const titleMatch = line.match(/JOB:\s*([^|]+)/i);
-        const vacancyMatch = line.match(/Vacancy:\s*([^|]+)/i);
-        const lastDateMatch = line.match(/Last Date:\s*([^|]+)/i);
-        const feeMatch = line.match(/(?:Fee|Fees):\s*([^|]+)/i);
-        const linkMatch = line.match(/(?:Official Link|Apply Link|URL|Link):\s*(https?:\/\/\S+)/i);
-        const summaryMatch = line.match(/Summary:\s*([^|]+)/i);
-
-        const clean = (value) => {
-            const text = String(value || '').trim();
-            if (!text || /^n\/?a$/i.test(text) || /^check site$/i.test(text)) return '';
-            return text;
-        };
-
-        return {
-            title: clean(titleMatch?.[1]) || clean(referencedItem),
-            vacancy: clean(vacancyMatch?.[1]),
-            lastDate: clean(lastDateMatch?.[1]),
-            fee: clean(feeMatch?.[1]),
-            link: clean(linkMatch?.[1]),
-            summary: clean(summaryMatch?.[1])
-        };
-    }
-
-    static async _fetchDatabaseKnowledge(query, profile, options = {}) {
+    static async _fetchDatabaseKnowledge(query, profile) {
         const q = query.toLowerCase();
         // Skip filtering for generic "latest" or "top" queries
         const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy') || q.includes('bharti') || q.includes('data') || q.includes('database');
@@ -385,8 +296,6 @@ class AIService {
 
         // If user profile has qualification, we attempt to filter, but we don't make it mandatory if 0 results
         let jobs = [];
-        const offset = Math.max(0, Number(options.pagination?.offset || 0));
-        const limit = Math.max(1, Number(options.pagination?.limit || 10));
         if (profile?.qualification) {
             let qualCriteria = { ...criteria };
             const qualRegex = { $regex: profile.qualification, $options: 'i' };
@@ -395,7 +304,7 @@ class AIService {
             } else {
                 qualCriteria['eligibility.education'] = qualRegex;
             }
-            jobs = await Job.find(qualCriteria).sort({ createdAt: -1 }).skip(offset).limit(limit);
+            jobs = await Job.find(qualCriteria).sort({ createdAt: -1 }).limit(10);
         }
 
         if (jobs.length === 0) {
@@ -403,13 +312,11 @@ class AIService {
             if (q.includes('new') || q.includes('latest') || q.includes('fresh') || isGeneric) {
                 sortCriteria = { createdAt: -1 };
             }
-            jobs = await Job.find(criteria).sort(sortCriteria).skip(offset).limit(limit);
+            jobs = await Job.find(criteria).sort(sortCriteria).limit(10);
         }
 
-        const totalCount = await Job.countDocuments(criteria);
-
         return {
-            count: totalCount,
+            count: jobs.length,
             jobs: jobs.length > 0 ? jobs.map(j => {
                 let title = j.title;
                 let org = j.organization || "N/A";
@@ -439,10 +346,10 @@ class AIService {
             Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })
         ]);
 
-        const apiKey = key?.value || process.env.GOOGLE_SEARCH_API_KEY || "";
-        const cxId = cx?.value || process.env.GOOGLE_SEARCH_CX || "";
+        const apiKey = key?.value || "AIzaSyDCOXTGWVsKdayMwQHT6f1NxZivfUSPg-A";
+        const cxId = cx?.value || "b5a3e21452b44a41e0";
 
-        if (!apiKey || !cxId) return "";
+        if (!apiKey) return "";
 
         const results = await SearchService.search(query, apiKey, cxId);
         const reranked = SearchReranker.rank(query, results);
@@ -451,7 +358,7 @@ class AIService {
 
         // Format search results into a readable string for the LLM
         return reranked.map((r, i) =>
-            `SOURCE ${i + 1}: [TITLE: ${r.title}] [URL: ${r.url}] [SNIPPET: ${r.description || r.snippet || ""}]`
+            `SOURCE ${i + 1}: [TITLE: ${r.title}] [URL: ${r.url}] [SNIPPET: ${r.snippet}]`
         ).join("\n");
     }
 
