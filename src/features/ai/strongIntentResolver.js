@@ -28,7 +28,7 @@ class StrongIntentResolver {
             {
                 primaryIntent: 'RESULT_ADMIT_CARD',
                 domainIntent: 'RESULT_ADMIT_CARD',
-                domain: 'ADMIT_CARD',
+                domain: 'RESULT',
                 task: 'STATUS',
                 regex: /\b(admit card|hall ticket|exam city)\b/
             },
@@ -38,6 +38,20 @@ class StrongIntentResolver {
                 domain: 'RESULT',
                 task: 'STATUS',
                 regex: /\b(result|scorecard|score card|selection list|merit list|answer key|board exam result|result date)\b/
+            },
+            {
+                primaryIntent: 'CAREER_GUIDANCE',
+                domainIntent: 'CAREER',
+                domain: 'CAREER',
+                task: 'DETAILS',
+                regex: /\b(career|future|guidance|path|direction|aim|goal|career option|kya karu|kya kare|kya karein|10th ke baad|12th ke baad|graduation ke baad|baad kya kare)\b/
+            },
+            {
+                primaryIntent: 'APPLICATION_HELP',
+                domainIntent: 'GOVT_JOB',
+                domain: 'GOVERNMENT_JOBS',
+                task: 'APPLY_PROCESS',
+                regex: /\b(kaise bharein|kaise bhare|kaise bharen|how to fill|how to apply|apply kaise kare|form kaise bhare|form bharna hai)\b/
             }
         ];
 

@@ -30,7 +30,7 @@ class IntentDetector {
         // User ka communication style
         // -------------------------------
 
-        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo)(\s+(bro|bhai|yaar|ji|dost))?(\s+(kya haal hai|kaise ho))?$/i) !== null;
+        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo)(\s+(bro|bhai|yaar|ji|dost))?$/i) !== null;
 
         if (isPureGreeting) {
             acts.add('GREET');
@@ -43,10 +43,6 @@ class IntentDetector {
         }
 
         if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya|hello jobo|hi jobo)$/i)) {
-            acts.add('GREET');
-        }
-
-        if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/i)) {
             acts.add('GREET');
         }
 
@@ -83,7 +79,7 @@ class IntentDetector {
         // User kis topic par baat kar raha hai
         // -------------------------------
 
-        if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job|data|database|list|form|nikla|active|matching)/i)) {
+        if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job|data|database|list|form|nikla|active|matching|update|notification)/i)) {
             domains.add('GOVT_JOB');
         }
 
@@ -140,7 +136,7 @@ class IntentDetector {
         // User actually kya chah raha hai
         // -------------------------------
 
-        if (q.match(/(latest|new|nayi|नई|upcoming|aane wali|recent|fresh)/i) && q.match(/(job|vacancy|bharti|recruitment|naukri)/i)) {
+        if (q.match(/(latest|new|nayi|नई|upcoming|aane wali|recent|fresh|update|notification)/i) && q.match(/(job|vacancy|bharti|recruitment|naukri)/i)) {
             intents.add('FIND_LATEST_JOBS');
         }
 
@@ -198,6 +194,10 @@ class IntentDetector {
 
         if (q.match(/(download notification|notification pdf|advertisement|vigyapan|pdf|official notice)/i)) {
             intents.add('DOWNLOAD_NOTIFICATION');
+        }
+
+        if (q.match(/(details|jaankari|jankari|info|information|बताओ|दिखाओ)/i)) {
+            intents.add('CHECK_DETAILS');
         }
 
         if (q.match(/(official website|website|site|portal|official link)/i)) {

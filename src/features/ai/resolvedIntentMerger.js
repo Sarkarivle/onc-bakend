@@ -19,7 +19,7 @@ class ResolvedIntentMerger {
         } = layers;
         const normalizedMessage = layers.normalizedMessage || originalMessage.toLowerCase().trim();
 
-        const canonicalRule = this._canonicalizeRule(ruleIntent, ruleResult);
+        const canonicalRule = this._canonicalizeRule(ruleIntent, ruleResult, context);
         const semanticPrimary = semanticIntent?.score >= 0.62 ? semanticIntent.intent : null;
         const llmPrimary = llmIntent?.primaryIntent || null;
         const followUpPrimary = followUp?.intent || null;
@@ -85,19 +85,28 @@ class ResolvedIntentMerger {
         };
     }
 
-    static _canonicalizeRule(ruleIntent, ruleResult = {}) {
+    static _canonicalizeRule(ruleIntent, ruleResult = {}, context = {}) {
         if (!ruleIntent || ruleIntent === 'GENERAL_QUERY') return null;
 
         const intents = new Set(ruleResult.intents || []);
         const domains = new Set(ruleResult.domains || []);
+        const lastItems = context.lastShownItems || context.lastShownJobs || [];
+        const isSingleItem = lastItems.length === 1;
 
         if (ruleIntent === 'PURE_GREETING' || ruleIntent === 'SMALL_TALK_GREETING') return 'GREETING';
-        if (ruleIntent === 'CONTINUE_PREVIOUS_TOPIC') return 'MORE_RESULTS';
+        if (ruleIntent === 'CONTINUE_PREVIOUS_TOPIC') return isSingleItem ? 'FIELD_DETAILS' : 'MORE_RESULTS';
         if (ruleIntent === 'USER_CONFIRMED') return 'CONFIRMATION';
         if (ruleIntent === 'USER_REJECTED') return 'NEGATION';
         if (ruleIntent === 'APPLY_ONLINE') return 'APPLICATION_HELP';
         if (ruleIntent === 'CHECK_RESULT' || ruleIntent === 'CHECK_ADMIT_CARD') return 'RESULT_ADMIT_CARD';
-        if (ruleIntent.startsWith('CHECK_')) return 'FIELD_DETAILS';
+
+        if (ruleIntent.startsWith('CHECK_') || ruleIntent === 'DOWNLOAD_NOTIFICATION') {
+            if (['CHECK_DETAILS', 'DOWNLOAD_NOTIFICATION', 'CHECK_VACANCY_DETAILS'].includes(ruleIntent)) {
+                if (!isSingleItem && (domains.has('GOVT_JOB') || domains.has('EXAM'))) return 'JOB_QUERY';
+            }
+            return 'FIELD_DETAILS';
+        }
+
         if (ruleIntent.startsWith('FILTER_BY_')) return domains.has('GOVT_JOB') ? 'JOB_QUERY' : 'FIELD_DETAILS';
         if (ruleIntent === 'FIND_LATEST_JOBS') return 'JOB_QUERY';
         if (domains.has('RESUME')) return 'RESUME';
