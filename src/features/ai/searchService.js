@@ -6,19 +6,31 @@ class SearchService {
      * Uses Google Custom Search JSON API.
      */
     static async search(query, apiKey, cx) {
+        if (typeof query !== 'string') {
+            console.warn("⚠️ [SEARCH_API] Invalid query. Skipping web search.");
+            return [];
+        }
+
+        const trimmedQuery = query.trim();
+        if (trimmedQuery.length < 3) {
+            console.warn("⚠️ [SEARCH_API] Query too short. Skipping web search.");
+            return [];
+        }
+
         if (!apiKey || !cx) {
             console.warn("⚠️ Google Search API Key or CX missing. Skipping web search.");
-            return null;
+            return [];
         }
 
         try {
-            console.log(`🌐 [SEARCH_API] Searching Google for: ${query}`);
+            console.log(`🌐 [SEARCH_API] Searching Google for: ${trimmedQuery}`);
             // Google Custom Search API
             const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
+                timeout: 7000,
                 params: {
                     key: apiKey,
                     cx: cx,
-                    q: query
+                    q: trimmedQuery
                 }
             });
 
@@ -33,9 +45,12 @@ class SearchService {
                 console.warn("⚠️ [SEARCH_API] No results found from Google.");
             }
         } catch (error) {
-            console.error("❌ [SEARCH_API] Google Search API Error:", error.response?.data?.error?.message || error.message);
+            const googleError = error.response?.data?.error;
+            const code = googleError?.code || error.code || 'UNKNOWN';
+            const message = googleError?.message || error.message || 'Unknown Google Search API error';
+            console.error("❌ [SEARCH_API] Google Search API Error:", { code, message });
         }
-        return null;
+        return [];
     }
 }
 

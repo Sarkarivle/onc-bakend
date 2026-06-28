@@ -59,7 +59,7 @@ class LLMIntentClassifier {
                 prompt: `System: Return ONLY valid JSON. No preamble.\n\nUser: ${prompt}`,
                 stream: false,
                 options: { temperature: 0.1 }
-            }, { timeout: 5000 });
+            }, { timeout: 3000 });
 
             const rawOutput = aiRes.data.response;
             // Basic cleaning to ensure JSON
@@ -81,8 +81,10 @@ class LLMIntentClassifier {
             };
 
         } catch (err) {
-            console.error('LLM Classification Error:', err.message);
-            return { primaryIntent: 'GENERAL_QUERY', domainIntent: 'GENERAL', confidence: 0.5, isFollowUp: false, entities: {}, needClarification: true };
+            const isTimeout = err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '');
+            const reason = isTimeout ? 'timeout' : (err.code || err.message || 'error');
+            console.warn('LLM Classification fallback:', reason);
+            return null;
         }
     }
 }

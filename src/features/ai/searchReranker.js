@@ -10,15 +10,15 @@ class SearchReranker {
     static rank(query, results) {
         if (!results || !Array.isArray(results)) return [];
 
-        const q = query.toLowerCase();
+        const q = typeof query === 'string' ? query.toLowerCase() : '';
         // Dynamic Current Year
         const currentYear = new Date().getFullYear().toString();
 
         const scoredResults = results.map(res => {
             let score = 0;
-            const title = res.title.toLowerCase();
-            const snippet = res.description.toLowerCase();
-            const url = res.url.toLowerCase();
+            const title = (res.title || '').toLowerCase();
+            const snippet = (res.description || res.snippet || '').toLowerCase();
+            const url = (res.url || '').toLowerCase();
 
             // 1. Recency Bonus (Dynamic Year)
             if (title.includes(currentYear) || snippet.includes(currentYear)) score += 50;
@@ -45,7 +45,8 @@ class SearchReranker {
             .slice(0, 3)
             .map(r => ({
                 title: r.title,
-                snippet: r.description,
+                description: r.description || r.snippet || "",
+                snippet: r.description || r.snippet || "",
                 url: r.url
             }));
     }

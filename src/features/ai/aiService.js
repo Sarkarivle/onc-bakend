@@ -355,10 +355,10 @@ class AIService {
             Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })
         ]);
 
-        const apiKey = key?.value || "AIzaSyDCOXTGWVsKdayMwQHT6f1NxZivfUSPg-A";
-        const cxId = cx?.value || "b5a3e21452b44a41e0";
+        const apiKey = key?.value || process.env.GOOGLE_SEARCH_API_KEY || "";
+        const cxId = cx?.value || process.env.GOOGLE_SEARCH_CX || "";
 
-        if (!apiKey) return "";
+        if (!apiKey || !cxId) return "";
 
         const results = await SearchService.search(query, apiKey, cxId);
         const reranked = SearchReranker.rank(query, results);
@@ -367,7 +367,7 @@ class AIService {
 
         // Format search results into a readable string for the LLM
         return reranked.map((r, i) =>
-            `SOURCE ${i + 1}: [TITLE: ${r.title}] [URL: ${r.url}] [SNIPPET: ${r.snippet}]`
+            `SOURCE ${i + 1}: [TITLE: ${r.title}] [URL: ${r.url}] [SNIPPET: ${r.description || r.snippet || ""}]`
         ).join("\n");
     }
 
