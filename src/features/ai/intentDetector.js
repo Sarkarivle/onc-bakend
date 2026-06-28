@@ -46,7 +46,7 @@ class IntentDetector {
             acts.add('GREET');
         }
 
-        if (q.match(/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|confirm|done|agree|ji haan|ha bhai|yes bro|yes do|ha do|kar do|batao|yes batao|theek hai)$/i)) {
+        if (q.match(/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|confirm|done|agree|ji haan|ha bhai|yes bro|yes do|ha do|kar do|yes batao|theek hai|theek batao|haan batao)$/i)) {
             acts.add('CONFIRM');
         }
 
@@ -107,7 +107,7 @@ class IntentDetector {
             domains.add('TEACHING_JOB');
         }
 
-        if (q.match(/(anganwadi|asha|anm|staff nurse|nurse|medical|health department)/i)) {
+        if (q.match(/(anganwadi|asha|anm|staff nurse|nurse|nursing|medical|health department)/i)) {
             domains.add('HEALTH_JOB');
         }
 

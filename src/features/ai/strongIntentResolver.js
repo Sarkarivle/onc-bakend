@@ -55,17 +55,6 @@ class StrongIntentResolver {
             }
         ];
 
-        const found = strong.find(item => item.regex.test(q));
-        if (found) {
-            return {
-                ...found,
-                communicationAct: hasGreeting ? 'QUESTION' : (found.primaryIntent === 'CAREER_GUIDANCE' ? 'QUESTION' : null),
-                secondaryIntents: hasGreeting ? ['GREETING'] : [],
-                confidence: 0.95,
-                reason: 'Strong independent domain intent matched.'
-            };
-        }
-
         const jobEntity = /\b(ssc|upsc|bpsc|uppsc|mppsc|rpsc|ctet|uptet|neet|jee|cuet|gate|police|constable|daroga|si|sub inspector|home guard|railway|rrb|rpf|alp|group d|ntpc|bank|ibps|sbi|rbi|clerk|po|so|army|navy|air force|agniveer|defence|bsf|crpf|cisf|itbp|ssb|teacher|teaching|prt|tgt|pgt|lecturer|professor|assistant professor|anganwadi|asha|anm|nurse|nursing|health)\b/i;
         const jobAction = /\b(notification|recruitment|vacancy|vacancies|bharti|details|update|updates|year|date|rally|constable|clerk|po|jobs|job|naukri|naukari|rojgar|rozgar|202[4-5])\b/i;
 
@@ -82,6 +71,17 @@ class StrongIntentResolver {
                 secondaryIntents: hasGreeting ? ['GREETING'] : [],
                 confidence: 0.94,
                 reason: 'Strong job/domain intent matched.'
+            };
+        }
+
+        const found = strong.find(item => item.regex.test(q));
+        if (found) {
+            return {
+                ...found,
+                communicationAct: hasGreeting ? 'QUESTION' : (found.primaryIntent === 'CAREER_GUIDANCE' ? 'QUESTION' : null),
+                secondaryIntents: hasGreeting ? ['GREETING'] : [],
+                confidence: 0.95,
+                reason: 'Strong independent domain intent matched.'
             };
         }
 

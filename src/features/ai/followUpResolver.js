@@ -92,7 +92,7 @@ class FollowUpResolver {
     }
 
     static _resolveConfirmation(q, state, base) {
-        if (!/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|yes do|ha do|kar do|batao|yes batao|theek hai)$/.test(q)) return base;
+        if (!/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|yes do|ha do|kar do|yes batao|theek hai|theek batao|haan batao)$/.test(q)) return base;
 
         const hasContext = this._hasContext(state);
         const hasPending = Boolean(state.pendingAction || state.lastAssistantQuestion);
