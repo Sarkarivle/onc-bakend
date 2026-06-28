@@ -63,7 +63,14 @@ class AIService {
             metrics.intent = plan.intent;
 
             // --- PHASE 6: Knowledge Routing ---
-            const rewrittenQuery = QueryRewriter.rewrite(rawInput, state.topic);
+            let queryForSearch = rawInput;
+            // If we have specific intents (like CHECK_SALARY), enhance the search query
+            if (plan.specificIntents && plan.specificIntents.length > 0) {
+                const intentKeywords = plan.specificIntents.map(i => i.replace(/_/g, ' ').toLowerCase()).join(' ');
+                queryForSearch = `${rawInput} ${intentKeywords}`;
+            }
+
+            const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state.topic);
             const routes = KnowledgeRouter.route(plan, rewrittenQuery);
 
             // --- PHASE 7: Data Collection ---

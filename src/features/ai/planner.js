@@ -12,11 +12,11 @@ class Planner {
      * @param {Object} profile - UserProfile.
      */
     static plan(query, intentObj, state, profile) {
-        const { acts, domains } = intentObj;
+        const { acts, domains, intents } = intentObj;
         const missingFields = UserProfile.getMissingFields(profile);
 
         let behavior = 'RESPOND';
-        let activeDomain = domains[0];
+        let activeDomain = domains[0] || 'GENERAL';
         let priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT', 'CONTEXT'];
 
         // 1. CONTEXT RESOLUTION (State-Driven)
@@ -25,19 +25,15 @@ class Planner {
 
         if (acts.includes('NEGATE')) {
             behavior = 'RESPOND';
-            activeDomain = 'GENERAL'; // Stop job flow if user says no
+            activeDomain = 'GENERAL';
             priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
         } else if (isResolvingPending || (isFollowUpAct && state.lastDomain !== 'GENERAL')) {
-            activeDomain = state.lastDomain !== 'GENERAL' ? state.lastDomain : activeDomain;
+            activeDomain = (state.lastDomain && state.lastDomain !== 'GENERAL') ? state.lastDomain : activeDomain;
             behavior = 'RESPOND';
-        } else if (isFollowUpAct && state.lastDomain === 'GENERAL' && acts.includes('CONFIRM')) {
-            // User said "yes" to a general prompt - likely a follow-up to whatever AI just said
-            behavior = 'RESPOND';
-            activeDomain = 'GOVT_JOB'; // Default to jobs if they say yes to a career assistant
         }
 
-        // 2. GREETING OVERRIDE (Minimalist Policy)
-        if (acts.includes('GREET') && domains.includes('GENERAL')) {
+        // 2. GREETING OVERRIDE
+        if (acts.includes('GREET') && activeDomain === 'GENERAL') {
             return {
                 behavior: 'GREET',
                 intent: 'GENERAL',
@@ -49,16 +45,24 @@ class Planner {
             };
         }
 
-        // 3. DOMAIN EVALUATION (Knowledge-Aware)
-        const factualDomains = ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP', 'COLLEGE'];
+        // 3. DOMAIN EVALUATION (Upgraded for New IntentDetector Domains)
+        const jobRelatedDomains = [
+            'GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB',
+            'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'
+        ];
+        const factualDomains = [...jobRelatedDomains, 'CAREER', 'SCHOLARSHIP', 'COLLEGE', 'RESUME'];
+
         if (factualDomains.includes(activeDomain) && !acts.includes('GREET')) {
-            if (missingFields.length > 0) {
+            if (missingFields.length > 0 && activeDomain !== 'RESUME') {
                 behavior = 'DATA_GATHERING';
             }
         }
 
         // 4. DYNAMIC MODULE REGISTRY LOADING
-        if (activeDomain !== 'GENERAL') {
+        // Map detailed domains back to primary modules if needed
+        if (jobRelatedDomains.includes(activeDomain)) {
+            priorityModules.push('GOVT_JOB');
+        } else if (activeDomain !== 'GENERAL') {
             priorityModules.push(activeDomain);
         }
 
@@ -69,6 +73,7 @@ class Planner {
         return {
             behavior,
             intent: activeDomain,
+            specificIntents: Array.from(intents || []),
             primaryAct: acts[0],
             priorityModules: [...new Set(priorityModules)],
             missingFields,

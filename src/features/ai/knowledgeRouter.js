@@ -12,16 +12,21 @@ class KnowledgeRouter {
         const q = query.toLowerCase();
         const sources = ['PROMPT_MODULES', 'LLM_BASE'];
 
-        // Rule: Internal Database is ALWAYS Priority 1 for Jobs/Jansewa
-        const isFactualQuery = ['GOVT_JOB', 'LATEST_VACANCY', 'JANSEWA', 'ELIGIBILITY', 'SALARY'].includes(plan.intent);
+        // Upgraded factual check for new domains
+        const jobRelatedDomains = [
+            'GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB',
+            'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'
+        ];
+
+        const isFactualQuery = jobRelatedDomains.includes(plan.intent) ||
+                              ['CAREER', 'SCHOLARSHIP', 'COLLEGE', 'RESUME', 'LATEST_VACANCY', 'JANSEWA', 'ELIGIBILITY', 'SALARY'].includes(plan.intent);
 
         if (isFactualQuery) {
             sources.push('DATABASE');
         }
 
-        // Rule: Search is Priority 3 (Only if DB fails, handled in service)
-        // But we must enable the capability here if needed.
-        const needsLiveUpdate = q.includes('latest') || q.includes('current') || q.includes('2024') || q.includes('notification');
+        // Search decision
+        const needsLiveUpdate = q.includes('latest') || q.includes('new') || q.includes('nayi') || q.includes('upcoming') || q.includes('notification');
 
         return {
             selectedSources: sources,
