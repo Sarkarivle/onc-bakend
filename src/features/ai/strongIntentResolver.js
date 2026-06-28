@@ -10,6 +10,22 @@ class StrongIntentResolver {
         const acts = new Set(ruleResult.acts || []);
         const hasGreeting = acts.has('GREET') || /^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/.test(q);
 
+        // Early return for standalone follow-up phrases to prevent misclassification as CAREER_GUIDANCE.
+        const followUpPhrases = [
+            "sahi se batao", "achhe se batao", "acche se batao",
+            "detail me batao", "clear batao", "batao na"
+        ];
+
+        if (followUpPhrases.includes(q)) {
+            return {
+                primaryIntent: 'FIELD_DETAILS',
+                isFollowUp: true,
+                communicationAct: 'FOLLOW_UP',
+                domain: 'GENERAL',
+                task: 'DETAILS'
+            };
+        }
+
         const strong = [
             {
                 primaryIntent: 'RESUME',
