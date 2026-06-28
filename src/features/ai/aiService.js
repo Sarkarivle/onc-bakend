@@ -190,7 +190,7 @@ class AIService {
 
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
             const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, validation);
-            const processed = this._finalProcess(finalContent, confidence);
+            const processed = this._finalProcess(finalContent, confidence, { intent: plan.intent, query: rewrittenQuery });
 
             // --- PHASE 11 & 12: Analytics ---
             await ConversationState.update(sessionId, rawInput, intentObj.acts, intentObj.domains, finalContent);
@@ -317,7 +317,7 @@ class AIService {
         ).join("\n");
     }
 
-    static _finalProcess(content, confidence) {
+    static _finalProcess(content, confidence, meta = {}) {
         // 1. EXTRACTION: Strictly extract only user message content
         const userMessageMatch = content.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
         const mathMatch = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
@@ -336,8 +336,12 @@ class AIService {
             /internal validation/gi, /source recommended/gi, /hallucination guard/gi,
             /sourceverified/gi, /validation failed/gi, /official source recommended/gi,
             /sapni wala data/gi, /aapne yes kaha/gi, /you said yes/gi,
+            /namaste!?\s*main jobo ai[^.\n]*[.\n]?/gi,
             /mera niyam hai/gi, /ai rules/gi, /internal logic/gi, /niyam hai/gi,
             /complex topic/gi, /bada ocean/gi, /keyword use kiya hai/gi,
+            /career ka sapna[^.\n]*[.\n]?/gi,
+            /aaj kal naukriyon[\s\S]*?open hain\??/gi,
+            /^\s*job list\s*:?\s*$/gim,
             /user profile is missing/gi, /profile complete nahi hai/gi,
             /\[OUTPUT PROTOCOL.*?\]/gi, /\[CRITICAL RULES.*?\]/gi, /\[IDENTITY.*?\]/gi,
             /\[PERSONALITY.*?\]/gi, /\[GUARDRAILS.*?\]/gi,
@@ -347,8 +351,13 @@ class AIService {
 
         blacklisted.forEach(reg => { message = message.replace(reg, ''); });
 
+        const asksEligibility = /(eligibility|yogyata|qualification|educational qualification|kaun bhar sakta|eligible|पात्रता)/i.test(meta.query || "");
+        if (meta.intent === 'GOVT_JOB' && !asksEligibility) {
+            message = this._stripEligibilityLines(message);
+        }
+
         // 3. FORMATTING: Clean up spaces
-        message = message.trim();
+        message = message.replace(/\n{3,}/g, '\n\n').trim();
 
         // 4. Suggestions extraction
         const suggestMatch = content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
@@ -359,6 +368,39 @@ class AIService {
             calculation: mathMatch ? mathMatch[1].trim() : (thinkMatch ? thinkMatch[1].trim() : ""),
             suggestions: suggestions.slice(0, 3)
         };
+    }
+
+    static _stripEligibilityLines(message) {
+        const lines = message.split('\n');
+        const cleaned = [];
+        let skippingEligibility = false;
+        const eligibilityStart = /^\s*-?\s*(eligibility|eligiblity|qualification|educational qualification|education requirement|age limit)\s*:/i;
+        const nextAllowedLine = /^\s*(\d+\.\s+|-+\s*(vacancy|last date|official link|apply link)\s*:|pro tip\s*:|kaunsi\b|kya\b|apply se\b)/i;
+
+        for (const line of lines) {
+            if (eligibilityStart.test(line)) {
+                skippingEligibility = true;
+                continue;
+            }
+
+            if (skippingEligibility) {
+                if (!line.trim()) {
+                    skippingEligibility = false;
+                    cleaned.push(line);
+                    continue;
+                }
+
+                if (!nextAllowedLine.test(line)) {
+                    continue;
+                }
+
+                skippingEligibility = false;
+            }
+
+            cleaned.push(line);
+        }
+
+        return cleaned.join('\n');
     }
 
     static async _persistChat(user, session, input, processed, metrics, topic) {

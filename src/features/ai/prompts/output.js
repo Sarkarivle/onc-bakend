@@ -19,7 +19,7 @@ module.exports = (currentDate) => `
 [RESPONSE FORMAT EXAMPLE]
 <USER_MESSAGE>
 Rahul bhai, samajh gaya, aap latest open jobs dekhna chahte hain.
-Apply se pehle last date, eligibility aur official notification verify karna zaroori hai.
+Apply se pehle last date aur official notification verify karna zaroori hai.
 
 1. **[Job Name] Recruitment [Current Year]**
    - Vacancy: **[Count]**
@@ -28,6 +28,6 @@ Apply se pehle last date, eligibility aur official notification verify karna zar
 
 Pro Tip: [One practical sentence, max 22 words.]
 
-Kaunsi job ki full eligibility, fees aur apply steps chahiye?
+Kaunsi job ki full details, fees aur apply steps chahiye?
 </USER_MESSAGE>
 `;
