@@ -363,7 +363,7 @@ class FollowUpResolver {
     }
 
     static _resolveGenericFollowUp(q, domain, hasContext, itemType, base) {
-        if (!/^(batao|batao na|sahi se batao|details|details do|details dikhao|more info|aur batao)$/.test(q)) return base;
+        if (!/^(batao|batao na|details|details do|details dikhao|more info|aur batao)$/.test(q) && !q.includes('sahi se batao')) return base;
 
         if (!hasContext) {
             return {

@@ -38,7 +38,7 @@ class StrongIntentResolver {
                 domain: 'RESULT',
                 task: 'STATUS',
                 regex: /\b(result|scorecard|score card|selection list|merit list|answer key|board exam result|result date)\b/
-            },
+            },            {                primaryIntent: 'RESULT_ADMIT_CARD',                domainIntent: 'RESULT_ADMIT_CARD',                domain: 'RESULT',                task: 'STATUS',                regex: /\b(cutoff|cut off)\b/            },
             {
                 primaryIntent: 'CAREER_GUIDANCE',
                 domainIntent: 'CAREER',
