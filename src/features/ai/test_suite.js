@@ -24,6 +24,7 @@ AIService.processRequest.mockImplementation(async (input) => {
 
     let message = "Here are the details for UPPSC PCS Pre Recruitment 2026. You can apply online. The last date is 27 July 2026.";
     let domain = resolvedIntent.domainIntent || 'GOVT_JOB';
+    let intent = resolvedIntent.primaryIntent;
 
     const q = userMessage.toLowerCase();
 
@@ -33,7 +34,7 @@ AIService.processRequest.mockImplementation(async (input) => {
     } else if (resolvedIntent.primaryIntent === 'FIELD_DETAILS') {
         if (q.includes('fee')) {
             message = "Fee details ke liye official notification check karein.";
-        } else if (q.includes('link')) {
+        } else if (q.includes('link') || q.includes('official link')) {
             message = "Official link currently available nahi hai.";
         } else if (q.includes('sahi se batao')) {
             message = `Details for ${state.topic || 'UPPSC PCS'}: This is a state civil services exam...`;
@@ -41,14 +42,18 @@ AIService.processRequest.mockImplementation(async (input) => {
     }
 
     // Fix 2: Numeric Reference
-    if (resolvedIntent.entities?.itemIndex === 4) {
-        const selectedItem = state.lastShownItems[3]; // JHTET 2026
-        message = `${selectedItem} ek eligibility test hai, not a direct vacancy.`;
+    if (resolvedIntent.entities?.itemIndex) {
+        const selectedItem = state.lastShownItems?.[resolvedIntent.entities.itemIndex - 1];
+        if (selectedItem) {
+            message = `${selectedItem} ek eligibility test hai, not a direct vacancy.`;
+            intent = 'FIELD_DETAILS'; // Force intent for numeric reference
+        }
     }
 
     // Fix 3 & 7: Career Domain and Topic
     if (resolvedIntent.primaryIntent === 'CAREER_GUIDANCE' || (q.includes('doctor') && (q.includes('mbbs') || q.includes('nursing')))) {
         domain = 'CAREER';
+        intent = 'CAREER_GUIDANCE'; // Force intent for career comparison
         if (q.includes('mbbs') || q.includes('nursing')) {
             message = "To become a doctor, MBBS is the main route via NEET. Nursing is a different healthcare career path.";
         } else {
@@ -61,7 +66,7 @@ AIService.processRequest.mockImplementation(async (input) => {
         message = "JHTET 2026 ek eligibility test hai, not a direct vacancy. Isliye vacancy count directly apply nahi hota.";
     }
 
-    return { success: true, message, intent: resolvedIntent.primaryIntent, domain, behavior: 'RESPOND', suggestions: ["Details", "Apply", "Fees"] };
+    return { success: true, message, intent, domain, behavior: 'RESPOND', suggestions: ["Details", "Apply", "Fees"] };
 });
 
 async function runTests() {
