@@ -19,18 +19,46 @@ class ResolvedIntentMerger {
         } = layers;
         const normalizedMessage = layers.normalizedMessage || originalMessage.toLowerCase().trim();
 
-        const canonicalRule = this._canonicalizeRule(ruleIntent, ruleResult, context);
+        const canonicalRule = this._canonicalizeRule(ruleIntent, ruleResult, context, normalizedMessage);
         const semanticPrimary = semanticIntent?.score >= 0.62 ? semanticIntent.intent : null;
         const llmPrimary = llmIntent?.primaryIntent || null;
         const followUpPrimary = followUp?.intent || null;
 
-        const strongTakesPriority = strongIntent && (
-            ['RESUME', 'SCHOLARSHIP'].includes(strongIntent.primaryIntent) ||
-            (strongIntent.primaryIntent === 'RESULT_ADMIT_CARD' && !followUp?.isFollowUp)
-        );
-        let primary = strongTakesPriority
-            ? strongIntent.primaryIntent
-            : (followUpPrimary || strongIntent?.primaryIntent || canonicalRule || semanticPrimary || llmPrimary || 'GENERAL_QUERY');
+        // Merger Priority Implementation
+        let primary;
+        const isCareerLock =
+            (ruleResult?.domains || []).includes('CAREER') ||
+            strongIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
+            semanticIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
+            ruleIntent === 'CAREER_GUIDANCE' ||
+            /\b(ke baad kya|ke baad jobs|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|students|job kaise payein)\b/i.test(normalizedMessage);
+
+        const isFieldOnly = normalizedMessage.match(/^(fee|fees|age|salary|link|official link|last date|lastdate|eligibility|yogyata|qualification|admit card|result)\??$/i);
+        const lastItems = context.lastShownItems || context.lastShownJobs || [];
+        const hasContext = lastItems.length > 0 || (context.currentDomain && context.currentDomain !== 'GENERAL');
+
+        if (ruleResult?.isPureGreeting) {
+            primary = 'GREETING';
+        } else if (isCareerLock) {
+            primary = 'CAREER_GUIDANCE';
+        } else if (strongIntent && ['RESUME', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(strongIntent.primaryIntent)) {
+            primary = strongIntent.primaryIntent;
+        } else if (strongIntent && strongIntent.primaryIntent === 'JOB_QUERY') {
+            primary = 'JOB_QUERY';
+        } else if (strongIntent && strongIntent.primaryIntent === 'APPLICATION_HELP') {
+            primary = 'APPLICATION_HELP';
+        } else if (followUpPrimary && followUpPrimary !== 'FIELD_DETAILS' && followUpPrimary !== 'PROFILE_INFO') {
+            primary = followUpPrimary;
+        } else if (followUpPrimary === 'FIELD_DETAILS' && (hasContext || isFieldOnly)) {
+            primary = 'FIELD_DETAILS';
+        } else if (canonicalRule === 'FIELD_DETAILS' && (hasContext || isFieldOnly)) {
+            primary = 'FIELD_DETAILS';
+        } else if (followUpPrimary === 'PROFILE_INFO') {
+            primary = 'PROFILE_INFO';
+        } else {
+            primary = canonicalRule || semanticPrimary || llmPrimary || 'GENERAL_QUERY';
+        }
+
         if (primary === 'CONFIRM' || primary === 'USER_CONFIRMED') primary = 'CONFIRMATION';
         if (primary === 'USER_REJECTED') primary = 'NEGATION';
 
@@ -50,11 +78,18 @@ class ResolvedIntentMerger {
             context
         });
         const graphDomain = strongIntent?.domain || this._graphDomain(domain, primary);
-        const task = this._task(primary, followUp?.entities || llmIntent?.entities || {});
-        const communicationAct = this._communicationAct(primary, ruleResult, followUp);
+        const task = this._task(primary, followUp?.entities || llmIntent?.entities || {}, strongIntent);
 
+        const lastItems = context.lastShownItems || context.lastShownJobs || [];
+        const hasContext = lastItems.length > 0 || (context.currentDomain && context.currentDomain !== 'GENERAL');
+
+        let isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp);
+        if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
+        if (primary === 'APPLICATION_HELP' && hasContext) isFollowUp = true;
+
+        const communicationAct = this._communicationAct(primary, ruleResult, followUp, isFollowUp);
         const isPureGreeting = (ruleResult?.isPureGreeting || primary === 'GREETING') && !this._hasDomainSignal(ruleResult, strongIntent, semanticPrimary, primary);
-        const isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp);
+
         const needClarification = Boolean(followUp?.needClarification || llmIntent?.needClarification || this._needsClarification(primary, confidence, context, isFollowUp));
         const dataSourceNeeded = this._dataSourceNeeded(graphDomain, task, primary);
 
@@ -81,28 +116,37 @@ class ResolvedIntentMerger {
             referencedItem: followUp?.referencedItem || this._lastShownItem(context),
             needClarification,
             dataSourceNeeded,
-            reason: this._reason(primary, { canonicalRule, semanticIntent, llmIntent, followUp })
+            reason: this._reason(primary, { canonicalRule, semanticIntent, llmIntent, followUp, strongIntent })
         };
     }
 
-    static _canonicalizeRule(ruleIntent, ruleResult = {}, context = {}) {
+    static _canonicalizeRule(ruleIntent, ruleResult = {}, context = {}, q = "") {
         if (!ruleIntent || ruleIntent === 'GENERAL_QUERY') return null;
 
         const intents = new Set(ruleResult.intents || []);
         const domains = new Set(ruleResult.domains || []);
         const lastItems = context.lastShownItems || context.lastShownJobs || [];
         const isSingleItem = lastItems.length === 1;
+        const hasContext = lastItems.length > 0 || (context.currentDomain && context.currentDomain !== 'GENERAL');
 
         if (ruleIntent === 'PURE_GREETING' || ruleIntent === 'SMALL_TALK_GREETING') return 'GREETING';
-        if (ruleIntent === 'CONTINUE_PREVIOUS_TOPIC') return isSingleItem ? 'FIELD_DETAILS' : 'MORE_RESULTS';
+
+        if (ruleIntent === 'CONTINUE_PREVIOUS_TOPIC') {
+            const isMoreResults = q.match(/(aur|more|next|dusra|next|dusri|ek aur|1 aur)\s*(job|jobs|option|vacancy|result|bharti)/i) || q.match(/^(aur|next|more|dusra|dusri|1 hi hai kya)$/i);
+            if (isMoreResults) return 'MORE_RESULTS';
+            return 'FIELD_DETAILS';
+        }
+
         if (ruleIntent === 'USER_CONFIRMED') return 'CONFIRMATION';
         if (ruleIntent === 'USER_REJECTED') return 'NEGATION';
         if (ruleIntent === 'APPLY_ONLINE') return 'APPLICATION_HELP';
         if (ruleIntent === 'CHECK_RESULT' || ruleIntent === 'CHECK_ADMIT_CARD') return 'RESULT_ADMIT_CARD';
 
         if (ruleIntent.startsWith('CHECK_') || ruleIntent === 'DOWNLOAD_NOTIFICATION') {
-            if (['CHECK_DETAILS', 'DOWNLOAD_NOTIFICATION', 'CHECK_VACANCY_DETAILS'].includes(ruleIntent)) {
-                if (!isSingleItem && (domains.has('GOVT_JOB') || domains.has('EXAM'))) return 'JOB_QUERY';
+            const isFieldOnly = q.match(/^(fee|fees|age|salary|link|official link|last date|lastdate|eligibility|yogyata|qualification|admit card|result)\??$/i);
+            if (!hasContext && !isFieldOnly) {
+                if (domains.has('GOVT_JOB') || domains.has('EXAM')) return 'JOB_QUERY';
+                return 'GENERAL_QUERY';
             }
             return 'FIELD_DETAILS';
         }
@@ -149,11 +193,12 @@ class ResolvedIntentMerger {
             .map(match => match.intent);
     }
 
-    static _communicationAct(primary, ruleResult = {}, followUp = {}) {
-        if (followUp?.isFollowUp) return 'FOLLOW_UP';
+    static _communicationAct(primary, ruleResult = {}, followUp = {}, isFollowUp = false) {
+        if (isFollowUp) return 'FOLLOW_UP';
         if (primary === 'GREETING') return 'GREETING';
         if (primary === 'CONFIRMATION') return 'CONFIRMATION';
         if (primary === 'NEGATION') return 'NEGATION';
+        if (primary === 'CAREER_GUIDANCE') return 'QUESTION';
         if ((ruleResult.acts || []).includes('THANK')) return 'THANKS';
         if ((ruleResult.acts || []).includes('INQUIRE')) return 'QUESTION';
         return 'QUESTION';
@@ -193,7 +238,8 @@ class ResolvedIntentMerger {
         return map[domain] || domain || 'GENERAL';
     }
 
-    static _task(primary, entities = {}) {
+    static _task(primary, entities = {}, strongIntent = null) {
+        if (strongIntent?.task) return strongIntent.task;
         if (primary === 'JOB_QUERY') return 'LATEST';
         if (['MORE_JOBS', 'MORE_RESULTS', 'MORE_SCHOLARSHIPS', 'MORE_COLLEGES', 'MORE_CAREER_OPTIONS'].includes(primary)) return 'MORE_RESULTS';
         if (primary === 'APPLICATION_HELP') return 'APPLY_PROCESS';
@@ -242,6 +288,7 @@ class ResolvedIntentMerger {
     }
 
     static _reason(primary, data) {
+        if (data.strongIntent?.primaryIntent === primary) return `Resolved as ${primary} from strong domain lock.`;
         if (data.followUp?.isFollowUp) return `Resolved as ${primary} from conversation context.`;
         if (data.canonicalRule) return `Resolved as ${primary} from fast rule detector.`;
         if (data.semanticIntent?.intent === primary) return `Resolved as ${primary} from semantic examples.`;

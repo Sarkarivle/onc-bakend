@@ -123,7 +123,7 @@ class FollowUpResolver {
     }
 
     static _resolveApplicationHelp(q, domain, hasContext, lastItem, base) {
-        if (!/\b(kaha se apply|apply kaise|kaise bhare|form kaise|registration kaise|fee kaise pay|apply|registration|form bhar)\b/.test(q)) return base;
+        if (!/\b(kaha se apply|apply kaise|kaise bhare|kaise bharein|kaise bharen|form kaise|registration kaise|fee kaise pay|apply|registration|form bhar)\b/.test(q)) return base;
 
         if (!hasContext && !/\b(job|vacancy|bharti|form|application)\b/.test(q)) return base;
 
@@ -138,19 +138,8 @@ class FollowUpResolver {
     }
 
     static _resolveMoreResults(q, domain, hasContext, itemType, base) {
-        if (!/^(aur jobs|aur hai kya|aur|aur batao|next|more|more info|dusra option batao|dusra option|sirf ek hai kya|sirf itna hi|1 hi hai kya|bas itna hi|baaki batao|kuch aur)$/.test(q)) return base;
+        if (!/^(aur jobs|aur hai kya|aur|aur batao|next|more|dusra option batao|dusra option|sirf ek hai kya|sirf itna hi|1 hi hai kya|bas itna hi|baaki batao|kuch aur)$/.test(q)) return base;
         if (!hasContext) return base;
-
-        if (/^more info$/.test(q) && itemType === 'SINGLE') {
-            return {
-                ...base,
-                resolvedQuery: `Show details for ${base.referencedItem || domain}.`,
-                intent: 'FIELD_DETAILS',
-                domainIntent: domain,
-                isFollowUp: true,
-                entities: { field: 'details' }
-            };
-        }
 
         const intentByDomain = {
             GOVT_JOB: 'MORE_JOBS',
@@ -230,7 +219,7 @@ class FollowUpResolver {
             };
         }
 
-        const wantsMore = itemType === 'LIST' && /^(batao|batao na|more info)$/.test(q);
+        const wantsMore = itemType === 'LIST' && /^(batao|batao na)$/.test(q);
         return {
             ...base,
             resolvedQuery: wantsMore ? `Show more results for ${domain}.` : `Show details for ${base.referencedItem || domain}.`,
