@@ -62,7 +62,7 @@ class IntentDetector {
         // User kis topic par baat kar raha hai
         // -------------------------------
 
-        if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job)/i)) {
+        if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job|data|database|list)/i)) {
             domains.add('GOVT_JOB');
         }
 

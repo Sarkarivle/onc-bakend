@@ -219,8 +219,8 @@ class AIService {
     static async _fetchDatabaseKnowledge(query, profile) {
         const q = query.toLowerCase();
         // Skip filtering for generic "latest" or "top" queries
-        const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy');
-        const keywords = q.split(/\s+/).filter(w => w.length > 2 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao', 'karein', 'kijiye', 'bare', 'mein'].includes(w));
+        const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy') || q.includes('bharti') || q.includes('data') || q.includes('database');
+        const keywords = q.split(/\s+/).filter(w => w.length > 2 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao', 'karein', 'kijiye', 'bare', 'mein', 'data', 'database'].includes(w));
 
         const now = new Date();
         // Allow jobs that are active, even if lastDate is missing (fallback to null check)
@@ -341,7 +341,8 @@ class AIService {
             /user profile is missing/gi, /profile complete nahi hai/gi,
             /\[OUTPUT PROTOCOL.*?\]/gi, /\[CRITICAL RULES.*?\]/gi, /\[IDENTITY.*?\]/gi,
             /\[PERSONALITY.*?\]/gi, /\[GUARDRAILS.*?\]/gi,
-            /aisi aankhon wale sawalon/gi, /gyan hona zaroori hai/gi, /janna chahiye/gi
+            /aisi aankhon wale sawalon/gi, /gyan hona zaroori hai/gi, /janna chahiye/gi,
+            /<span[^>]*>|<\/span>/gi, /<font[^>]*>|<\/font>/gi
         ];
 
         blacklisted.forEach(reg => { message = message.replace(reg, ''); });
