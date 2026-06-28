@@ -1,0 +1,287 @@
+[
+  {
+    "id": "conv_1",
+    "description": "Confirmation follow-up after job offer",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "lastAssistantMsg": "Kaunsi job ki full details, fees aur apply steps chahiye?",
+      "currentDomain": "GOVT_JOB",
+      "topic": "UPPSC PCS Pre Recruitment 2026"
+    },
+    "userMessage": "yes",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "referencedItem": "UPPSC PCS Pre Recruitment 2026",
+      "responseContains": ["UPPSC PCS Pre Recruitment 2026", "apply"]
+    }
+  },
+  {
+    "id": "conv_2",
+    "description": "Apply process follow-up",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "Apply kaise kare",
+    "expected": {
+      "intent": "APPLICATION_HELP",
+      "referencedItem": "UPPSC PCS Pre Recruitment 2026",
+      "responseContains": ["apply", "registration"]
+    }
+  },
+  {
+    "id": "conv_3",
+    "description": "Form filling follow-up",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "form kaise bhare",
+    "expected": {
+      "intent": "APPLICATION_HELP",
+      "referencedItem": "UPPSC PCS Pre Recruitment 2026",
+      "responseContains": ["form", "registration", "document", "submit"]
+    }
+  },
+  {
+    "id": "conv_4",
+    "description": "Fee follow-up",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "fees kitni hai",
+    "expected": {
+      "intent": "JOB_FEE_DETAILS",
+      "referencedItem": "UPPSC PCS Pre Recruitment 2026"
+    }
+  },
+  {
+    "id": "conv_5",
+    "description": "Last date follow-up",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "last date kya hai",
+    "expected": {
+      "intent": "CHECK_LAST_DATE",
+      "referencedItem": "UPPSC PCS Pre Recruitment 2026"
+    }
+  },
+  {
+    "id": "conv_6",
+    "description": "Official link follow-up",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "official link do",
+    "expected": {
+      "intent": "JOB_LINK_DETAILS",
+      "referencedItem": "UPPSC PCS Pre Recruitment 2026"
+    }
+  },
+  {
+    "id": "conv_7",
+    "description": "Numeric reference",
+    "state": {
+      "lastShownItems": [
+        "ISRO ISTRAC Various Post Recruitment 2026",
+        "UP Anganwadi Worker Recruitment 2026",
+        "BPSSC Company Commander Recruitment 2026",
+        "Jharkhand Teacher Eligibility Test JHTET 2026",
+        "Rajasthan RVUNL Various Post Recruitment 2026"
+      ],
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "4 no",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "referencedItem": "Jharkhand Teacher Eligibility Test JHTET 2026"
+    }
+  },
+  {
+    "id": "conv_8",
+    "description": "Numeric reference with text",
+    "state": {
+      "lastShownItems": [
+        "ISRO ISTRAC Various Post Recruitment 2026",
+        "UP Anganwadi Worker Recruitment 2026",
+        "BPSSC Company Commander Recruitment 2026",
+        "Jharkhand Teacher Eligibility Test JHTET 2026",
+        "Rajasthan RVUNL Various Post Recruitment 2026"
+      ],
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "4 number wali job ke bare me batao",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "referencedItem": "Jharkhand Teacher Eligibility Test JHTET 2026"
+    }
+  },
+  {
+    "id": "conv_9",
+    "description": "New topic reset after job context",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "yar mujhe doctor banna hai",
+    "expected": {
+      "intent": "GENERAL_QUERY",
+      "domain": "CAREER",
+      "isFollowUp": false
+    }
+  },
+  {
+    "id": "conv_10",
+    "description": "MBBS vs Nursing",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "doctor banne ke liye mbbs karu ya nursing",
+    "expected": {
+      "domain": "CAREER",
+      "isFollowUp": false,
+      "responseContains": ["MBBS", "Nursing"]
+    }
+  },
+  {
+    "id": "conv_11",
+    "description": "Result query after job context",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "BPSC cutoff 2024",
+    "expected": {
+      "domain": "EXAM",
+      "isFollowUp": false
+    }
+  },
+  {
+    "id": "conv_12",
+    "description": "Resume query after job context",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "sarkari naukri ke liye resume kaise banaye",
+    "expected": {
+      "domain": "RESUME",
+      "isFollowUp": false
+    }
+  },
+  {
+    "id": "conv_13",
+    "description": "Ambiguous message without context",
+    "state": {},
+    "userMessage": "Batao",
+    "expected": {
+      "behavior": "CLARIFY"
+    }
+  },
+  {
+    "id": "conv_14",
+    "description": "Ambiguous message with previous offer",
+    "state": {
+      "lastAssistantMsg": "Kya main apply steps bataun?",
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "batao",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "conv_15",
+    "description": "Better explanation follow-up",
+    "state": {
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "Sahi se batao",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "conv_16",
+    "description": "More results follow-up",
+    "state": {
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "currentDomain": "GOVT_JOB",
+      "topic": "UPPSC PCS"
+    },
+    "userMessage": "aur jobs",
+    "expected": {
+      "intent": "MORE_JOBS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "conv_17",
+    "description": "Invalid numeric reference",
+    "state": {
+      "lastShownItems": ["Job 1", "Job 2", "Job 3"],
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "5 no",
+    "expected": {
+      "needClarification": true
+    }
+  },
+  {
+    "id": "conv_18",
+    "description": "Confirmation without previous offer",
+    "state": {},
+    "userMessage": "yes",
+    "expected": {
+      "behavior": "CLARIFY"
+    }
+  },
+  {
+    "id": "conv_19",
+    "description": "Harmful false positive guard (yes do)",
+    "state": {
+      "lastAssistantMsg": "Kya main apply steps bataun?",
+      "topic": "UPPSC PCS Pre Recruitment 2026",
+      "lastShownItems": ["UPPSC PCS Pre Recruitment 2026"],
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "yes do",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "conv_20",
+    "description": "Eligibility test handling",
+    "state": {
+      "lastShownItems": ["Jharkhand Teacher Eligibility Test JHTET 2026"],
+      "topic": "Jharkhand Teacher Eligibility Test JHTET 2026",
+      "currentDomain": "GOVT_JOB"
+    },
+    "userMessage": "vacancy kitni hai",
+    "expected": {
+      "responseContains": ["eligibility test", "not a direct vacancy"]
+    }
+  }
+]

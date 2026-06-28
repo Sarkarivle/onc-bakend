@@ -37,7 +37,7 @@ class FollowUpResolver {
         const qualification = this._resolveQualification(originalQuery, q, state, base);
         if (qualification.intent) return qualification;
 
-        const confirmation = this._resolveConfirmation(q, state, base);
+        const confirmation = this._resolveConfirmation(q, state, base, itemType);
         if (confirmation.intent) return confirmation;
 
         const failure = this._resolveFailureQuestion(q, state, base);
@@ -78,7 +78,7 @@ class FollowUpResolver {
     }
 
     static _isFollowUpPhrase(q) {
-        const referenceWords = /\b(ye|iski|iske|us|uski|uske|vo|wali|wala|upar wali|niche wali|pichhli|last wali|ye wali)\b/i;
+        const referenceWords = /\b(ye|iski|iske|us|uski|uske|vo|wali|wala|upar wali|niche wali|pichhli|last wali|ye wali|yes|haan|ha|ji|ok|theek)\b/i;
         return (q.length < 25 && referenceWords.test(q)) || /^(details|batao|dikhao|sahi se|pura|aur|more)$/i.test(q);
     }
 
@@ -124,19 +124,56 @@ class FollowUpResolver {
         };
     }
 
-    static _resolveConfirmation(q, state, base) {
-        if (!/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|yes do|ha do|kar do|yes batao|theek hai|theek batao|haan batao)$/.test(q)) return base;
+    static _resolveConfirmation(q, state, base, itemType) {
+        const confirmationRegex = /^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|yes do|ha do|kar do|yes batao|theek hai|theek batao|haan batao|batao|ok batao|ji batao)$/;
+        if (!confirmationRegex.test(q)) return base;
 
         const hasContext = this._hasContext(state);
+        const lastItem = base.referencedItem;
+        const lastItems = state.lastShownItems || state.lastShownJobs || [];
+        const assistantMsg = (state.lastAssistantQuestion || state.lastAssistantMsg || "").toLowerCase();
+        const offeredDetails = assistantMsg.includes('detail') || assistantMsg.includes('apply') || assistantMsg.includes('fees') || assistantMsg.includes('link') || assistantMsg.includes('eligibility') || assistantMsg.includes('process');
+
+        // Optimization: If user says 'batao' on a list without a specific offer, let _resolveGenericFollowUp handle it (usually MORE_RESULTS)
+        if (q === 'batao' && itemType === 'LIST' && !offeredDetails) {
+            return base;
+        }
+
         const hasPending = Boolean(state.pendingAction || state.lastAssistantQuestion);
         let intent = 'CONFIRMATION';
         let resolvedQuery = 'User confirmed.';
+        let needClarification = false;
 
         if (hasPending && state.pendingAction === 'WAITING_FOR_DETAILS_CONFIRMATION') {
             intent = 'SHOW_FULL_DETAILS';
-            resolvedQuery = `Show full details for ${this._lastItem(state) || state.currentTopic || 'the last shown item'}.`;
+            resolvedQuery = `Show full details for ${lastItem || state.currentTopic || 'the last shown item'}.`;
         } else if (hasContext) {
-            resolvedQuery = `User confirmed. Proceed with the last suggested action or continue providing details for ${state.topic || 'the current topic'}.`;
+            // Case: Exactly one item or explicitly marked as single
+            if (lastItems.length === 1 || (itemType === 'SINGLE' && lastItem)) {
+                intent = 'FIELD_DETAILS';
+                resolvedQuery = `Show full details for ${lastItem}.`;
+            }
+            // Case: Multiple items exist
+            else if (lastItems.length > 1) {
+                if (state.selectedItemIndex) {
+                    intent = 'FIELD_DETAILS';
+                    resolvedQuery = `Show full details for ${lastItems[state.selectedItemIndex - 1]}.`;
+                } else if (offeredDetails) {
+                    // Requirement: ask for number if multiple items exist and user just says "yes"
+                    needClarification = true;
+                    resolvedQuery = "Kaunsi job ke details chahiye? 1, 2, 3 number bata dijiye.";
+                } else {
+                    resolvedQuery = `User confirmed. Proceed with the last suggested action or continue providing details for ${state.topic || 'the current topic'}.`;
+                }
+            } else if (lastItem) {
+                // Fallback for context with topic but no item list
+                intent = 'FIELD_DETAILS';
+                resolvedQuery = `Show full details for ${lastItem}.`;
+            }
+        } else {
+            // Case 7: If previous context does not exist, ask clarification instead of guessing.
+            needClarification = true;
+            resolvedQuery = "User confirmed but no previous context found.";
         }
 
         return {
@@ -146,7 +183,9 @@ class FollowUpResolver {
             domainIntent: state.currentDomain || state.lastDomain || 'GENERAL',
             isFollowUp: hasContext,
             usePreviousContext: hasContext,
-            followUpType: 'DETAILS'
+            followUpType: 'DETAILS',
+            needClarification,
+            referencedItem: lastItem
         };
     }
 
