@@ -61,6 +61,61 @@ async function runIntentTests() {
             expected: ['CAREER_GUIDANCE', 'JOB_QUERY']
         },
         {
+            name: 'sarkari naukri preparation career',
+            input: 'Sarkari naukri ki taiyari kaise karein',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'computer course jobs career',
+            input: 'Computer course for jobs',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'btech after jobs career',
+            input: 'B.Tech ke baad jobs',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'high paying govt jobs career',
+            input: 'High paying government jobs',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: '12th science jobs career',
+            input: 'Jobs for 12th science students',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'diploma job kaise career',
+            input: 'Diploma ke baad job kaise payein',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'police result priority',
+            input: 'UP Police result kab aayega?',
+            expected: ['RESULT_ADMIT_CARD']
+        },
+        {
+            name: 'bpsc cutoff priority',
+            input: 'BPSC cutoff 2024',
+            expected: ['RESULT_ADMIT_CARD']
+        },
+        {
+            name: 'bank admit card priority',
+            input: 'Sbi po admit card update',
+            expected: ['RESULT_ADMIT_CARD']
+        },
+        {
+            name: 'biodata resume priority',
+            input: 'Biodata form for job',
+            expected: ['RESUME']
+        },
+        {
+            name: 'sarkari resume priority',
+            input: 'Sarkari naukri ke liye resume',
+            expected: ['RESUME']
+        },
+        {
             name: 'job more follow-up',
             input: '1 hi hai kya',
             state: { currentDomain: 'GOVT_JOB', topic: 'GOVT_JOB', lastShownJobs: ['NAEL Recruitment'] },
@@ -170,6 +225,46 @@ async function runIntentTests() {
             expected: ['JOB_QUERY']
         },
         {
+            name: 'health narrow job',
+            input: 'Nursing jobs in Bihar',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'nursing career not job',
+            input: 'nursing kaise kare',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'mbbs nursing career not job',
+            input: 'mbbs ya nursing',
+            expected: ['CAREER_GUIDANCE']
+        },
+        {
+            name: 'ssc cgl job',
+            input: 'SSC CGL 2024',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'ctet notification job',
+            input: 'CTET exam notification',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'teacher vacancy job',
+            input: 'Teacher ki vacancy kaha hai?',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'latest sarkari job remains job',
+            input: 'latest sarkari job',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'railway recruitment remains job',
+            input: 'railway recruitment',
+            expected: ['JOB_QUERY']
+        },
+        {
             name: 'batao without context',
             input: 'batao na',
             expected: ['GENERAL_QUERY']
@@ -218,6 +313,7 @@ async function runIntentTests() {
         if (test.name === 'railway subdomain') assertField(test.name, result, 'domainIntent', 'RAILWAY_JOB');
         if (test.name === 'bank subdomain') assertField(test.name, result, 'domainIntent', 'BANK_JOB');
         if (test.name === 'police subdomain') assertField(test.name, result, 'domainIntent', 'POLICE_JOB');
+        if (test.name === 'health narrow job') assertField(test.name, result, 'domainIntent', 'HEALTH_JOB');
         if (test.name === 'syllabus follow-up' && !result.isFollowUp) throw new Error(`${test.name}: expected follow-up`);
         if (test.name === 'application help follow-up' && !result.isFollowUp) throw new Error(`${test.name}: expected follow-up`);
         if (test.name === 'batao without context' && !result.needClarification) throw new Error(`${test.name}: expected clarification`);

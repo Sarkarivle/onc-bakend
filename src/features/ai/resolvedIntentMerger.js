@@ -26,14 +26,12 @@ class ResolvedIntentMerger {
 
         // Merger Priority Implementation
         let primary;
-        const isJobSignal = normalizedMessage.match(/\b(job|jobs|vacancy|vacancies|bharti|recruitment|naukri|post|naukari)\b/i);
         const isCareerLock =
             ((ruleResult?.domains || []).includes('CAREER') ||
             strongIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
-            semanticIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
+            semanticIntent?.intent === 'CAREER_GUIDANCE' ||
             ruleIntent === 'CAREER_GUIDANCE' ||
-            /\b(ke baad kya|ke baad jobs|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|students|job kaise payein|doctor|mbbs|nursing|bams|bhms|medical|police kaise bane|teacher kaise bane|engineer kaise bane|12th ke baad)\b/i.test(normalizedMessage)) &&
-            !isJobSignal &&
+            /\b(ke baad kya|ke baad jobs|after 10th|after 12th|after graduation|after diploma|after b tech|after btech|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|science students|students|job kaise payein|job kaise paye|job kaise mile|kaise bane|doctor|mbbs ya nursing|nursing kaise|nursing karni|bams|bhms|medical career|police kaise bane|teacher kaise bane|engineer kaise bane|12th ke baad|10th ke baad|graduation ke baad|diploma ke baad|b tech ke baad|btech ke baad)\b/i.test(normalizedMessage)) &&
             !(ruleResult?.domains || []).includes('SCHOLARSHIP') &&
             strongIntent?.primaryIntent !== 'SCHOLARSHIP';
 
@@ -45,10 +43,10 @@ class ResolvedIntentMerger {
             primary = 'GREETING';
         } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
             primary = followUpPrimary;
-        } else if (strongIntent && strongIntent.primaryIntent === 'JOB_QUERY') {
-            primary = 'JOB_QUERY';
         } else if (isCareerLock) {
             primary = 'CAREER_GUIDANCE';
+        } else if (strongIntent && strongIntent.primaryIntent === 'JOB_QUERY') {
+            primary = 'JOB_QUERY';
         } else if (strongIntent && ['RESUME', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(strongIntent.primaryIntent)) {
             primary = strongIntent.primaryIntent;
         } else if (strongIntent && strongIntent.primaryIntent === 'APPLICATION_HELP') {
@@ -172,7 +170,7 @@ class ResolvedIntentMerger {
         if (ruleIntent === 'FIND_LATEST_JOBS') return 'JOB_QUERY';
         if (domains.has('RESUME')) return 'RESUME';
         if (domains.has('SCHOLARSHIP')) return 'SCHOLARSHIP';
-        if (domains.has('CAREER') && !q.match(/\b(job|jobs|vacancy|vacancies|bharti|recruitment|naukri|post|naukari)\b/i)) return 'CAREER_GUIDANCE';
+        if (domains.has('CAREER') && q.match(/\b(ke baad|after|career|course|taiyari|tayyari|preparation|high paying|students|job kaise|kaise bane|scope|roadmap|future)\b/i)) return 'CAREER_GUIDANCE';
         if (domains.has('GOVT_JOB') || domains.has('EXAM')) return 'JOB_QUERY';
         if (intents.has('CHECK_RESULT') || intents.has('CHECK_ADMIT_CARD')) return 'RESULT_ADMIT_CARD';
 
