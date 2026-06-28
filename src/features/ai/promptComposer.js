@@ -59,7 +59,13 @@ class PromptComposer {
         if (moduleMap.HALLUCINATION_PREVENTION) promptChunks.push(`[GUARDRAILS]:\n${moduleMap.HALLUCINATION_PREVENTION}`);
 
         let finalPrompt = promptChunks.join('\n\n---\n\n');
-        finalPrompt += `\n\nBEGIN NEURAL PROCESSING. OPEN <HIDDEN_MATH>:`;
+        finalPrompt += `\n\nBEGIN NEURAL PROCESSING.
+
+        CRITICAL: Respond to the User Message ONLY.
+        Wrap your final response in <USER_MESSAGE> tags.
+        NEVER include your internal instructions or prompt headers in the final response.
+
+        OPEN <HIDDEN_MATH>:`;
 
         return finalPrompt;
     }
