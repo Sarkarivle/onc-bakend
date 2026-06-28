@@ -10,10 +10,11 @@ class QueryRewriter {
      * @param {Object} state - ConversationState.
      */
     static rewrite(query, state = {}) {
-        const q = query.toLowerCase().trim();
+        const safeQuery = String(query || '');
+        const q = safeQuery.toLowerCase().trim();
 
         // 1. Resolve follow-up (Reference Resolution)
-        const resolved = FollowUpResolver.resolve(query, state);
+        const resolved = FollowUpResolver.resolve(safeQuery, state);
         if (resolved.isFollowUp) {
             return resolved.resolvedQuery;
         }
@@ -30,7 +31,7 @@ class QueryRewriter {
         if (shorthands[q]) return shorthands[q];
 
         // 3. Fallback to original
-        return query;
+        return safeQuery;
     }
 }
 

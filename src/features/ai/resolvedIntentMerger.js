@@ -7,6 +7,25 @@ const JobDomainResolver = require('./jobDomainResolver');
 
 class ResolvedIntentMerger {
     static merge(originalMessage, layers) {
+        const rawQ = String(originalMessage || '').toLowerCase().trim();
+        const directQ = String(layers?.normalizedMessage || originalMessage || '').toLowerCase().trim();
+
+        // High-priority standalone follow-up clarification phrases.
+        // Check both raw and normalized query before career/result/job merge priority.
+        const isVagueFollowUp =
+            /^(sahi se batao|achhe se batao|acche se batao|detail me batao|clear batao|batao na)$/i.test(rawQ) ||
+            /^(sahi se batao|achhe se batao|acche se batao|detail me batao|clear batao|batao na)$/i.test(directQ);
+
+        if (isVagueFollowUp) {
+            return {
+                communicationAct: "FOLLOW_UP",
+                domain: "GENERAL",
+                task: "DETAILS",
+                resolvedIntent: "FIELD_DETAILS",
+                isFollowUp: true,
+                isPureGreeting: false
+            };
+        }
         const {
             ruleResult,
             ruleIntent,
