@@ -30,7 +30,7 @@ class IntentDetector {
         // User ka communication style
         // -------------------------------
 
-        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo)$/i) !== null;
+        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai)$/i) !== null;
 
         if (isPureGreeting) {
             acts.add('GREET');
@@ -42,7 +42,7 @@ class IntentDetector {
             };
         }
 
-        if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo)$/i)) {
+        if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai)$/i)) {
             acts.add('GREET');
         }
 

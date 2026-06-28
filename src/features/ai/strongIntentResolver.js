@@ -67,7 +67,7 @@ class StrongIntentResolver {
         }
 
         const jobEntity = /\b(ssc|upsc|bpsc|uppsc|mppsc|rpsc|ctet|uptet|neet|jee|cuet|gate|police|constable|daroga|si|sub inspector|home guard|railway|rrb|rpf|alp|group d|ntpc|bank|ibps|sbi|rbi|clerk|po|so|army|navy|air force|agniveer|defence|bsf|crpf|cisf|itbp|ssb|teacher|teaching|prt|tgt|pgt|lecturer|professor|assistant professor|anganwadi|asha|anm|nurse|nursing|health)\b/i;
-        const jobAction = /\b(notification|recruitment|vacancy|vacancies|bharti|details|update|updates|year|date|rally|constable|clerk|po|jobs|job|naukri|naukari|rojgar|rozgar)\b/i;
+        const jobAction = /\b(notification|recruitment|vacancy|vacancies|bharti|details|update|updates|year|date|rally|constable|clerk|po|jobs|job|naukri|naukari|rojgar|rozgar|202[4-5])\b/i;
 
         const hasJobMeaning = /\b(job|jobs|naukri|vacancy|vacancies|bharti|recruitment|government job|sarkari|railway|rrb|group d|rpf|sbi|ibps|bank|po|clerk|rbi|police|constable|daroga|home guard|army|navy|air force|agniveer|cisf|bsf|crpf|itbp|ssb|teacher|tgt|pgt|prt|ctet|tet|nurse|nursing|anm|gnm|asha|anganwadi|health worker)\b/.test(q);
         const hasJobAsk = /(job|jobs|vacancy|vacancies|bharti|naukri|kaam|rojgar|form|apply|ke liye|dikhao|batao|hai kya|chahiye| kab |kab tak|notification|recruitment|update|updates|details|year|date)/.test(q);

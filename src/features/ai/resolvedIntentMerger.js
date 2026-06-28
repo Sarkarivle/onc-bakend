@@ -27,11 +27,13 @@ class ResolvedIntentMerger {
         // Merger Priority Implementation
         let primary;
         const isCareerLock =
-            (ruleResult?.domains || []).includes('CAREER') ||
+            ((ruleResult?.domains || []).includes('CAREER') ||
             strongIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
             semanticIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
             ruleIntent === 'CAREER_GUIDANCE' ||
-            /\b(ke baad kya|ke baad jobs|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|students|job kaise payein)\b/i.test(normalizedMessage);
+            /\b(ke baad kya|ke baad jobs|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|students|job kaise payein)\b/i.test(normalizedMessage)) &&
+            !(ruleResult?.domains || []).includes('SCHOLARSHIP') &&
+            strongIntent?.primaryIntent !== 'SCHOLARSHIP';
 
         const isFieldOnly = normalizedMessage.match(/^(fee|fees|age|salary|link|official link|last date|lastdate|eligibility|yogyata|qualification|admit card|result)\??$/i);
         const lastItems = context.lastShownItems || context.lastShownJobs || [];
@@ -39,6 +41,8 @@ class ResolvedIntentMerger {
 
         if (ruleResult?.isPureGreeting) {
             primary = 'GREETING';
+        } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
+            primary = followUpPrimary;
         } else if (isCareerLock) {
             primary = 'CAREER_GUIDANCE';
         } else if (strongIntent && ['RESUME', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(strongIntent.primaryIntent)) {
@@ -59,6 +63,12 @@ class ResolvedIntentMerger {
             primary = canonicalRule || semanticPrimary || llmPrimary || 'GENERAL_QUERY';
         }
 
+        // Anti-overfit for greeting
+        if (primary === 'GREETING') {
+            const isVagueOrHelp = normalizedMessage.match(/\b(help chahiye|madad chahiye|kuch bhi|anything|random)\b/i);
+            if (isVagueOrHelp) primary = 'GENERAL_QUERY';
+        }
+
         if (primary === 'CONFIRM' || primary === 'USER_CONFIRMED') primary = 'CONFIRMATION';
         if (primary === 'USER_REJECTED') primary = 'NEGATION';
 
@@ -77,7 +87,7 @@ class ResolvedIntentMerger {
             followUp,
             context
         });
-        const graphDomain = strongIntent?.domain || this._graphDomain(domain, primary);
+        const graphDomain = this._graphDomain(strongIntent?.domain || domain, primary);
         const task = this._task(primary, followUp?.entities || llmIntent?.entities || {}, strongIntent);
 
 
@@ -222,7 +232,7 @@ class ResolvedIntentMerger {
             BANK_JOB: 'BANK_JOB',
             POLICE_JOB: 'POLICE_JOB',
             DEFENCE_JOB: 'DEFENCE_JOB',
-            TEACHING_JOB: 'TEACHING_JOB',
+            TEACHING_JOB: 'GOVERNMENT_JOBS',
             HEALTH_JOB: 'HEALTH_JOB',
             CAREER: 'CAREER',
             RESUME: 'RESUME',
