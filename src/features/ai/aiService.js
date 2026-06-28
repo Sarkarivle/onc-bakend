@@ -336,7 +336,8 @@ class AIService {
             /complex topic/gi, /bada ocean/gi, /keyword use kiya hai/gi,
             /user profile is missing/gi, /profile complete nahi hai/gi,
             /\[OUTPUT PROTOCOL.*?\]/gi, /\[CRITICAL RULES.*?\]/gi, /\[IDENTITY.*?\]/gi,
-            /\[PERSONALITY.*?\]/gi, /\[GUARDRAILS.*?\]/gi
+            /\[PERSONALITY.*?\]/gi, /\[GUARDRAILS.*?\]/gi,
+            /aisi aankhon wale sawalon/gi, /gyan hona zaroori hai/gi, /janna chahiye/gi
         ];
 
         blacklisted.forEach(reg => { message = message.replace(reg, ''); });
