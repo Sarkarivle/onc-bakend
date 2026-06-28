@@ -14,12 +14,34 @@ class Planner {
     static plan(query, intentObj, state, profile) {
         const { acts, domains, intents } = intentObj;
         const missingFields = UserProfile.getMissingFields(profile);
+        const q = query.trim();
 
         let behavior = 'RESPOND';
         let activeDomain = domains[0] || 'GENERAL';
         let priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT', 'CONTEXT'];
 
-        // 1. CONTEXT RESOLUTION (State-Driven)
+        // 1. AMBIGUITY DETECTION (New Upgrade)
+        // Agar query bahut choti hai aur koi specific intent nahi mila
+        const isAmbiguous = q.length < 10 &&
+                           intents.includes('GENERAL_QUERY') &&
+                           !acts.includes('GREET') &&
+                           !acts.includes('CONFIRM') &&
+                           !acts.includes('NEGATE') &&
+                           !acts.includes('EXTEND');
+
+        if (isAmbiguous) {
+            return {
+                behavior: 'CLARIFY',
+                intent: 'GENERAL',
+                primaryAct: 'INQUIRE',
+                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE'],
+                missingFields: [],
+                needSearch: false,
+                needReasoning: false
+            };
+        }
+
+        // 2. CONTEXT RESOLUTION (State-Driven)
         const isFollowUpAct = acts.includes('CONFIRM') || acts.includes('NEGATE') || acts.includes('EXTEND');
         const isResolvingPending = state.pendingAction && (acts.includes('CONFIRM') || acts.includes('INFORM'));
 
@@ -53,9 +75,7 @@ class Planner {
         const factualDomains = [...jobRelatedDomains, 'CAREER', 'SCHOLARSHIP', 'COLLEGE', 'RESUME'];
 
         if (factualDomains.includes(activeDomain) && !acts.includes('GREET')) {
-            if (missingFields.length > 0 && activeDomain !== 'RESUME') {
-                behavior = 'DATA_GATHERING';
-            }
+            behavior = 'RESPOND';
         }
 
         // 4. DYNAMIC MODULE REGISTRY LOADING

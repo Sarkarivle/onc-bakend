@@ -8,12 +8,12 @@ class UserProfile {
      */
     static format(data) {
         return {
-            name: data.name || "User",
-            qualification: data.qual || data.qualification || null,
-            dob: data.dob || null,
-            age: data.age || null,
-            state: data.loc || data.state || null,
-            category: data.cat || data.category || null,
+            name: data.userName || data.name || "User",
+            qualification: data.userQualification || data.qual || data.qualification || null,
+            dob: data.userDOB || data.dob || null,
+            age: data.userAge || data.age || null,
+            state: data.userLocation || data.loc || data.state || null,
+            category: data.userCategory || data.cat || data.category || null,
             gender: data.gender || null,
             goal: data.goal || null,
             insights: data.insights || ""

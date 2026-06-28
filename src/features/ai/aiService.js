@@ -119,8 +119,13 @@ class AIService {
 
             let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
 
+            // CLARIFY behavior handling (New Upgrade)
+            if (plan.behavior === 'CLARIFY') {
+                systemInstruction += "\n\nCRITICAL: The user's query is too short or ambiguous. Do not guess. Politely ask them to explain their question in detail using the template in your personality module.";
+            }
+
             // Add strict constraint if no live data is available
-            if (!knowledgeContext.jobs && !knowledgeContext.web) {
+            if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && plan.intent !== 'GENERAL') {
                 systemInstruction += "\n\nCRITICAL: No verified job data found in [DATABASE] or [SEARCH]. You MUST NOT mention any specific jobs, dates, or vacancies. Simply state that you don't have verified info right now.";
             }
 
@@ -326,7 +331,8 @@ class AIService {
             /sarkari naukri ka niyam/gi, /i must not guess/gi, /as per my rule/gi,
             /internal validation/gi, /source recommended/gi, /hallucination guard/gi,
             /sourceverified/gi, /validation failed/gi, /official source recommended/gi,
-            /sapni wala data/gi, /aapne yes kaha/gi, /you said yes/gi
+            /sapni wala data/gi, /aapne yes kaha/gi, /you said yes/gi,
+            /mera niyam hai/gi, /ai rules/gi, /internal logic/gi, /niyam hai/gi
         ];
 
         blacklisted.forEach(reg => { message = message.replace(reg, ''); });
