@@ -46,7 +46,7 @@ class IntentDetector {
             acts.add('GREET');
         }
 
-        if (q.match(/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|confirm|done|agree|ji haan|ha bhai|yes bro)$/i)) {
+        if (q.match(/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|confirm|done|agree|ji haan|ha bhai|yes bro|yes do|ha do|kar do|batao|yes batao|theek hai)$/i)) {
             acts.add('CONFIRM');
         }
 
@@ -123,7 +123,7 @@ class IntentDetector {
             domains.add('RESUME');
         }
 
-        if (q.match(/(career|future|guidance|aim|goal|path|direction|kya karu|career option)/i)) {
+        if (q.match(/(career|future|guidance|aim|goal|path|direction|kya karu|career option|doctor|mbbs|nursing|bams|bhms|medical|police kaise bane|teacher kaise bane|engineer kaise bane|12th ke baad)/i)) {
             domains.add('CAREER');
         }
 

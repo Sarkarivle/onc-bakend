@@ -36,6 +36,9 @@ class FollowUpResolver {
         const application = this._resolveApplicationHelp(q, domain, hasContext, lastItem, base);
         if (application.intent) return application;
 
+        const numeric = this._resolveNumericReference(q, state, base);
+        if (numeric.intent) return numeric;
+
         const more = this._resolveMoreResults(q, domain, hasContext, itemType, base);
         if (more.intent) return more;
 
@@ -89,8 +92,9 @@ class FollowUpResolver {
     }
 
     static _resolveConfirmation(q, state, base) {
-        if (!/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul)$/.test(q)) return base;
+        if (!/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|yes do|ha do|kar do|batao|yes batao|theek hai)$/.test(q)) return base;
 
+        const hasContext = this._hasContext(state);
         const hasPending = Boolean(state.pendingAction || state.lastAssistantQuestion);
         let intent = 'CONFIRMATION';
         let resolvedQuery = 'User confirmed.';
@@ -98,14 +102,16 @@ class FollowUpResolver {
         if (hasPending && state.pendingAction === 'WAITING_FOR_DETAILS_CONFIRMATION') {
             intent = 'SHOW_FULL_DETAILS';
             resolvedQuery = `Show full details for ${this._lastItem(state) || state.currentTopic || 'the last shown item'}.`;
+        } else if (hasContext) {
+            resolvedQuery = `User confirmed. Proceed with the last suggested action or continue providing details for ${state.topic || 'the current topic'}.`;
         }
 
         return {
             ...base,
             resolvedQuery,
             intent,
-            domainIntent: hasPending ? (state.currentDomain || state.lastDomain || 'GENERAL') : 'GENERAL',
-            isFollowUp: hasPending
+            domainIntent: state.currentDomain || state.lastDomain || 'GENERAL',
+            isFollowUp: hasContext
         };
     }
 
@@ -135,6 +141,47 @@ class FollowUpResolver {
             isFollowUp: hasContext,
             entities: { field: 'applyProcess' }
         };
+    }
+
+    static _resolveNumericReference(q, state, base) {
+        const match = q.match(/(\d+)\s*(no|number|th|st|rd|nd|wala|item|job|position)/i) ||
+                      q.match(/^(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s*(wala|item|job|position)?$/i) ||
+                      q.match(/^(\d+)$/);
+
+        if (!match) return base;
+
+        const lastItems = state.lastShownItems || state.lastShownJobs || [];
+        if (lastItems.length === 0) return base;
+
+        let index = -1;
+        const numPart = match[1].toLowerCase();
+        if (/\d+/.test(numPart)) {
+            index = parseInt(numPart) - 1;
+        } else {
+            const words = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
+            index = words.indexOf(numPart);
+        }
+
+        if (index >= 0 && index < lastItems.length) {
+            const selectedItem = lastItems[index];
+            let resolvedQuery = `Show details for ${selectedItem}.`;
+
+            if (selectedItem.match(/(jhtet|tet|ctet|eligibility test|reet|uptet|entrance)/i)) {
+                resolvedQuery = `Note: ${selectedItem} is an eligibility test, not a direct vacancy. Show its details and clarify that vacancy count may not apply.`;
+            }
+
+            return {
+                ...base,
+                resolvedQuery,
+                intent: 'FIELD_DETAILS',
+                domainIntent: state.currentDomain || state.lastDomain || 'GOVT_JOB',
+                isFollowUp: true,
+                referencedItem: selectedItem,
+                entities: { itemIndex: index + 1, field: 'details' }
+            };
+        }
+
+        return base;
     }
 
     static _resolveMoreResults(q, domain, hasContext, itemType, base) {

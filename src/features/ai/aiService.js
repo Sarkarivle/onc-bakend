@@ -72,7 +72,7 @@ class AIService {
             if (resolvedIntent.primaryIntent === 'FIELD_DETAILS' && state.topic) {
                 queryForSearch = `${state.topic} ${rawInput}`;
             }
-            if (plan.referencedItem && ['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'SHOW_FULL_DETAILS'].includes(plan.intent)) {
+            if (plan.mode === 'JOB_DETAILS' && plan.referencedItem) {
                 queryForSearch = `${plan.referencedItem} ${resolvedIntent.entities?.field || rawInput}`;
             }
 
@@ -167,7 +167,8 @@ class AIService {
                 userProfile: profile,
                 isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET',
                 resolvedIntent: resolvedIntent,
-                state: state
+                state: state,
+                plan: plan
             };
 
             let validation = ResponseValidator.validate(finalContent, validationInput);

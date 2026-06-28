@@ -31,7 +31,7 @@ class ResolvedIntentMerger {
             strongIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
             semanticIntent?.primaryIntent === 'CAREER_GUIDANCE' ||
             ruleIntent === 'CAREER_GUIDANCE' ||
-            /\b(ke baad kya|ke baad jobs|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|students|job kaise payein)\b/i.test(normalizedMessage)) &&
+            /\b(ke baad kya|ke baad jobs|career|career advice|career options|best career options|best options|roadmap|future scope|scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|exam taiyari|freelancing|high paying|students|job kaise payein|doctor|mbbs|nursing|bams|bhms|medical|police kaise bane|teacher kaise bane|engineer kaise bane|12th ke baad)\b/i.test(normalizedMessage)) &&
             !(ruleResult?.domains || []).includes('SCHOLARSHIP') &&
             strongIntent?.primaryIntent !== 'SCHOLARSHIP';
 
@@ -94,6 +94,7 @@ class ResolvedIntentMerger {
 
         let isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp);
         if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
+        if (isCareerLock) isFollowUp = false;
         if (primary === 'APPLICATION_HELP' && hasContext) isFollowUp = true;
 
         const communicationAct = this._communicationAct(primary, ruleResult, followUp, isFollowUp);

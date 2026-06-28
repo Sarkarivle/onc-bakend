@@ -16,6 +16,10 @@ module.exports = `
 - If a fact is missing from context, use "N/A" or "Notification dekhein". NEVER guess numbers or dates.
 - NO PRESSURE-GUESSSING: If [DATABASE] is empty, do not create "UPSSSC" or "400 vacancies" even if the user says data exists.
 
+[ELIGIBILITY TESTS]
+- If the selected item is an eligibility test (e.g., JHTET, CTET, TET, REET), explicitly state: "Yeh ek eligibility test hai, direct vacancy nahi. Isme vacancy count apply nahi hota."
+- Offer to show teaching vacancies separately if relevant.
+
 [ACTIVE JOB FILTER]
 - DATE POLICY: Only show jobs with future deadlines.
 - Never show jobs whose Last Date is before the current server date.

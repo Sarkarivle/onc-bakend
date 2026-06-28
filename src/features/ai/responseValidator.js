@@ -5,10 +5,10 @@
 class ResponseValidator {
     /**
      * @param {string} response - Draft content from LLM.
-     * @param {Object} context - { query, liveData, intent, userProfile, isPureGreeting, resolvedIntent, state }
+     * @param {Obje ct} context - { query, liveData, intent, userProfile, isPureGreeting, resolvedIntent, state, plan }
      * @returns {Object} { passed, issues, severity, shouldRetryLLM }
      */
-    static validate(response, { query, liveData, intent, userProfile, isPureGreeting, resolvedIntent, state }) {
+    static validate(response, { query, liveData, intent, userProfile, isPureGreeting, resolvedIntent, state, plan }) {
         const issues = [];
         const resLower = response.toLowerCase();
         let severity = "LOW";
@@ -36,82 +36,70 @@ class ResponseValidator {
             severity = "HIGH";
         }
 
-        // 2. SEMANTIC INTENT VALIDATION
-        // If query was about jobs but response is general
-        const jobLikeIntent = resolvedIntent && ['JOB_QUERY', 'MORE_RESULTS', 'MORE_JOBS', 'APPLICATION_HELP', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS'].includes(resolvedIntent.primaryIntent);
-        if (jobLikeIntent) {
-            const hasJobKeywords = resLower.match(/(job|vacancy|naukri|bharti|post|apply|opening)/i);
-            const isDataMissing = !liveData.jobs && !liveData.web;
-
-            if (!hasJobKeywords && !isDataMissing) {
-                issues.push("Semantic mismatch: Job query was answered with general content.");
+        // 2. CONTEXT ADAPTIVITY SELF-CHECK (Gemini-like)
+        if (plan?.mode === 'CAREER_GUIDANCE' && !query.toLowerCase().includes('isro')) {
+            if (resLower.includes('isro') || resLower.includes('technician')) {
+                issues.push("Context leakage: Mentioned previous ISRO job in new career query.");
                 severity = "HIGH";
             }
         }
 
-        if ((liveData.jobs || liveData.web) && resLower.match(/(verified jankari nahi mili|koi data nahi|no data|nahi mila)/i)) {
-            issues.push("Data contradiction: verified data exists but response says no data.");
+        // 3. HALLUCINATION GUARD (Jobs)
+        const jobModes = ['JOB_SEARCH', 'JOB_DETAILS', 'MORE_RESULTS', 'RESULT'];
+        if (jobModes.includes(plan?.mode)) {
+            const hasData = (liveData.jobs && liveData.jobs.length > 0) || (liveData.web && liveData.web.length > 0);
+
+            if (!hasData) {
+                // If no data, response should NOT have specific facts
+                if (resLower.match(/(\d+\s*posts|vacancy|last date|salary|₹|link)/i)) {
+                    issues.push("Hallucination: Invented job facts without verified source.");
+                    severity = "HIGH";
+                }
+
+                if (!resLower.match(/(maaf kijiye|verified jankari|not found|nahi mili)/i)) {
+                    issues.push("Policy violation: Did not use factual fallback when data missing.");
+                    severity = "MEDIUM";
+                }
+            } else {
+                // If data exists, check numbers
+                const combinedData = ((liveData.jobs || "") + " " + (liveData.web || "")).toLowerCase();
+                const numbers = response.match(/\d{3,}/g) || [];
+                for (const num of numbers) {
+                    if (!combinedData.includes(num) && !query.includes(num)) {
+                        issues.push(`Hallucination: Invented number "${num}" not in context.`);
+                        severity = "HIGH";
+                    }
+                }
+            }
+        }
+
+        // 4. CAREER GUIDANCE SPECIAL CHECK
+        if (plan?.mode === 'CAREER_GUIDANCE') {
+            if (resLower.match(/(verified jankari nahi mili|verified info not found)/i)) {
+                issues.push("Semantic error: Said verified info missing for general career guidance.");
+                severity = "MEDIUM";
+            }
+
+            if (query.toLowerCase().match(/(doctor|mbbs|medical)/i)) {
+                if (!resLower.match(/(neet|mbbs|biology|pcb)/i)) {
+                    issues.push("Incomplete guidance: Missed core requirements for doctor career.");
+                    severity = "MEDIUM";
+                }
+            }
+        }
+
+        // 5. REFUSAL CHECK
+        if (resolvedIntent?.communicationAct === 'CONFIRMATION' && resLower.match(/(illegal|harmful|cannot provide|against policy)/i)) {
+            issues.push("False refusal: Refused a harmless confirmation.");
             severity = "HIGH";
         }
 
-        // 3. FOLLOW-UP VALIDATION
-        // If it was a follow-up but AI treated it as a new topic
-        if (resolvedIntent?.isFollowUp && state?.topic && state.topic !== 'GENERAL') {
-            const mentionsTopic = resLower.includes(state.topic.toLowerCase()) ||
-                                 (state.lastShownJobs && state.lastShownJobs.some(j => resLower.includes(j.toLowerCase().split(' ')[0])));
-
-            if (!mentionsTopic && !isPureGreeting && !resLower.includes('maaf kijiye') && ['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'SHOW_FULL_DETAILS'].includes(resolvedIntent.primaryIntent)) {
-                issues.push("Context loss: Follow-up query ignored previous topic/item.");
-                severity = "HIGH";
-            }
-        }
-
-        // 4. FACTUAL VALIDATION
-        const jobIntents = ['GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB', 'JOB_QUERY', 'FIELD_DETAILS', 'MORE_JOBS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT'];
-        if (jobIntents.includes(intent) || jobLikeIntent || resLower.includes('vacancy') || resLower.includes('last date')) {
-            const combinedData = ((liveData.jobs || "") + " " + (liveData.web || "")).toLowerCase();
-
-            // Hallucination check for numbers (Vacancy/Dates/Salaries)
-            const numbers = response.match(/\d{3,}/g) || [];
-            for (const num of numbers) {
-                if (!combinedData.includes(num) && !query.includes(num)) {
-                    issues.push(`Hallucination: Invented number "${num}" not in context.`);
-                    severity = "HIGH";
-                }
-            }
-
-            // Hallucination check for specific keywords if data is missing
-            if (!liveData.jobs && !liveData.web) {
-                if (resLower.match(/(salary is|last date is|vacancy is|eligibility is)/i)) {
-                    issues.push("Hallucination: AI invented specific job details without source data.");
-                    severity = "HIGH";
-                }
-            }
-        }
-
-        // 5. DATA SOURCE VALIDATION
-        const dataBacked = ['JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'];
-        if (resolvedIntent && dataBacked.includes(resolvedIntent.primaryIntent) && !liveData.jobs && !liveData.web) {
-            const containsSpecificFact = resLower.match(/(\d+\s*(post|vacanc|posts)|last date|official link|\[link\]|salary|fee\s*:|age limit)/i);
-            if (containsSpecificFact) {
-                issues.push("Data source mismatch: data-backed intent produced facts without verified source.");
-                severity = "HIGH";
-            }
-        }
-
-        // 6. GREETING VALIDATION
-        if (isPureGreeting || intent === 'GREETING') {
-            const greetingLeaks = [
-                'job', 'naukri', 'vacancy', 'recruitment', 'last date', 'eligibility',
-                'salary', 'official link', 'career', 'pro tip', 'latest update',
-                'application', 'exam'
-            ];
-
-            for (const leak of greetingLeaks) {
-                if (resLower.includes(leak) && !query.toLowerCase().includes(leak)) {
-                    issues.push(`Greeting contains irrelevant job content: "${leak}"`);
-                    severity = "MEDIUM";
-                }
+        // 6. NUMERIC REFERENCE CHECK
+        if (plan?.selectedItemIndex && plan?.referencedItem) {
+            const itemName = plan.referencedItem.toLowerCase().split(' ')[0];
+            if (!resLower.includes(itemName) && !resLower.includes('item') && !resLower.includes('position')) {
+                 issues.push(`Relevance error: Failed to discuss selected item "${plan.referencedItem}".`);
+                 severity = "MEDIUM";
             }
         }
 

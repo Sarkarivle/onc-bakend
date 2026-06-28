@@ -38,27 +38,22 @@ class PromptComposer {
 
         // 2b. Intent & Goal Injection
         if (plan) {
-            let intentSection = `[CURRENT GOAL]: ${plan.intent}\n`;
-            if (plan.resolvedIntent) {
-                intentSection += `[RESOLVED INTENT]: ${JSON.stringify({
-                    primaryIntent: plan.resolvedIntent.primaryIntent,
-                    secondaryIntents: plan.resolvedIntent.secondaryIntents,
-                    communicationAct: plan.resolvedIntent.communicationAct,
-                    domain: plan.resolvedIntent.domain,
-                    task: plan.resolvedIntent.task,
-                    domainIntent: plan.resolvedIntent.domainIntent,
-                    confidence: plan.resolvedIntent.confidence,
-                    isFollowUp: plan.resolvedIntent.isFollowUp,
-                    referencedTopic: plan.resolvedIntent.referencedTopic,
-                    referencedItem: plan.resolvedIntent.referencedItem,
-                    entities: plan.resolvedIntent.entities,
-                    dataSourceNeeded: plan.resolvedIntent.dataSourceNeeded
-                })}\n`;
-                intentSection += `[RESPONSE MODE]: ${plan.responseMode || 'DIRECT'}\n`;
-                intentSection += `[DATA POLICY]: ${plan.dataPolicy || 'LLM_ONLY'}\n`;
-                if (plan.resolvedIntent.referencedTopic) intentSection += `[REFERENCED TOPIC]: ${plan.resolvedIntent.referencedTopic}\n`;
-                if (plan.resolvedIntent.referencedItem) intentSection += `[REFERENCED ITEM]: ${plan.resolvedIntent.referencedItem}\n`;
-            }
+            let intentSection = `[PLANNING]:\n`;
+            intentSection += `- Mode: ${plan.mode}\n`;
+            intentSection += `- Use Previous Context: ${plan.usePreviousContext}\n`;
+            intentSection += `- Needs Database: ${plan.needsDatabase}\n`;
+            intentSection += `- Needs General Guidance: ${plan.needsGeneralGuidance}\n`;
+            if (plan.selectedItemIndex) intentSection += `- Selected Item Index: ${plan.selectedItemIndex}\n`;
+            if (plan.referencedItem) intentSection += `- Referenced Item: ${plan.referencedItem}\n`;
+
+            intentSection += `\n[RESOLVED INTENT]: ${JSON.stringify({
+                primaryIntent: plan.intent,
+                communicationAct: plan.resolvedIntent?.communicationAct,
+                domain: plan.domain,
+                task: plan.resolvedIntent?.task,
+                isFollowUp: plan.isFollowUp,
+                entities: plan.resolvedIntent?.entities
+            })}\n`;
             promptChunks.push(intentSection);
         }
 
