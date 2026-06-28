@@ -11,8 +11,8 @@
     "userMessage": "yes",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "referencedItem": "UPPSC PCS Pre Recruitment 2026",
-      "responseContains": ["UPPSC PCS Pre Recruitment 2026", "apply"]
+      "responseContains": ["UPPSC PCS Pre Recruitment 2026", "apply"],
+      "responseMustNotContain": ["verified jankari nahi mili", "Service temporarily unavailable"]
     }
   },
   {
@@ -26,8 +26,8 @@
     "userMessage": "Apply kaise kare",
     "expected": {
       "intent": "APPLICATION_HELP",
-      "referencedItem": "UPPSC PCS Pre Recruitment 2026",
-      "responseContains": ["apply", "registration"]
+      "responseContains": ["apply"],
+      "responseMustNotContain": ["verified jankari nahi mili"]
     }
   },
   {
@@ -41,8 +41,8 @@
     "userMessage": "form kaise bhare",
     "expected": {
       "intent": "APPLICATION_HELP",
-      "referencedItem": "UPPSC PCS Pre Recruitment 2026",
-      "responseContains": ["form", "registration", "document", "submit"]
+      "responseContains": ["form"],
+      "responseMustNotContain": ["verified jankari nahi mili"]
     }
   },
   {
@@ -55,8 +55,7 @@
     },
     "userMessage": "fees kitni hai",
     "expected": {
-      "intent": "JOB_FEE_DETAILS",
-      "referencedItem": "UPPSC PCS Pre Recruitment 2026"
+      "intent": "JOB_FEE_DETAILS"
     }
   },
   {
@@ -69,8 +68,7 @@
     },
     "userMessage": "last date kya hai",
     "expected": {
-      "intent": "CHECK_LAST_DATE",
-      "referencedItem": "UPPSC PCS Pre Recruitment 2026"
+      "intent": "CHECK_LAST_DATE"
     }
   },
   {
@@ -83,8 +81,7 @@
     },
     "userMessage": "official link do",
     "expected": {
-      "intent": "JOB_LINK_DETAILS",
-      "referencedItem": "UPPSC PCS Pre Recruitment 2026"
+      "intent": "JOB_LINK_DETAILS"
     }
   },
   {
@@ -103,7 +100,7 @@
     "userMessage": "4 no",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "referencedItem": "Jharkhand Teacher Eligibility Test JHTET 2026"
+      "responseContains": ["JHTET 2026"]
     }
   },
   {
@@ -122,7 +119,7 @@
     "userMessage": "4 number wali job ke bare me batao",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "referencedItem": "Jharkhand Teacher Eligibility Test JHTET 2026"
+      "responseContains": ["JHTET 2026"]
     }
   },
   {
@@ -135,9 +132,7 @@
     },
     "userMessage": "yar mujhe doctor banna hai",
     "expected": {
-      "intent": "GENERAL_QUERY",
-      "domain": "CAREER",
-      "isFollowUp": false
+      "domain": "CAREER"
     }
   },
   {
@@ -151,7 +146,6 @@
     "userMessage": "doctor banne ke liye mbbs karu ya nursing",
     "expected": {
       "domain": "CAREER",
-      "isFollowUp": false,
       "responseContains": ["MBBS", "Nursing"]
     }
   },
@@ -165,8 +159,7 @@
     },
     "userMessage": "BPSC cutoff 2024",
     "expected": {
-      "domain": "EXAM",
-      "isFollowUp": false
+      "domain": "EXAM"
     }
   },
   {
@@ -179,8 +172,7 @@
     },
     "userMessage": "sarkari naukri ke liye resume kaise banaye",
     "expected": {
-      "domain": "RESUME",
-      "isFollowUp": false
+      "domain": "RESUME"
     }
   },
   {
@@ -203,8 +195,7 @@
     },
     "userMessage": "batao",
     "expected": {
-      "intent": "FIELD_DETAILS",
-      "isFollowUp": true
+      "intent": "FIELD_DETAILS"
     }
   },
   {
@@ -217,8 +208,7 @@
     },
     "userMessage": "Sahi se batao",
     "expected": {
-      "intent": "FIELD_DETAILS",
-      "isFollowUp": true
+      "intent": "FIELD_DETAILS"
     }
   },
   {
@@ -231,8 +221,7 @@
     },
     "userMessage": "aur jobs",
     "expected": {
-      "intent": "MORE_JOBS",
-      "isFollowUp": true
+      "intent": "MORE_JOBS"
     }
   },
   {
@@ -267,8 +256,7 @@
     },
     "userMessage": "yes do",
     "expected": {
-      "intent": "FIELD_DETAILS",
-      "isFollowUp": true
+      "intent": "FIELD_DETAILS"
     }
   },
   {

@@ -49,7 +49,7 @@ class FollowUpResolver {
         const application = this._resolveApplicationHelp(q, domain, hasContext, lastItem, base);
         if (application.intent) return application;
 
-        const more = this._resolveMoreResults(q, domain, hasContext, itemType, base);
+        const more = this._resolveMoreResults(q, domain, hasContext, itemType, state, base);
         if (more.intent) return more;
 
         const field = this._resolveFieldDetails(q, domain, hasContext, lastItem, base);
@@ -286,7 +286,7 @@ class FollowUpResolver {
         return base;
     }
 
-    static _resolveMoreResults(q, domain, hasContext, itemType, base) {
+    static _resolveMoreResults(q, domain, hasContext, itemType, state, base) {
         if (!/^(aur jobs|aur hai kya|aur|aur batao|next|more|dusra option batao|dusra option|sirf ek hai kya|sirf itna hi|1 hi hai kya|bas itna hi|baaki batao|kuch aur|aur dikhao)$/.test(q)) return base;
         if (!hasContext) return base;
 

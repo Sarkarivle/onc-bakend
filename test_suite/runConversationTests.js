@@ -10,7 +10,19 @@ const axios = require('axios');
 // 1. Mock Infrastructure
 const mockModel = {
     findOne: async () => ({ value: 'mock_value' }),
-    find: async () => [],
+    find: function() {
+        return {
+            sort: function() {
+                return {
+                    lean: () => Promise.resolve([]),
+                    then: (cb) => cb([]),
+                    catch: (cb) => cb(new Error("Mock Error"))
+                };
+            },
+            then: (cb) => cb([]),
+            catch: (cb) => cb(new Error("Mock Error"))
+        };
+    },
     countDocuments: async () => 0,
     create: async (data) => data,
     skip: function() { return this; },
@@ -21,11 +33,12 @@ const mockModel = {
 mongoose.model = (name) => mockModel;
 mongoose.connect = async () => {};
 
-// Load AIService and dependencies
-const AIService = require('../src/features/ai/aiService');
-const ConversationState = require('../src/features/ai/conversationState');
-const FollowUpResolver = require('../src/features/ai/followUpResolver');
-const Reporter = require('./conversationTestReporter');
+// Mock SearchService to prevent real API calls
+const SearchService = require('../src/features/ai/searchService');
+SearchService.search = async (query) => {
+    console.log(`[MOCK SEARCH] Query: ${query}`);
+    return []; // Return empty by default
+};
 
 // Mock axios to simulate LLM responses
 axios.post = async (url, data) => {
@@ -59,6 +72,11 @@ axios.post = async (url, data) => {
     };
 };
 
+// 2. Load AIService and dependencies
+const AIService = require('../src/features/ai/aiService');
+const ConversationState = require('../src/features/ai/conversationState');
+const Reporter = require('./conversationTestReporter');
+
 // Mock Database Knowledge
 AIService._fetchDatabaseKnowledge = async (query) => {
     if (query.includes('UPPSC') || query.includes('2026')) {
@@ -78,6 +96,10 @@ AIService._fetchDatabaseKnowledge = async (query) => {
 
 async function runTests() {
     const testsDir = path.join(__dirname, 'conversation_tests');
+    if (!fs.existsSync(testsDir)) {
+        console.error(`❌ Tests directory not found: ${testsDir}`);
+        process.exit(1);
+    }
     const testFiles = fs.readdirSync(testsDir).filter(f => f.endsWith('.test.json'));
 
     let allResults = [];
@@ -88,7 +110,7 @@ async function runTests() {
         const tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
         for (const test of tests) {
-            const sessionId = `test_session_${test.id}`;
+            const sessionId = `test_session_${test.id}_${Date.now()}`;
 
             // Set initial state
             if (test.state) {
@@ -109,7 +131,7 @@ async function runTests() {
                 });
 
                 const updatedState = await ConversationState.get(sessionId);
-                const passed = checkMatch(test.expected, result, updatedState);
+                const passed = checkMatch(test, result, updatedState);
 
                 allResults.push({
                     id: test.id,
@@ -120,10 +142,7 @@ async function runTests() {
                         intent: updatedState.lastUserIntent,
                         domain: updatedState.currentDomain,
                         behavior: updatedState.lastAssistantIntent,
-                        isFollowUp: updatedState.resolvedIntent?.isFollowUp,
-                        referencedItem: updatedState.resolvedIntent?.referencedItem,
-                        message: result.message,
-                        needClarification: updatedState.resolvedIntent?.needClarification
+                        message: result.message
                     },
                     passed
                 });
@@ -147,17 +166,28 @@ async function runTests() {
     Reporter.report(allResults);
 }
 
-function checkMatch(expected, result, state) {
+function checkMatch(test, result, state) {
+    const expected = test.expected;
+    const actualMsg = (result.message || "").toLowerCase();
+
     if (expected.intent && state.lastUserIntent !== expected.intent) return false;
     if (expected.domain && state.currentDomain !== expected.domain) return false;
     if (expected.behavior && state.lastAssistantIntent !== expected.behavior) return false;
-    if (expected.isFollowUp !== undefined && !!state.resolvedIntent?.isFollowUp !== !!expected.isFollowUp) return false;
+
+    // Internal fields check (if provided in state)
     if (expected.referencedItem && state.resolvedIntent?.referencedItem !== expected.referencedItem) return false;
+    if (expected.isFollowUp !== undefined && !!state.resolvedIntent?.isFollowUp !== !!expected.isFollowUp) return false;
     if (expected.needClarification !== undefined && !!state.resolvedIntent?.needClarification !== !!expected.needClarification) return false;
 
     if (expected.responseContains) {
         for (const word of expected.responseContains) {
-            if (!result.message.toLowerCase().includes(word.toLowerCase())) return false;
+            if (!actualMsg.includes(word.toLowerCase())) return false;
+        }
+    }
+
+    if (expected.responseMustNotContain) {
+        for (const word of expected.responseMustNotContain) {
+            if (actualMsg.includes(word.toLowerCase())) return false;
         }
     }
 
