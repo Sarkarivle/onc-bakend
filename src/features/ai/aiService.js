@@ -15,6 +15,8 @@ const KnowledgeRouter = require('./knowledgeRouter');
 const PromptComposer = require('./promptComposer');
 const SearchService = require('./searchService');
 const ResponseValidator = require('./responseValidator');
+const ResponseCleaner = require('./responseCleaner');
+const ResponseFormatter = require('./responseFormatter');
 const ConfidenceEngine = require('./confidenceEngine');
 const ProgressEmitter = require('./progressEmitter');
 const cheerio = require('cheerio');
@@ -143,49 +145,66 @@ class AIService {
 
             let finalContent = aiResponse.content;
 
-            // --- PHASE 10: Validation ---
+            // --- PHASE 10: Validation & Repair Pipeline ---
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
-            const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData: knowledgeContext, intent: plan.intent });
 
+            const validationInput = {
+                query: rewrittenQuery,
+                liveData: knowledgeContext,
+                intent: plan.intent,
+                userProfile: profile,
+                isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET'
+            };
+
+            let validation = ResponseValidator.validate(finalContent, validationInput);
+
+            // Hallucination Check for Jobs (Additional layer)
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
-            // Check if AI mentioned a job that is NOT in DB or Search
             const sourceText = (knowledgeContext.jobs + " " + (knowledgeContext.web || "")).toLowerCase();
-
             let hasHallucinatedJob = false;
-            if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy') || finalContent.toLowerCase().includes('date')) {
-                // Check for job names like "UPSSSC", "NAEL", etc.
+            if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy')) {
                 const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
                 if (jobMatches) {
                     for (const match of jobMatches) {
                         const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').trim().toLowerCase();
                         const words = jobName.split(' ').filter(w => w.length > 3);
-                        // If no significant word from the job title is in the source text, it's a hallucination
                         if (words.length > 0 && !words.some(word => sourceText.includes(word))) {
                             hasHallucinatedJob = true;
                             break;
                         }
                     }
                 } else if (/\d{2,}/.test(finalContent) && isDataMissing) {
-                    // If AI gives numbers (vacancies/dates) but we have NO data, it's hallucinating
                     hasHallucinatedJob = true;
                 }
             }
 
-            if ((!validation.isValid || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
-                finalContent = "<USER_MESSAGE>Maaf kijiye, mujhe abhi iske baare mein aur koi verified jankari nahi mili hai. Aap official website check kar sakte hain.</USER_MESSAGE>";
-            } else if (hasHallucinatedJob && !isDataMissing) {
-                // If we have some data but AI added more fake ones, re-run with strict instructions
-                const correction = await llm.chat([
-                    { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your last response included jobs NOT found in the provided [DATABASE] or [SEARCH]. Re-write and ONLY include jobs that are explicitly mentioned in the sources. Do not invent 3rd or 4th jobs." },
-                    { role: 'user', content: rewrittenQuery }
-                ]);
-                finalContent = correction.content;
-            } else if (!validation.isValid && plan.needReasoning) {
-                const correction = await llm.chat([
-                    { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." },
-                    { role: 'user', content: rewrittenQuery }
-                ]);
-                finalContent = correction.content;
+            // REPAIR LOGIC
+            if (!validation.passed || hasHallucinatedJob) {
+                if (validation.shouldRetryLLM) {
+                    ProgressEmitter.emit(sessionId, 'LLM_REPAIRING');
+                    const repairPrompt = `\n\nCRITICAL: Your previous response was rejected due to: ${validation.issues.join(', ')}. Please re-write using ONLY verified data. Remove any invented facts or internal rules.`;
+                    const repairResponse = await llm.chat([
+                        { role: 'system', content: systemInstruction + repairPrompt },
+                        { role: 'user', content: rewrittenQuery }
+                    ]);
+                    finalContent = repairResponse.content;
+                    // Final Validation after repair
+                    validation = ResponseValidator.validate(finalContent, validationInput);
+                } else {
+                    // Code-based cleanup is usually enough for LOW/MEDIUM issues
+                    finalContent = ResponseCleaner.clean(finalContent, {
+                        isPureGreeting: validationInput.isPureGreeting,
+                        intent: plan.intent,
+                        query: rewrittenQuery
+                    });
+                }
+            }
+
+            // Fallback for failed strict validation
+            if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
+                finalContent = ResponseCleaner.getFactualFallback();
+            } else if (!validation.passed && validationInput.isPureGreeting) {
+                finalContent = ResponseCleaner.getGreetingFallback();
             }
 
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
@@ -193,7 +212,8 @@ class AIService {
             const processed = this._finalProcess(finalContent, confidence, {
                 intent: plan.intent,
                 query: rewrittenQuery,
-                isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET'
+                isPureGreeting: validationInput.isPureGreeting,
+                userProfile: profile
             });
 
             // --- PHASE 11 & 12: Analytics ---
@@ -322,59 +342,19 @@ class AIService {
     }
 
     static _finalProcess(content, confidence, meta = {}) {
-        // 1. EXTRACTION: Strictly extract only user message content
-        const userMessageMatch = content.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
-        const mathMatch = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
-        const thinkMatch = content.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
+        // 1. Code-based Cleaning
+        let message = ResponseCleaner.clean(content, meta);
 
-        let message = userMessageMatch ? userMessageMatch[1].trim() : content;
+        // 2. Formatting & Polish
+        message = ResponseFormatter.format(message, meta);
 
-        // Remove ANY system tags that might have leaked
-        message = message.replace(/<(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>[\s\S]*?<\/\1>/gi, '').trim();
-        message = message.replace(/<(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>/gi, '').replace(/<\/(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>/gi, '');
-
-        // 2. CLEANUP: Remove rules and debug phrases
-        const blacklisted = [
-            /verified source recommended/gi, /backend rule/gi, /system rule/gi,
-            /sarkari naukri ka niyam/gi, /i must not guess/gi, /as per my rule/gi,
-            /internal validation/gi, /source recommended/gi, /hallucination guard/gi,
-            /sourceverified/gi, /validation failed/gi, /official source recommended/gi,
-            /sapni wala data/gi, /aapne yes kaha/gi, /you said yes/gi,
-            /namaste!?\s*main jobo ai[^.\n]*[.\n]?/gi,
-            /mera niyam hai/gi, /ai rules/gi, /internal logic/gi, /niyam hai/gi,
-            /complex topic/gi, /bada ocean/gi, /keyword use kiya hai/gi,
-            /career ka sapna[^.\n]*[.\n]?/gi,
-            /aaj kal naukriyon[\s\S]*?open hain\??/gi,
-            /^\s*job list\s*:?\s*$/gim,
-            /user profile is missing/gi, /profile complete nahi hai/gi,
-            /\[OUTPUT PROTOCOL.*?\]/gi, /\[CRITICAL RULES.*?\]/gi, /\[IDENTITY.*?\]/gi,
-            /\[PERSONALITY.*?\]/gi, /\[GUARDRAILS.*?\]/gi,
-            /aisi aankhon wale sawalon/gi, /gyan hona zaroori hai/gi, /janna chahiye/gi,
-            /<span[^>]*>|<\/span>/gi, /<font[^>]*>|<\/font>/gi
-        ];
-
-        blacklisted.forEach(reg => { message = message.replace(reg, ''); });
-
-        // Greeting Isolation: If pure greeting and leaked job content, rewrite
-        if (meta.isPureGreeting) {
-            const leaks = ['job', 'naukri', 'vacancy', 'recruitment', 'bharti', 'last date', 'eligibility', 'official link', 'pro tip'];
-            const lowerMsg = message.toLowerCase();
-            if (leaks.some(leak => lowerMsg.includes(leak))) {
-                message = "Hi! 😊 Main theek hoon. Aap bataiye, main kis cheez me madad karun?";
-            }
-        }
-
-        const asksEligibility = /(eligibility|yogyata|qualification|educational qualification|kaun bhar sakta|eligible|पात्रता)/i.test(meta.query || "");
-        if (meta.intent === 'GOVT_JOB' && !asksEligibility) {
-            message = this._stripEligibilityLines(message);
-        }
-
-        // 3. FORMATTING: Clean up spaces
-        message = message.replace(/\n{3,}/g, '\n\n').trim();
-
-        // 4. Suggestions extraction
+        // 3. Suggestions extraction
         const suggestMatch = content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
         let suggestions = suggestMatch ? suggestMatch[1].split(',').map(s => s.trim()) : [];
+
+        // Extra metadata extraction for legacy support if needed
+        const mathMatch = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
+        const thinkMatch = content.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
 
         return {
             message,

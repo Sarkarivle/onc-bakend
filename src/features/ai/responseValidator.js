@@ -1,77 +1,113 @@
+/**
+ * ResponseValidator Module
+ * Responsibility: Actively validates AI draft answers against policy, ground truth, and safety.
+ */
 class ResponseValidator {
     /**
-     * Actively validates the response against the Ground Truth and Policy.
+     * @param {string} response - Draft content from LLM.
+     * @param {Object} context - { query, liveData, intent, userProfile, isPureGreeting }
+     * @returns {Object} { passed, issues, severity, shouldRetryLLM }
      */
-    static validate(response, { query, liveData, intent }) {
+    static validate(response, { query, liveData, intent, userProfile, isPureGreeting }) {
         const issues = [];
         const resLower = response.toLowerCase();
+        let severity = "LOW";
 
-        // 1. RULE EXPOSURE CHECK (Strict)
-        const forbiddenPhrases = [
-            'verified source recommended',
-            'backend rule',
-            'system rule',
-            'sarkari naukri ka niyam',
-            'i must not guess',
-            'as per my rule',
-            'internal validation',
-            'source recommended',
-            'hallucination guard',
-            'sourceverified',
-            'validation failed',
-            'official source recommended',
-            'sapni wala data',
-            'please respond with one of the following'
+        // 1. GLOBAL FORBIDDEN PHRASES (Backend Leakage)
+        const globalForbidden = [
+            'backend rule', 'system rule', 'planner', 'intent detected',
+            'confidence score', 'search router', 'database miss', 'internal database',
+            'hallucination guard', 'sourceverified', 'validation failed',
+            'verified source recommended', 'pure greeting', 'greeting detected',
+            'aapne sirf', 'sirf hi bola', 'isliye maine', 'maine system ki madad se',
+            'system ki madad se', 'policy', 'rule', 'as per my rule', 'i must not guess'
         ];
 
-        // Greeting Isolation: Prevent Job/Career leaks in pure greeting
-        if (intent === 'GREETING') {
-            const greetingLeakes = ['job', 'naukri', 'vacancy', 'recruitment', 'last date', 'eligibility', 'official link', 'pro tip'];
-            for (const leak of greetingLeakes) {
-                if (resLower.includes(leak)) {
-                    issues.push(`Greeting leakage detected: ${leak}`);
-                }
-            }
-        }
-
-        for (const phrase of forbiddenPhrases) {
+        for (const phrase of globalForbidden) {
             if (resLower.includes(phrase)) {
-                issues.push(`Internal rule exposure detected: ${phrase}`);
+                issues.push(`Internal leakage: "${phrase}" found.`);
+                severity = "HIGH";
             }
         }
 
-        // 2. GREETING POLICY CHECK
-        if (intent === 'GENERAL' || intent === 'GREETING') {
-            const forbiddenInGreeting = ['government job', 'qualification', 'vacancy', 'eligibility', 'salary structure'];
-            for (const phrase of forbiddenInGreeting) {
-                if (resLower.includes(phrase) && !query.toLowerCase().includes(phrase)) {
-                    issues.push(`Greeting response contains unnecessary info: ${phrase}`);
-                    break;
+        // 2. GREETING VALIDATION
+        if (isPureGreeting || intent === 'GREETING') {
+            const greetingLeaks = [
+                'job', 'naukri', 'vacancy', 'recruitment', 'last date', 'eligibility',
+                'salary', 'official link', 'career', 'pro tip', 'latest update',
+                'application', 'exam'
+            ];
+
+            for (const leak of greetingLeaks) {
+                if (resLower.includes(leak) && !query.toLowerCase().includes(leak)) {
+                    issues.push(`Greeting contains irrelevant job content: "${leak}"`);
+                    severity = "MEDIUM";
                 }
             }
+
+            if (resLower.includes("main jobo ai hu") && !query.toLowerCase().match(/(kaun|who)/)) {
+                issues.push("Repeated AI identity in greeting.");
+            }
         }
 
-        // 3. Factual Number Enforcement
-        if (!['GREETING', 'THANKS', 'SMALL_TALK', 'GENERAL'].includes(intent)) {
-            const numbersInResponse = response.match(/\d{3,}/g) || []; // Check numbers with 3+ digits (salaries, vacancies)
-            const combinedData = (liveData.jobs + liveData.web).toLowerCase();
+        // 3. JOB FACT VALIDATION (Strict)
+        const jobIntents = ['GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'];
+        if (jobIntents.includes(intent) || resLower.includes('vacancy') || resLower.includes('last date')) {
+            const combinedData = ((liveData.jobs || "") + " " + (liveData.web || "")).toLowerCase();
 
-            for (const num of numbersInResponse) {
+            // Hallucination check for numbers (Vacancy/Dates/Salaries)
+            const numbers = response.match(/\d{3,}/g) || [];
+            for (const num of numbers) {
                 if (!combinedData.includes(num)) {
-                    issues.push(`Hallucination detected: AI invented a number not in source data: ${num}`);
-                    break;
+                    issues.push(`Hallucination: Invented number "${num}" not in context.`);
+                    severity = "HIGH";
+                }
+            }
+
+            // Hallucination check for specific keywords if database is empty
+            if (!liveData.jobs && !liveData.web) {
+                const specificKeywords = ['upsssc', 'rrb', 'ssc', 'upsc', 'bpsc'];
+                for (const kw of specificKeywords) {
+                    if (resLower.includes(kw) && !query.toLowerCase().includes(kw)) {
+                        issues.push(`Hallucination: Mentioned organization "${kw}" without source data.`);
+                        severity = "HIGH";
+                    }
                 }
             }
         }
 
-        // 4. Structural Integrity
-        const isConversational = ['GREETING', 'THANKS', 'SMALL_TALK', 'GENERAL'].includes(intent);
-        if (!isConversational && !response.includes('<USER_MESSAGE>')) issues.push("Missing <USER_MESSAGE> tags");
+        // 4. EXPIRED JOB CHECK
+        if (response.includes('Last Date:')) {
+            const dateMatches = response.match(/Last Date:\s*\*\*(.*?)\*\*/gi);
+            if (dateMatches) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Simple date parser for Indian formats like "17 July 2026", "17-07-2026"
+                dateMatches.forEach(match => {
+                    const dateStr = match.replace(/Last Date:\s*\*\*/i, '').replace(/\*\*/, '').trim();
+                    const jobDate = new Date(dateStr);
+                    if (!isNaN(jobDate.getTime()) && jobDate < today) {
+                        issues.push(`Expired job detected: "${dateStr}" is in the past.`);
+                        severity = "HIGH";
+                    }
+                });
+            }
+        }
+
+        // 5. IDENTITY REPETITION
+        const identityCheck = (response.match(/main jobo ai hu|main onc ai assistant hoon|main aapka career assistant hu/gi) || []);
+        if (identityCheck.length > 0 && !query.toLowerCase().match(/(kaun|who|tum)/)) {
+            issues.push("Unnecessary AI identity self-introduction.");
+            if (identityCheck.length > 1) severity = "MEDIUM";
+        }
 
         return {
-            isValid: issues.length === 0,
+            passed: issues.length === 0,
             issues: issues,
-            score: issues.length === 0 ? 100 : Math.max(0, 100 - (issues.length * 20))
+            severity: severity,
+            repairedText: "", // Filled by cleaner if needed
+            shouldRetryLLM: severity === "HIGH"
         };
     }
 }
