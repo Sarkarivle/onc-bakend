@@ -332,7 +332,9 @@ class AIService {
             /internal validation/gi, /source recommended/gi, /hallucination guard/gi,
             /sourceverified/gi, /validation failed/gi, /official source recommended/gi,
             /sapni wala data/gi, /aapne yes kaha/gi, /you said yes/gi,
-            /mera niyam hai/gi, /ai rules/gi, /internal logic/gi, /niyam hai/gi
+            /mera niyam hai/gi, /ai rules/gi, /internal logic/gi, /niyam hai/gi,
+            /complex topic/gi, /bada ocean/gi, /keyword use kiya hai/gi,
+            /user profile is missing/gi, /profile complete nahi hai/gi
         ];
 
         blacklisted.forEach(reg => { message = message.replace(reg, ''); });
