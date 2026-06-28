@@ -42,7 +42,7 @@ class IntentDetector {
             };
         }
 
-        if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai)$/i)) {
+        if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai)\b/i)) {
             acts.add('GREET');
         }
 

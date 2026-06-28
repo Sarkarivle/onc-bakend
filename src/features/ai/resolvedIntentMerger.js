@@ -66,7 +66,8 @@ class ResolvedIntentMerger {
         // Anti-overfit for greeting
         if (primary === 'GREETING') {
             const isVagueOrHelp = normalizedMessage.match(/\b(help chahiye|madad chahiye|kuch bhi|anything|random)\b/i);
-            if (isVagueOrHelp) primary = 'GENERAL_QUERY';
+            const hasLeadingGreeting = normalizedMessage.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya)/i);
+            if (isVagueOrHelp && !hasLeadingGreeting) primary = 'GENERAL_QUERY';
         }
 
         if (primary === 'CONFIRM' || primary === 'USER_CONFIRMED') primary = 'CONFIRMATION';
@@ -232,7 +233,7 @@ class ResolvedIntentMerger {
             BANK_JOB: 'BANK_JOB',
             POLICE_JOB: 'POLICE_JOB',
             DEFENCE_JOB: 'DEFENCE_JOB',
-            TEACHING_JOB: 'GOVERNMENT_JOBS',
+            TEACHING_JOB: 'TEACHING_JOB',
             HEALTH_JOB: 'HEALTH_JOB',
             CAREER: 'CAREER',
             RESUME: 'RESUME',

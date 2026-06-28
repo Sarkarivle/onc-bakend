@@ -10,7 +10,7 @@ class JobDomainResolver {
             { domain: 'BANK_JOB', graphDomain: 'BANK_JOB', regex: /\b(sbi|ibps|bank|po|clerk|rbi)\b/ },
             { domain: 'POLICE_JOB', graphDomain: 'POLICE_JOB', regex: /\b(police|constable|si|daroga|home guard|delhi police)\b/ },
             { domain: 'DEFENCE_JOB', graphDomain: 'DEFENCE_JOB', regex: /\b(army|navy|air force|agniveer|cisf|bsf|crpf|itbp|ssb|defence)\b/ },
-            { domain: 'TEACHING_JOB', graphDomain: 'TEACHING_JOB', regex: /\b(teacher|tgt|pgt|prt|ctet|tet|teaching)\b/ },
+            { domain: 'TEACHING_JOB', graphDomain: 'TEACHING_JOB', regex: /\b(teacher|teaching|shikshak|adhyapak|tgt|pgt|prt)\b/ },
             { domain: 'HEALTH_JOB', graphDomain: 'HEALTH_JOB', regex: /\b(nursing|nurse|anm|gnm|asha|anganwadi|health worker|staff nurse)\b/ }
         ];
 
