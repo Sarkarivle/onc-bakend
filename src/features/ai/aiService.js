@@ -135,6 +135,22 @@ class AIService {
                 systemInstruction += "\n\nCRITICAL: No verified job data found in [DATABASE] or [SEARCH]. You MUST NOT mention any specific jobs, dates, or vacancies. Simply state that you don't have verified info right now.";
             }
 
+            // Specific follow-up prompt injection
+            if (plan.intent === 'APPLICATION_HELP') {
+                systemInstruction += `\n\nCRITICAL: The user is asking how to apply. Provide a step-by-step guide for the job "${plan.referencedItem || state.topic}". The steps MUST include: opening the official link/notification, registration, filling the form, uploading documents, paying fees if applicable, final submission, and printing/saving the confirmation.`;
+            } else if (plan.intent === 'FIELD_DETAILS') {
+                const field = resolvedIntent.entities?.field || '';
+                if (field === 'fees') {
+                    systemInstruction += `\n\nCRITICAL: The user is asking about fees for "${plan.referencedItem || state.topic}". If fee details are in the context, state them clearly. If not, you MUST respond that fee details should be checked on the official notification. Do not invent a fee.`;
+                } else if (field === 'link') {
+                    systemInstruction += `\n\nCRITICAL: The user is asking for the official link for "${plan.referencedItem || state.topic}". If a link is in the context, provide it. If not, you MUST respond that the official link is not currently available or to check the official website. Do not invent a link.`;
+                }
+            }
+
+            if (plan.selectedItemIndex && plan.referencedItem) {
+                systemInstruction += `\n\nCRITICAL: The user has selected item number ${plan.selectedItemIndex}. Your response MUST be about "${plan.referencedItem}". Start your response by mentioning the selected item's title.`;
+            }
+
             // Eligibility Test Vacancy Handling (Issue 4)
             const isEligibilityTest = (plan.referencedItem || state.topic) && /(tet|jhtet|ctet|eligibility test)/i.test(plan.referencedItem || state.topic);
             if (isEligibilityTest && resolvedIntent.primaryIntent === 'FIELD_DETAILS' && /vacancy|post|seat/i.test(rawInput)) {

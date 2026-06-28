@@ -125,7 +125,7 @@ class Planner {
      */
     static _shouldUseContext(q, resolvedIntent, state) {
         // More specific new-topic signals to avoid false positives on numeric references
-        const newTopicRegex = /\b(police kaise bane|teacher kaise bane|engineer kaise bane|career|12th ke baad|10th ke baad|graduation ke baad|course|diploma|iti ke baad|mujhe .* banna hai|doctor banne|mbbs karu ya nursing)\b/i;
+        const newTopicRegex = /\b(police kaise bane|teacher kaise bane|engineer kaise bane|career|12th ke baad|10th ke baad|graduation ke baad|course|diploma|iti ke baad|mujhe .* banna hai|doctor|mbbs|nursing)\b/i;
         if (newTopicRegex.test(q) && !/\d+\s*no|\d+\s*number/.test(q)) return false;
 
         // Career guidance usually resets unless it's a specific follow-up
@@ -151,8 +151,7 @@ class Planner {
         if (primary === 'GREETING') return 'GREETING';
         if (primary === 'JOB_QUERY') return 'JOB_SEARCH';
         if (['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'SHOW_FULL_DETAILS'].includes(primary)) return 'JOB_DETAILS';
-        if (primary.startsWith('MORE_')) return 'MORE_RESULTS';
-        if (primary === 'CAREER_GUIDANCE' || domain === 'CAREER' || q.includes('doctor banne') || q.includes('mbbs karu ya nursing')) return 'CAREER_GUIDANCE';
+        if (primary.startsWith('MORE_')) return 'MORE_RESULTS';        if (primary === 'CAREER_GUIDANCE' || domain === 'CAREER' || q.includes('doctor') || q.includes('mbbs') || q.includes('nursing')) return 'CAREER_GUIDANCE';
         if (primary === 'SCHOLARSHIP' || domain === 'SCHOLARSHIP') return 'SCHOLARSHIP';
         if (primary === 'RESULT_ADMIT_CARD' || domain === 'RESULT' || domain === 'ADMIT_CARD' || domain === 'RESULT_ADMIT_CARD') return 'RESULT';
         if (primary === 'APPLICATION_HELP') return 'APPLICATION_HELP';
