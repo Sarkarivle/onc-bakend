@@ -114,7 +114,8 @@ class AIService {
                 currentDate: indiaDateStr,
                 currentYear: currentYear,
                 sessionId,
-                behavior: plan.behavior
+                behavior: plan.behavior,
+                turnCount: state.turnCount || 0
             };
 
             let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);

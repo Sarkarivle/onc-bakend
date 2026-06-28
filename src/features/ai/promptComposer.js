@@ -13,7 +13,7 @@ class PromptComposer {
      * @param {Object} meta - { currentDate, currentYear, sessionId }
      */
     static async build(priorityModules, userData, liveData, meta) {
-        const { currentDate, currentYear, sessionId } = meta;
+        const { currentDate, currentYear, sessionId, turnCount } = meta;
         const cleanUser = this._sanitizeData(userData);
 
         // 1. Fetch all required modules in parallel (Performance Optimization)
@@ -39,6 +39,7 @@ class PromptComposer {
 
         // 3. Context Injection (Functions like CONTEXT remain in local registry for now)
         let contextSection = `# CONTEXTUAL DATA:\n`;
+        contextSection += `[CONVERSATION STATE]: Turn Number ${turnCount || 0}\n`;
         contextSection += registry.CONTEXT(cleanUser.name, cleanUser.loc, cleanUser.dob, cleanUser.cat, cleanUser.qual, cleanUser.insights, currentDate, currentYear);
 
         if (liveData.jobs || liveData.web) {
