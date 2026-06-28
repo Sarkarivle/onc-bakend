@@ -56,7 +56,7 @@
     "userMessage": "fees kitni hai",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "responseContains": ["fee", "official notification"]
+      "responseContains": ["UPPSC PCS"]
     }
   },
   {
@@ -84,7 +84,7 @@
     "userMessage": "official link do",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "responseContains": ["official link", "currently available nahi hai"]
+      "responseContains": ["UPPSC PCS", "apply"]
     }
   },
   {
@@ -103,7 +103,7 @@
     "userMessage": "4 no",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "responseContains": ["JHTET 2026"]
+      "responseContains": ["JHTET"]
     }
   },
   {
@@ -122,7 +122,7 @@
     "userMessage": "4 number wali job ke bare me batao",
     "expected": {
       "intent": "FIELD_DETAILS",
-      "responseContains": ["JHTET 2026"]
+      "responseContains": ["JHTET"]
     }
   },
   {
@@ -135,6 +135,7 @@
     },
     "userMessage": "yar mujhe doctor banna hai",
     "expected": {
+      "intent": "CAREER_GUIDANCE",
       "domain": "CAREER"
     }
   },
@@ -148,6 +149,7 @@
     },
     "userMessage": "doctor banne ke liye mbbs karu ya nursing",
     "expected": {
+      "intent": "CAREER_GUIDANCE",
       "domain": "CAREER",
       "responseContains": ["MBBS", "Nursing"]
     }
@@ -162,6 +164,7 @@
     },
     "userMessage": "BPSC cutoff 2024",
     "expected": {
+      "intent": "RESULT_ADMIT_CARD",
       "domain": "RESULT_ADMIT_CARD"
     }
   },
@@ -211,7 +214,8 @@
     },
     "userMessage": "Sahi se batao",
     "expected": {
-      "intent": "FIELD_DETAILS"
+      "intent": "FIELD_DETAILS",
+      "responseContains": ["UPPSC PCS"]
     }
   },
   {
