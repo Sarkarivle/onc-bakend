@@ -149,22 +149,25 @@ class AIService {
 
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
             // Check if AI mentioned a job that is NOT in DB or Search
-            const aiWords = finalContent.split(/\s+/);
-            const sourceText = (knowledgeContext.jobs + " " + knowledgeContext.web).toLowerCase();
+            const sourceText = (knowledgeContext.jobs + " " + (knowledgeContext.web || "")).toLowerCase();
 
             let hasHallucinatedJob = false;
-            if (plan.intent === 'GOVT_JOB') {
-                // If AI lists a numbered item (Job), check if its keywords exist in source
+            if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy') || finalContent.toLowerCase().includes('date')) {
+                // Check for job names like "UPSSSC", "NAEL", etc.
                 const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
                 if (jobMatches) {
                     for (const match of jobMatches) {
-                        const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').toLowerCase();
-                        const firstWord = jobName.split(' ')[0];
-                        if (firstWord.length > 3 && !sourceText.includes(firstWord)) {
+                        const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').trim().toLowerCase();
+                        const words = jobName.split(' ').filter(w => w.length > 3);
+                        // If no significant word from the job title is in the source text, it's a hallucination
+                        if (words.length > 0 && !words.some(word => sourceText.includes(word))) {
                             hasHallucinatedJob = true;
                             break;
                         }
                     }
+                } else if (/\d{2,}/.test(finalContent) && isDataMissing) {
+                    // If AI gives numbers (vacancies/dates) but we have NO data, it's hallucinating
+                    hasHallucinatedJob = true;
                 }
             }
 
