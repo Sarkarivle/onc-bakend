@@ -135,12 +135,36 @@ class AIService {
             const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData: knowledgeContext, intent: plan.intent });
 
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
-            const containsFactualInfo = /\d{3,}/.test(finalContent) || finalContent.toLowerCase().includes('police') || finalContent.toLowerCase().includes('constable') || finalContent.toLowerCase().includes('ssc');
+            // Check if AI mentioned a job that is NOT in DB or Search
+            const aiWords = finalContent.split(/\s+/);
+            const sourceText = (knowledgeContext.jobs + " " + knowledgeContext.web).toLowerCase();
 
-            if (!validation.isValid && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent) || containsFactualInfo)) {
-                // If data is missing but AI is giving factual info, override with error message
-                finalContent = "<USER_MESSAGE>Maaf kijiye, mujhe is baare mein abhi koi verified notification ya jankari nahi mili hai. Aap ek baar official website zaroor check kar lein.</USER_MESSAGE>";
-            } else if (!validation.isValid && plan.needReasoning) {
+            let hasHallucinatedJob = false;
+            if (plan.intent === 'GOVT_JOB') {
+                // If AI lists a numbered item (Job), check if its keywords exist in source
+                const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
+                if (jobMatches) {
+                    for (const match of jobMatches) {
+                        const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').toLowerCase();
+                        const firstWord = jobName.split(' ')[0];
+                        if (firstWord.length > 3 && !sourceText.includes(firstWord)) {
+                            hasHallucinatedJob = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ((!validation.isValid || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
+                finalContent = "<USER_MESSAGE>Maaf kijiye, mujhe abhi iske baare mein aur koi verified jankari nahi mili hai. Aap official website check kar sakte hain.</USER_MESSAGE>";
+            } else if (hasHallucinatedJob && !isDataMissing) {
+                // If we have some data but AI added more fake ones, re-run with strict instructions
+                const correction = await llm.chat([
+                    { role: 'system', content: systemInstruction + "\n\nCRITICAL: Your last response included jobs NOT found in the provided [DATABASE] or [SEARCH]. Re-write and ONLY include jobs that are explicitly mentioned in the sources. Do not invent 3rd or 4th jobs." },
+                    { role: 'user', content: rewrittenQuery }
+                ]);
+                finalContent = correction.content;
+            }
                 const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
                 finalContent = correction.content;
             }
