@@ -44,7 +44,7 @@ class StrongIntentResolver {
                 domainIntent: 'CAREER',
                 domain: 'CAREER',
                 task: 'GUIDANCE',
-                regex: /\b(career|future|guidance|path|direction|aim|goal|career option|kya karu|kya kare|kya karein|ke baad|baad kya|career advice|best options|roadmap|scope|future scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|freelancing|high paying|students|exam taiyari|job kaise payein)\b/
+                regex: /\b(career|future|guidance|path|direction|aim|goal|career option|kya karu|kya kare|kya karein|ke baad|baad kya|career advice|best options|roadmap|scope|future scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|freelancing|high paying|students|exam taiyari|job kaise payein\b)\b/
             },
             {
                 primaryIntent: 'APPLICATION_HELP',
