@@ -25,6 +25,18 @@ class IntentDetector {
         // User ka communication style
         // -------------------------------
 
+        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo)$/i) !== null;
+
+        if (isPureGreeting) {
+            acts.add('GREET');
+            return {
+                acts: ['GREET'],
+                domains: ['NONE'],
+                intents: ['PURE_GREETING'],
+                isPureGreeting: true
+            };
+        }
+
         if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|good morning|good evening|suprabhat|shubh sandhya|hello jobo|hi jobo)$/i)) {
             acts.add('GREET');
         }

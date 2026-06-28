@@ -13,11 +13,16 @@ class PromptComposer {
      * @param {Object} meta - { currentDate, currentYear, sessionId }
      */
     static async build(priorityModules, userData, liveData, meta) {
-        const { currentDate, currentYear, sessionId, turnCount } = meta;
+        const { currentDate, currentYear, sessionId, turnCount, behavior } = meta;
         const cleanUser = this._sanitizeData(userData);
 
+        const isPureGreeting = behavior === 'GREET';
+
         // 1. Fetch all required modules in parallel (Performance Optimization)
-        const allKeys = ['CORE', 'PERSONALITY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
+        let allKeys = ['CORE', 'PERSONALITY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
+        if (isPureGreeting) {
+            allKeys = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
+        }
         const uniqueKeys = [...new Set(allKeys)];
 
         const moduleMap = {};

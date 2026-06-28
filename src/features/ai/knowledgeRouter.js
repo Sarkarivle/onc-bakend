@@ -12,6 +12,15 @@ class KnowledgeRouter {
         const q = query.toLowerCase();
         const sources = ['PROMPT_MODULES', 'LLM_BASE'];
 
+        // Greeting Isolation: No external data for pure greetings
+        if (plan.isPureGreeting || plan.behavior === 'GREET') {
+            return {
+                selectedSources: sources,
+                shouldCheckSearchIfDbFails: false,
+                isFactualQuery: false
+            };
+        }
+
         // Upgraded factual check for new domains
         const jobRelatedDomains = [
             'GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB',

@@ -12,13 +12,27 @@ class Planner {
      * @param {Object} profile - UserProfile.
      */
     static plan(query, intentObj, state, profile) {
-        const { acts, domains, intents } = intentObj;
+        const { acts, domains, intents, isPureGreeting } = intentObj;
         const missingFields = UserProfile.getMissingFields(profile);
         const q = query.trim();
 
         let behavior = 'RESPOND';
         let activeDomain = domains[0] || 'GENERAL';
         let priorityModules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT', 'CONTEXT'];
+
+        // 0. PURE GREETING ISOLATION (New Upgrade)
+        if (isPureGreeting) {
+            return {
+                behavior: 'GREET',
+                intent: 'GREETING',
+                primaryAct: 'GREET',
+                priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'],
+                missingFields: [],
+                needSearch: false,
+                needReasoning: false,
+                isPureGreeting: true
+            };
+        }
 
         // 1. AMBIGUITY DETECTION (New Upgrade)
         // Agar query bahut choti hai aur koi specific intent nahi mila

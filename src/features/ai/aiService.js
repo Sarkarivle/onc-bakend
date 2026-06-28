@@ -190,7 +190,11 @@ class AIService {
 
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
             const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, validation);
-            const processed = this._finalProcess(finalContent, confidence, { intent: plan.intent, query: rewrittenQuery });
+            const processed = this._finalProcess(finalContent, confidence, {
+                intent: plan.intent,
+                query: rewrittenQuery,
+                isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET'
+            });
 
             // --- PHASE 11 & 12: Analytics ---
             await ConversationState.update(sessionId, rawInput, intentObj.acts, intentObj.domains, finalContent);
@@ -350,6 +354,15 @@ class AIService {
         ];
 
         blacklisted.forEach(reg => { message = message.replace(reg, ''); });
+
+        // Greeting Isolation: If pure greeting and leaked job content, rewrite
+        if (meta.isPureGreeting) {
+            const leaks = ['job', 'naukri', 'vacancy', 'recruitment', 'bharti', 'last date', 'eligibility', 'official link', 'pro tip'];
+            const lowerMsg = message.toLowerCase();
+            if (leaks.some(leak => lowerMsg.includes(leak))) {
+                message = "Hi! 😊 Main theek hoon. Aap bataiye, main kis cheez me madad karun?";
+            }
+        }
 
         const asksEligibility = /(eligibility|yogyata|qualification|educational qualification|kaun bhar sakta|eligible|पात्रता)/i.test(meta.query || "");
         if (meta.intent === 'GOVT_JOB' && !asksEligibility) {

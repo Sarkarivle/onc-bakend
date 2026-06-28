@@ -24,6 +24,16 @@ class ResponseValidator {
             'please respond with one of the following'
         ];
 
+        // Greeting Isolation: Prevent Job/Career leaks in pure greeting
+        if (intent === 'GREETING') {
+            const greetingLeakes = ['job', 'naukri', 'vacancy', 'recruitment', 'last date', 'eligibility', 'official link', 'pro tip'];
+            for (const leak of greetingLeakes) {
+                if (resLower.includes(leak)) {
+                    issues.push(`Greeting leakage detected: ${leak}`);
+                }
+            }
+        }
+
         for (const phrase of forbiddenPhrases) {
             if (resLower.includes(phrase)) {
                 issues.push(`Internal rule exposure detected: ${phrase}`);
