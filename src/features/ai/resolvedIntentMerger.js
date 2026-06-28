@@ -80,8 +80,6 @@ class ResolvedIntentMerger {
         const graphDomain = strongIntent?.domain || this._graphDomain(domain, primary);
         const task = this._task(primary, followUp?.entities || llmIntent?.entities || {}, strongIntent);
 
-        const lastItems = context.lastShownItems || context.lastShownJobs || [];
-        const hasContext = lastItems.length > 0 || (context.currentDomain && context.currentDomain !== 'GENERAL');
 
         let isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp);
         if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
