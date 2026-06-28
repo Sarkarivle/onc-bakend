@@ -31,7 +31,7 @@ class ResponseValidator {
             }
         }
 
-        if (response.match(/\b(JOB_QUERY|MORE_JOBS|JOB_FEE_DETAILS|GOVERNMENT_JOBS|CAREER_GUIDANCE|EXPLAIN_LAST_FAILURE|SHOW_FULL_DETAILS|DATABASE_FIRST|PROFILE_AND_LLM)\b/)) {
+        if (response.match(/\b(JOB_QUERY|MORE_JOBS|JOB_FEE_DETAILS|GOVERNMENT_JOBS|RAILWAY_JOB|BANK_JOB|POLICE_JOB|DEFENCE_JOB|TEACHING_JOB|HEALTH_JOB|CAREER_GUIDANCE|EXPLAIN_LAST_FAILURE|SHOW_FULL_DETAILS|DATABASE_FIRST|PROFILE_AND_LLM)\b/)) {
             issues.push("Internal leakage: intent graph label visible to user.");
             severity = "HIGH";
         }

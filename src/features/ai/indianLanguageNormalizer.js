@@ -26,6 +26,7 @@ class IndianLanguageNormalizer {
             [/\b(vetan|salary|pay scale|payscale|वेतन)\b/g, 'salary'],
             [/\b(paisa|paise|paise kamane|earning|kamai|income)\b/g, 'earning'],
             [/\b(rasta|raasta|tareeka|tarika|way)\b/g, 'option'],
+            [/\b(sahi se|achhe se|detail me|details do|details dikhao)\b/g, 'details'],
             [/\b(settle|settled|future secure|career banana)\b/g, 'career'],
             [/\b(cv|biodata|bio data)\b/g, 'resume'],
             [/\b(chatravriti|chhatravriti|wazifa|scholership)\b/g, 'scholarship'],

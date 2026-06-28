@@ -43,7 +43,7 @@ class KnowledgeRouter {
             'SCHOLARSHIP', 'RESULT_ADMIT_CARD', 'MORE_SCHOLARSHIPS', 'MORE_COLLEGES'
         ]);
 
-        const factualDomains = new Set(['GOVT_JOB', 'SCHOLARSHIP', 'COLLEGE', 'RESULT_ADMIT_CARD']);
+        const factualDomains = new Set(['GOVT_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'POLICE_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB', 'SCHOLARSHIP', 'COLLEGE', 'RESULT_ADMIT_CARD']);
         return factualIntents.has(plan.intent) || factualDomains.has(plan.domain);
     }
 }

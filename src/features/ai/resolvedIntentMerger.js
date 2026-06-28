@@ -3,12 +3,14 @@
  * Responsibility: Merge rule, semantic, follow-up, and LLM signals into one rich intent object.
  */
 const IntentExampleRegistry = require('./intentExampleRegistry');
+const JobDomainResolver = require('./jobDomainResolver');
 
 class ResolvedIntentMerger {
     static merge(originalMessage, layers) {
         const {
             ruleResult,
             ruleIntent,
+            strongIntent,
             semanticIntent,
             llmIntent,
             followUp,
@@ -22,11 +24,18 @@ class ResolvedIntentMerger {
         const llmPrimary = llmIntent?.primaryIntent || null;
         const followUpPrimary = followUp?.intent || null;
 
-        let primary = followUpPrimary || canonicalRule || semanticPrimary || llmPrimary || 'GENERAL_QUERY';
+        const strongTakesPriority = strongIntent && (
+            ['RESUME', 'SCHOLARSHIP'].includes(strongIntent.primaryIntent) ||
+            (strongIntent.primaryIntent === 'RESULT_ADMIT_CARD' && !followUp?.isFollowUp)
+        );
+        let primary = strongTakesPriority
+            ? strongIntent.primaryIntent
+            : (followUpPrimary || strongIntent?.primaryIntent || canonicalRule || semanticPrimary || llmPrimary || 'GENERAL_QUERY');
         if (primary === 'CONFIRM' || primary === 'USER_CONFIRMED') primary = 'CONFIRMATION';
         if (primary === 'USER_REJECTED') primary = 'NEGATION';
 
         const secondary = new Set();
+        for (const intent of strongIntent?.secondaryIntents || []) secondary.add(intent);
         if (canonicalRule && canonicalRule !== primary) secondary.add(canonicalRule);
         if (semanticPrimary && semanticPrimary !== primary) secondary.add(semanticPrimary);
         if (llmPrimary && llmPrimary !== primary) secondary.add(llmPrimary);
@@ -34,18 +43,19 @@ class ResolvedIntentMerger {
 
         const domain = this._resolveDomain(primary, {
             ruleResult,
+            strongIntent,
             semanticIntent,
             llmIntent,
             followUp,
             context
         });
-        const graphDomain = this._graphDomain(domain, primary);
+        const graphDomain = strongIntent?.domain || this._graphDomain(domain, primary);
         const task = this._task(primary, followUp?.entities || llmIntent?.entities || {});
         const communicationAct = this._communicationAct(primary, ruleResult, followUp);
 
-        const isPureGreeting = ruleResult?.isPureGreeting || primary === 'GREETING';
+        const isPureGreeting = (ruleResult?.isPureGreeting || primary === 'GREETING') && !this._hasDomainSignal(ruleResult, strongIntent, semanticPrimary, primary);
         const isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp);
-        const needClarification = this._needsClarification(primary, confidence, context, isFollowUp);
+        const needClarification = Boolean(followUp?.needClarification || llmIntent?.needClarification || this._needsClarification(primary, confidence, context, isFollowUp));
         const dataSourceNeeded = this._dataSourceNeeded(graphDomain, task, primary);
 
         return {
@@ -100,6 +110,7 @@ class ResolvedIntentMerger {
     }
 
     static _resolveDomain(primary, data) {
+        if (data.strongIntent?.domainIntent) return data.strongIntent.domainIntent;
         if (data.followUp?.domainIntent) return data.followUp.domainIntent;
         if (data.semanticIntent?.domainIntent) return data.semanticIntent.domainIntent;
         if (data.llmIntent?.domainIntent) return data.llmIntent.domainIntent;
@@ -108,7 +119,10 @@ class ResolvedIntentMerger {
         if (metaDomain && metaDomain !== 'GENERAL') return metaDomain;
 
         const domains = data.ruleResult?.domains || [];
-        if (domains.includes('GOVT_JOB') || domains.some(d => d.endsWith('_JOB')) || domains.includes('EXAM')) return 'GOVT_JOB';
+        const subDomain = Array.from(domains).find(d => ['RAILWAY_JOB', 'BANK_JOB', 'POLICE_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'].includes(d));
+        if (subDomain) return subDomain;
+        if (domains.some(d => d.endsWith('_JOB'))) return JobDomainResolver.resolve(data.ruleResult?.normalizedMessage || '').domain;
+        if (domains.includes('GOVT_JOB') || domains.includes('EXAM')) return 'GOVT_JOB';
         if (domains.includes('CAREER')) return 'CAREER';
         if (domains.includes('SCHOLARSHIP')) return 'SCHOLARSHIP';
         if (domains.includes('RESUME')) return 'RESUME';
@@ -152,6 +166,12 @@ class ResolvedIntentMerger {
     static _graphDomain(domain, primary) {
         const map = {
             GOVT_JOB: 'GOVERNMENT_JOBS',
+            RAILWAY_JOB: 'RAILWAY_JOB',
+            BANK_JOB: 'BANK_JOB',
+            POLICE_JOB: 'POLICE_JOB',
+            DEFENCE_JOB: 'DEFENCE_JOB',
+            TEACHING_JOB: 'TEACHING_JOB',
+            HEALTH_JOB: 'HEALTH_JOB',
             CAREER: 'CAREER',
             RESUME: 'RESUME',
             SCHOLARSHIP: 'SCHOLARSHIP',
@@ -183,7 +203,7 @@ class ResolvedIntentMerger {
 
     static _dataSourceNeeded(domain, task, primary) {
         if (primary === 'GREETING' || primary === 'CONFIRMATION' || primary === 'NEGATION') return 'NONE';
-        if (['GOVERNMENT_JOBS', 'SCHOLARSHIP', 'COLLEGE', 'RESULT', 'ADMIT_CARD'].includes(domain)) {
+        if (['GOVERNMENT_JOBS', 'RAILWAY_JOB', 'BANK_JOB', 'POLICE_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB', 'SCHOLARSHIP', 'COLLEGE', 'RESULT', 'ADMIT_CARD'].includes(domain)) {
             if (task === 'LATEST' || task === 'MORE_RESULTS') return 'DATABASE_FIRST';
             if (['DETAILS', 'FEE', 'AGE_LIMIT', 'ELIGIBILITY', 'DOWNLOAD', 'STATUS', 'APPLY_PROCESS'].includes(task)) return 'DATABASE_OR_VERIFIED_SEARCH';
         }
@@ -193,9 +213,17 @@ class ResolvedIntentMerger {
 
     static _needsClarification(primary, confidence, context, isFollowUp) {
         if (primary === 'GREETING' || primary === 'NEGATION') return false;
+        if (primary === 'PROFILE_INFO') return true;
         if (confidence >= 0.85) return false;
         if (confidence >= 0.6 && isFollowUp && context.currentDomain && context.currentDomain !== 'GENERAL') return false;
         return confidence < 0.6 || primary === 'GENERAL_QUERY';
+    }
+
+    static _hasDomainSignal(ruleResult = {}, strongIntent, semanticPrimary, primary) {
+        if (strongIntent) return true;
+        if (primary && primary !== 'GREETING' && primary !== 'CONFIRMATION' && primary !== 'NEGATION') return true;
+        const domains = ruleResult.domains || [];
+        return domains.some(domain => domain && domain !== 'NONE' && domain !== 'GENERAL');
     }
 
     static _lastShownItem(context = {}) {

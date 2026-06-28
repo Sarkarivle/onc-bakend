@@ -7,6 +7,7 @@ class IntentConfidenceScorer {
         let score = 0;
 
         if (data.followUpIntent) score = Math.max(score, 0.92);
+        if (data.strongIntent) score = Math.max(score, data.strongIntent.confidence || 0.93);
         if (data.ruleMatch) score = Math.max(score, data.ruleIsGeneric ? 0.55 : 0.88);
 
         if (data.semanticMatch) {

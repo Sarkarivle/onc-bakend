@@ -46,6 +46,11 @@ async function runIntentTests() {
             expected: ['JOB_QUERY']
         },
         {
+            name: 'mixed greeting vacancy',
+            input: 'Namaste, koi vacancy hai?',
+            expected: ['JOB_QUERY']
+        },
+        {
             name: 'semantic work query',
             input: 'mere liye koi kaam hai kya',
             expected: ['JOB_QUERY', 'CAREER_GUIDANCE']
@@ -74,6 +79,16 @@ async function runIntentTests() {
             expected: ['PROVIDE_QUALIFICATION']
         },
         {
+            name: 'qualification without pending',
+            input: 'Graduate',
+            expected: ['PROFILE_INFO', 'GENERAL_QUERY']
+        },
+        {
+            name: 'qualification with job',
+            input: '12th pass ke liye kaunsi naukri hai',
+            expected: ['JOB_QUERY']
+        },
+        {
             name: 'job fee field',
             input: 'fees?',
             state: { currentDomain: 'GOVT_JOB', topic: 'GOVT_JOB', lastShownJobs: ['ISRO ISTRAC Recruitment'] },
@@ -84,6 +99,18 @@ async function runIntentTests() {
             input: 'fees?',
             state: { currentDomain: 'COLLEGE', topic: 'COLLEGE', lastShownItems: ['Bareilly College'] },
             expected: ['COLLEGE_FEE', 'FIELD_DETAILS']
+        },
+        {
+            name: 'syllabus follow-up',
+            input: 'syllabus kya hai',
+            state: { currentDomain: 'GOVT_JOB', topic: 'SSC', currentTopic: 'SSC', lastShownItems: ['SSC CGL'] },
+            expected: ['FIELD_DETAILS']
+        },
+        {
+            name: 'application help follow-up',
+            input: 'apply kaise kare',
+            state: { currentDomain: 'GOVT_JOB', topic: 'GOVT_JOB', lastShownJobs: ['NAEL Recruitment'] },
+            expected: ['APPLICATION_HELP']
         },
         {
             name: 'explain failure',
@@ -113,6 +140,59 @@ async function runIntentTests() {
             expected: ['RESUME']
         },
         {
+            name: 'resume template priority',
+            input: 'fresher resume template do',
+            expected: ['RESUME']
+        },
+        {
+            name: 'scholarship priority',
+            input: 'obc scholarship batao',
+            expected: ['SCHOLARSHIP']
+        },
+        {
+            name: 'admit card priority',
+            input: 'admit crd kab aayega',
+            expected: ['RESULT_ADMIT_CARD']
+        },
+        {
+            name: 'railway subdomain',
+            input: 'railway group d vacancy batao',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'bank subdomain',
+            input: 'sbi clerk job batao',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'police subdomain',
+            input: 'delhi police constable bharti',
+            expected: ['JOB_QUERY']
+        },
+        {
+            name: 'batao without context',
+            input: 'batao na',
+            expected: ['GENERAL_QUERY']
+        },
+        {
+            name: 'batao with context',
+            input: 'batao na',
+            state: { currentDomain: 'GOVT_JOB', topic: 'GOVT_JOB', lastShownJobs: ['NAEL Recruitment'], lastResultCount: 2 },
+            expected: ['MORE_RESULTS', 'MORE_JOBS', 'FIELD_DETAILS']
+        },
+        {
+            name: 'more info list context',
+            input: 'more info',
+            state: { currentDomain: 'GOVT_JOB', topic: 'GOVT_JOB', lastShownJobs: ['NAEL Recruitment', 'ISRO ISTRAC'], lastShownItemType: 'LIST', lastResultCount: 2 },
+            expected: ['MORE_RESULTS', 'MORE_JOBS']
+        },
+        {
+            name: 'more info single context',
+            input: 'more info',
+            state: { currentDomain: 'GOVT_JOB', topic: 'GOVT_JOB', lastShownItems: ['NAEL Recruitment'], lastShownItemType: 'SINGLE', lastResultCount: 1 },
+            expected: ['FIELD_DETAILS']
+        },
+        {
             name: 'typo job normalization',
             input: 'nokri batao',
             expected: ['JOB_QUERY']
@@ -132,6 +212,16 @@ async function runIntentTests() {
             throw new Error(`${test.name}: expected GREETING act in communicationActs`);
         }
         if (test.name === 'job fee field') assertField(test.name, result, 'task', 'FEE');
+        if (test.name === 'qualification without pending' && !result.needClarification) {
+            throw new Error(`${test.name}: expected needClarification=true`);
+        }
+        if (test.name === 'railway subdomain') assertField(test.name, result, 'domainIntent', 'RAILWAY_JOB');
+        if (test.name === 'bank subdomain') assertField(test.name, result, 'domainIntent', 'BANK_JOB');
+        if (test.name === 'police subdomain') assertField(test.name, result, 'domainIntent', 'POLICE_JOB');
+        if (test.name === 'syllabus follow-up' && !result.isFollowUp) throw new Error(`${test.name}: expected follow-up`);
+        if (test.name === 'application help follow-up' && !result.isFollowUp) throw new Error(`${test.name}: expected follow-up`);
+        if (test.name === 'batao without context' && !result.needClarification) throw new Error(`${test.name}: expected clarification`);
+        if (test.name === 'batao with context' && !result.isFollowUp) throw new Error(`${test.name}: expected follow-up`);
         console.log(`OK ${test.name}: ${result.primaryIntent} (${result.confidence})`);
     }
 }

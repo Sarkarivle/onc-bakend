@@ -10,6 +10,7 @@ const IntentConfidenceScorer = require('./intentConfidenceScorer');
 const ResolvedIntentMerger = require('./resolvedIntentMerger');
 const FollowUpResolver = require('./followUpResolver');
 const IndianLanguageNormalizer = require('./indianLanguageNormalizer');
+const StrongIntentResolver = require('./strongIntentResolver');
 
 class SemanticIntentClassifier {
     static async classify(query, state = {}, profile = {}) {
@@ -19,8 +20,9 @@ class SemanticIntentClassifier {
         const rulePrimaryIntent = ruleResult.intents?.[0] || 'GENERAL_QUERY';
         const ruleIsGeneric = rulePrimaryIntent === 'GENERAL_QUERY';
 
+        const strongIntent = StrongIntentResolver.resolve(normalized || query, ruleResult);
         const followUp = FollowUpResolver.resolve(normalized || query, state, query);
-        const semanticQuery = followUp.isFollowUp ? followUp.resolvedQuery : normalized;
+        const semanticQuery = followUp.isFollowUp ? followUp.resolvedQuery : (strongIntent ? normalized : normalized);
         const semanticMatches = EmbeddingIntentMatcher.match(semanticQuery);
         const topSemantic = semanticMatches[0] || null;
 
@@ -35,6 +37,7 @@ class SemanticIntentClassifier {
             ruleIsGeneric,
             semanticMatch: topSemantic,
             followUpIntent: followUp.intent,
+            strongIntent,
             hasStrongContext,
             isPureGreeting: ruleResult.isPureGreeting
         });
@@ -57,6 +60,7 @@ class SemanticIntentClassifier {
                 semanticMatch: topSemantic,
                 llmMatch: llmResult,
                 followUpIntent: followUp.intent,
+                strongIntent,
                 hasStrongContext,
                 isPureGreeting: ruleResult.isPureGreeting
             });
@@ -66,6 +70,7 @@ class SemanticIntentClassifier {
             normalizedMessage: normalized,
             ruleResult,
             ruleIntent: rulePrimaryIntent,
+            strongIntent,
             semanticIntent: topSemantic,
             semanticMatches,
             llmIntent: llmResult,

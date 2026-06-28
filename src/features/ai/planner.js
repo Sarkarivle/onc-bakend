@@ -91,7 +91,7 @@ class Planner {
         const modules = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
         const add = (m) => modules.push(m);
 
-        if (domain === 'GOVT_JOB') add('GOVT_JOB');
+        if (this._isJobDomain(domain)) add('GOVT_JOB');
         if (domain === 'CAREER') add('CAREER');
         if (domain === 'SCHOLARSHIP') add('SCHOLARSHIP');
         if (domain === 'RESUME') add('RESUME');
@@ -109,20 +109,20 @@ class Planner {
     static _dataPolicy(primary, domain) {
         if (['JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS'].includes(primary)) return 'DATABASE_FIRST';
         if (['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'SHOW_FULL_DETAILS'].includes(primary)) return 'PREVIOUS_ITEM_DATABASE';
-        if (domain === 'GOVT_JOB' || domain === 'RESULT_ADMIT_CARD') return 'DATABASE_FIRST';
+        if (this._isJobDomain(domain) || domain === 'RESULT_ADMIT_CARD') return 'DATABASE_FIRST';
         if (domain === 'SCHOLARSHIP') return 'OFFICIAL_SEARCH_IF_DB_FAILS';
         if (domain === 'CAREER' || domain === 'RESUME') return 'LLM_WITH_PROFILE';
         return 'LLM_ONLY';
     }
 
     static _needsProfile(primary, domain) {
-        return ['JOB_QUERY', 'CAREER_GUIDANCE', 'PROVIDE_QUALIFICATION'].includes(primary) || domain === 'GOVT_JOB' || domain === 'CAREER';
+        return ['JOB_QUERY', 'CAREER_GUIDANCE', 'PROVIDE_QUALIFICATION'].includes(primary) || this._isJobDomain(domain) || domain === 'CAREER';
     }
 
     static _responseMode(primary, domain) {
         if (primary === 'MORE_JOBS' || primary === 'MORE_RESULTS') return 'PAGINATED_LIST';
         if (primary.includes('DETAIL') || primary === 'APPLICATION_HELP' || primary === 'SHOW_FULL_DETAILS') return 'FIELD_ANSWER';
-        if (domain === 'GOVT_JOB') return 'JOB_LIST';
+        if (this._isJobDomain(domain)) return 'JOB_LIST';
         if (primary === 'EXPLAIN_LAST_FAILURE') return 'SHORT_EXPLANATION';
         return 'DIRECT';
     }
@@ -135,6 +135,10 @@ class Planner {
             remainingCount: Number(state.remainingCount || 0),
             lastFilters: state.lastFilters || {}
         };
+    }
+
+    static _isJobDomain(domain) {
+        return ['GOVT_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'POLICE_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'].includes(domain);
     }
 }
 

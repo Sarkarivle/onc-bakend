@@ -100,7 +100,7 @@ class ConversationState {
             lastFailureReason: lastFailureReason,
             lastShownJobs: lastShownJobs.length > 0 ? lastShownJobs : currentState.lastShownJobs,
             lastShownItems: lastShownJobs.length > 0 ? lastShownJobs : currentState.lastShownItems,
-            lastShownItemType: lastShownJobs.length > 0 ? "JOB" : (resolvedDomain === 'SCHOLARSHIP' ? 'SCHOLARSHIP' : currentState.lastShownItemType),
+            lastShownItemType: lastShownJobs.length > 1 ? "LIST" : (lastShownJobs.length === 1 ? "SINGLE" : (resolvedDomain === 'SCHOLARSHIP' ? 'LIST' : currentState.lastShownItemType)),
             lastFilters: plan?.pagination?.lastFilters || currentState.lastFilters,
             lastVerifiedStatus: validation?.passed || false,
             lastSourceUsed: (knowledgeContext?.jobs ? "DATABASE" : (knowledgeContext?.web ? "SEARCH" : "NONE")),

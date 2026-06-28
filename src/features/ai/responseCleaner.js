@@ -30,7 +30,7 @@ class ResponseCleaner {
             /pure greeting/gi, /detected intent/gi, /no domain found/gi, /isliye maine/gi,
             /maine system ki madad se/gi, /system ki madad se/gi,
             /category ki jobs/gi, /jobs me madad/gi, /career aur jobs/gi,
-            /\b(JOB_QUERY|MORE_JOBS|JOB_FEE_DETAILS|GOVERNMENT_JOBS|CAREER_GUIDANCE|EXPLAIN_LAST_FAILURE|SHOW_FULL_DETAILS|DATABASE_FIRST|PROFILE_AND_LLM)\b/g,
+            /\b(JOB_QUERY|MORE_JOBS|JOB_FEE_DETAILS|GOVERNMENT_JOBS|RAILWAY_JOB|BANK_JOB|POLICE_JOB|DEFENCE_JOB|TEACHING_JOB|HEALTH_JOB|CAREER_GUIDANCE|EXPLAIN_LAST_FAILURE|SHOW_FULL_DETAILS|DATABASE_FIRST|PROFILE_AND_LLM)\b/g,
             /career ka sapna[^.\n]*[.\n]?/gi,
             /aaj kal naukriyon[\s\S]*?open hain\??/gi,
             /^\s*job list\s*:?\s*$/gim,
