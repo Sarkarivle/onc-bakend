@@ -43,14 +43,10 @@ class ResolvedIntentMerger {
             primary = 'GREETING';
         } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
             primary = followUpPrimary;
+        } else if (strongIntent) {
+            primary = strongIntent.primaryIntent;
         } else if (isCareerLock) {
             primary = 'CAREER_GUIDANCE';
-        } else if (strongIntent && strongIntent.primaryIntent === 'JOB_QUERY') {
-            primary = 'JOB_QUERY';
-        } else if (strongIntent && ['RESUME', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(strongIntent.primaryIntent)) {
-            primary = strongIntent.primaryIntent;
-        } else if (strongIntent && strongIntent.primaryIntent === 'APPLICATION_HELP') {
-            primary = 'APPLICATION_HELP';
         } else if (followUpPrimary && followUpPrimary !== 'FIELD_DETAILS' && followUpPrimary !== 'PROFILE_INFO') {
             primary = followUpPrimary;
         } else if (followUpPrimary === 'FIELD_DETAILS' && (hasContext || isFieldOnly)) {
@@ -95,9 +91,10 @@ class ResolvedIntentMerger {
         const task = this._task(primary, followUp?.entities || llmIntent?.entities || {}, strongIntent);
 
 
-        let isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp);
+        let isFollowUp = Boolean(followUp?.isFollowUp || llmIntent?.isFollowUp || strongIntent?.isFollowUp);
         if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
         if (isCareerLock) isFollowUp = false;
+        if (primary === 'FIELD_DETAILS') isFollowUp = true;
         if (primary === 'APPLICATION_HELP' && hasContext) isFollowUp = true;
 
         const communicationAct = this._communicationAct(primary, ruleResult, followUp, isFollowUp);

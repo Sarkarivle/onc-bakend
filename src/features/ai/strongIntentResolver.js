@@ -30,25 +30,6 @@ class StrongIntentResolver {
         const explicitJobRequest = /\b(latest sarkari job|sarkari job latest|police vacancy|teacher ki vacancy|teacher vacancy|railway recruitment|ctet exam notification|ssc cgl 202[4-9]|naukri dikhao|job dikhao|koi vacancy|vacancy hai|latest vacancy)\b/i;
         const policeTitle = /\b(police constable|police si|police daroga|delhi police|up police|bihar police|mp police|rajasthan police|haryana police)\b/i;
 
-        const hasPreciseJobIntent =
-            explicitJobRequest.test(q) ||
-            narrowHealthJob.test(q) ||
-            policeTitle.test(q) ||
-            (jobEntity.test(q) && (specificJobAction.test(q) || examCycleAction.test(q)));
-
-        if (hasPreciseJobIntent) {
-            const jobDomain = JobDomainResolver.resolve(q);
-            return {
-                primaryIntent: 'JOB_QUERY',
-                domainIntent: jobDomain.domain,
-                domain: jobDomain.graphDomain,
-                task: 'LATEST',
-                secondaryIntents: hasGreeting ? ['GREETING'] : [],
-                confidence: 0.94,
-                reason: 'Specific job/domain intent matched.'
-            };
-        }
-
         const strong = [
             {
                 primaryIntent: 'RESUME',
@@ -102,6 +83,25 @@ class StrongIntentResolver {
                 secondaryIntents: hasGreeting ? ['GREETING'] : [],
                 confidence: 0.95,
                 reason: 'Strong independent domain intent matched.'
+            };
+        }
+
+        const hasPreciseJobIntent =
+            explicitJobRequest.test(q) ||
+            narrowHealthJob.test(q) ||
+            policeTitle.test(q) ||
+            (jobEntity.test(q) && (specificJobAction.test(q) || examCycleAction.test(q)));
+
+        if (hasPreciseJobIntent) {
+            const jobDomain = JobDomainResolver.resolve(q);
+            return {
+                primaryIntent: 'JOB_QUERY',
+                domainIntent: jobDomain.domain,
+                domain: jobDomain.graphDomain,
+                task: 'LATEST',
+                secondaryIntents: hasGreeting ? ['GREETING'] : [],
+                confidence: 0.94,
+                reason: 'Specific job/domain intent matched.'
             };
         }
 
