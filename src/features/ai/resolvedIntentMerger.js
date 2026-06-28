@@ -44,7 +44,7 @@ class ResolvedIntentMerger {
         } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
             primary = followUpPrimary;
         } else if (strongIntent) {
-            primary = strongIntent.primaryIntent;
+            primary = strongIntent.primaryIntent;        
         } else if (isCareerLock) {
             primary = 'CAREER_GUIDANCE';
         } else if (followUpPrimary && followUpPrimary !== 'FIELD_DETAILS' && followUpPrimary !== 'PROFILE_INFO') {
@@ -55,6 +55,9 @@ class ResolvedIntentMerger {
             primary = 'FIELD_DETAILS';
         } else if (followUpPrimary === 'PROFILE_INFO') {
             primary = 'PROFILE_INFO';
+        } else if (followUpPrimary && hasContext) {
+            // If a follow-up intent was detected and we have context, prioritize it.
+            primary = followUpPrimary;
         } else {
             primary = canonicalRule || semanticPrimary || llmPrimary || 'GENERAL_QUERY';
         }

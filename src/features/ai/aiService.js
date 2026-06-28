@@ -65,8 +65,8 @@ class AIService {
             const plan = Planner.plan(rawInput, resolvedIntent, state, profile);
             metrics.intent = plan.intent;
 
-            // --- PHASE 6: Knowledge Routing ---
-            let queryForSearch = resolvedIntent.isFollowUp ? resolvedIntent.normalizedMessage : rawInput;
+            // --- PHASE 6: Knowledge Routing ---            
+            let queryForSearch = resolvedIntent.isFollowUp ? (resolvedIntent.normalizedMessage || rawInput) : rawInput;
 
             // If we have specific field details intent, make search more targeted
             if (resolvedIntent.primaryIntent === 'FIELD_DETAILS' && state.topic) {
