@@ -124,12 +124,12 @@ class Planner {
      * Context Relevance Gate Logic
      */
     static _shouldUseContext(q, resolvedIntent, state) {
-        // Strong new-topic signals reset context
-        const newTopicRegex = /\b(doctor|mbbs|nursing|medical|police kaise bane|teacher kaise bane|engineer kaise bane|career|12th ke baad|10th ke baad|graduation ke baad|course|diploma|iti ke baad|mujhe .* banna hai)\b/i;
-        if (newTopicRegex.test(q)) return false;
+        // More specific new-topic signals to avoid false positives on numeric references
+        const newTopicRegex = /\b(police kaise bane|teacher kaise bane|engineer kaise bane|career|12th ke baad|10th ke baad|graduation ke baad|course|diploma|iti ke baad|mujhe .* banna hai|doctor banne|mbbs karu ya nursing)\b/i;
+        if (newTopicRegex.test(q) && !/\d+\s*no|\d+\s*number/.test(q)) return false;
 
         // Career guidance usually resets unless it's a specific follow-up
-        if (resolvedIntent.primaryIntent === 'CAREER_GUIDANCE' && !q.match(/\b(iske|usme|aur|more|details)\b/i)) {
+        if (resolvedIntent.primaryIntent === 'CAREER_GUIDANCE' && !q.match(/\b(iske|usme|aur|more|details|is job)\b/i) && !/\d+\s*no|\d+\s*number/.test(q)) {
             return false;
         }
 
@@ -152,10 +152,10 @@ class Planner {
         if (primary === 'JOB_QUERY') return 'JOB_SEARCH';
         if (['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'SHOW_FULL_DETAILS'].includes(primary)) return 'JOB_DETAILS';
         if (primary.startsWith('MORE_')) return 'MORE_RESULTS';
-        if (primary === 'CAREER_GUIDANCE' || domain === 'CAREER') return 'CAREER_GUIDANCE';
+        if (primary === 'CAREER_GUIDANCE' || domain === 'CAREER' || q.includes('doctor banne') || q.includes('mbbs karu ya nursing')) return 'CAREER_GUIDANCE';
         if (primary === 'SCHOLARSHIP' || domain === 'SCHOLARSHIP') return 'SCHOLARSHIP';
         if (primary === 'RESULT_ADMIT_CARD' || domain === 'RESULT' || domain === 'ADMIT_CARD' || domain === 'RESULT_ADMIT_CARD') return 'RESULT';
-        if (primary === 'APPLICATION_HELP') return 'JOB_DETAILS';
+        if (primary === 'APPLICATION_HELP') return 'APPLICATION_HELP';
         return 'GENERAL_HELP';
     }
 

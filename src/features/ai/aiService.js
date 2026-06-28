@@ -136,9 +136,9 @@ class AIService {
             }
 
             // Eligibility Test Vacancy Handling (Issue 4)
-            const isEligibilityTest = state.topic && /(tet|jhtet|ctet|eligibility test)/i.test(state.topic);
+            const isEligibilityTest = (plan.referencedItem || state.topic) && /(tet|jhtet|ctet|eligibility test)/i.test(plan.referencedItem || state.topic);
             if (isEligibilityTest && resolvedIntent.primaryIntent === 'FIELD_DETAILS' && /vacancy|post|seat/i.test(rawInput)) {
-                systemInstruction += "\n\nCRITICAL: The user is asking for vacancy count for an eligibility test. You MUST explain that it's an eligibility test, not a direct job vacancy, so a vacancy count doesn't apply. Do not search for a number.";
+                systemInstruction += `\n\nCRITICAL: The user is asking for vacancy count for an eligibility test. You MUST respond with this exact phrase structure: "${plan.referencedItem || 'Ye'} ek eligibility test hai, not a direct vacancy. Isliye vacancy count directly apply nahi hota. Teaching vacancies separately check ki ja sakti hain." Do not invent a number.`;
             }
 
             ProgressEmitter.emit(sessionId, 'LLM_THINKING');
