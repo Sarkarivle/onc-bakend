@@ -95,7 +95,7 @@ class Planner {
             mode: 'GENERAL_HELP',
             behavior: 'RESPOND',
             intent: 'GENERAL_QUERY',
-            resolvedIntent: null,
+            resolvedIntent: overrides.resolvedIntent || null,
             domain: 'GENERAL',
             priorityModules: ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'],
             missingFields: [],
@@ -116,7 +116,7 @@ class Planner {
             pagination: null,
             shouldRefuse: false,
             ...overrides,
-            isPureGreeting: overrides.intent === 'GREETING' || overrides.behavior === 'GREET'
+            domain: overrides.domain || (overrides.resolvedIntent ? (overrides.resolvedIntent.domainIntent || 'GENERAL') : 'GENERAL'),            isPureGreeting: overrides.intent === 'GREETING' || overrides.behavior === 'GREET'
         };
     }
 

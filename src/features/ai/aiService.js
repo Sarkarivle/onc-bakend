@@ -69,8 +69,9 @@ class AIService {
             let queryForSearch = resolvedIntent.isFollowUp ? (resolvedIntent.normalizedMessage || rawInput) : rawInput;
 
             // If we have specific field details intent, make search more targeted
-            if (resolvedIntent.primaryIntent === 'FIELD_DETAILS' && state.topic) {
-                queryForSearch = `${state.topic} ${rawInput}`;
+            const isContextualFollowup = resolvedIntent.isFollowUp && state.topic && state.topic !== 'GENERAL';
+            if (isContextualFollowup && ['FIELD_DETAILS', 'APPLICATION_HELP'].includes(resolvedIntent.primaryIntent)) {
+                queryForSearch = `${plan.referencedItem || state.topic} ${rawInput}`;
             }
 
             const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state);
