@@ -318,15 +318,15 @@ class FollowUpResolver {
 
     static _resolveFieldDetails(q, domain, hasContext, lastItem, base) {
         const fieldMap = [
-            ['FEES', /\b(fee|fees|form fee|form fees|paise|charge|shulk|kitna paisa)\b/, 'JOB_FEE_DETAILS'],
-            ['ELIGIBILITY', /\b(eligibility|qualification|yogyata|kaun bhar sakta|kaun apply|criteria)\b/, 'CHECK_ELIGIBILITY'],
-            ['AGE', /\b(age|umar|umr|age limit|kitni age|aayu)\b/, 'JOB_AGE_LIMIT'],
-            ['DATE', /\b(last date|aakhri date|aakhri tarikh|last kab|kab tak|closing date|date)\b/, 'CHECK_LAST_DATE'],
-            ['LINK', /\b(link|link do|official link|website|site|apply link|notification link)\b/, 'JOB_LINK_DETAILS'],
-            ['SYLLABUS', /\b(syllabus|exam pattern|pattern|subjects|kya aayega)\b/, 'CHECK_SYLLABUS'],
-            ['SELECTION', /\b(selection|selection kaise|selection process|chayan|kaise hoga selection)\b/, 'CHECK_SELECTION_PROCESS'],
-            ['SALARY', /\b(salary|vetan|pay scale|paisa kitna|income|paisa kitna milega)\b/, 'CHECK_SALARY'],
-            ['DOCUMENTS', /\b(document|documents|photo|signature|certificate|kagaj)\b/, 'CHECK_DOCUMENTS'],
+            ['FEES', /\b(fee|fees|form fee|form fees|paise|charge|shulk|kitna paisa)\b/, 'FIELD_DETAILS'],
+            ['ELIGIBILITY', /\b(eligibility|qualification|yogyata|kaun bhar sakta|kaun apply|criteria)\b/, 'FIELD_DETAILS'],
+            ['AGE', /\b(age|umar|umr|age limit|kitni age|aayu)\b/, 'FIELD_DETAILS'],
+            ['DATE', /\b(last date|aakhri date|aakhri tarikh|last kab|kab tak|closing date|date)\b/, 'FIELD_DETAILS'],
+            ['LINK', /\b(link|link do|official link|website|site|apply link|notification link)\b/, 'FIELD_DETAILS'],
+            ['SYLLABUS', /\b(syllabus|exam pattern|pattern|subjects|kya aayega)\b/, 'FIELD_DETAILS'],
+            ['SELECTION', /\b(selection|selection kaise|selection process|chayan|kaise hoga selection)\b/, 'FIELD_DETAILS'],
+            ['SALARY', /\b(salary|vetan|pay scale|paisa kitna|income|paisa kitna milega)\b/, 'FIELD_DETAILS'],
+            ['DOCUMENTS', /\b(document|documents|photo|signature|certificate|kagaj)\b/, 'FIELD_DETAILS'],
             ['DETAILS', /\b(details|details dikhao|details do|more info|sahi se batao|pura batao|jankari|jaankari)\b/, 'FIELD_DETAILS']
         ];
 
@@ -337,7 +337,7 @@ class FollowUpResolver {
             if (!hasContext) {
                 return {
                     ...base,
-                    intent: fallbackIntent || 'FIELD_DETAILS',
+                    intent: 'FIELD_DETAILS',
                     domainIntent: 'GENERAL',
                     isFollowUp: false,
                     needClarification: true,
@@ -349,7 +349,7 @@ class FollowUpResolver {
             return {
                 ...base,
                 resolvedQuery: `Tell ${field} details for ${lastItem || domain || 'the previous item'}.`,
-                intent: this._fieldIntent(domain, field) || fallbackIntent,
+                intent: 'FIELD_DETAILS',
                 domainIntent: domain,
                 isFollowUp: true,
                 usePreviousContext: true,

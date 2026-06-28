@@ -80,6 +80,7 @@ class IntentDetector {
         // -------------------------------
 
         if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job|data|database|list|form|nikla|active|matching|update|notification)/i)) {
+            domains.add('GOVERNMENT_JOBS');
             domains.add('GOVT_JOB');
         }
 
@@ -89,26 +90,32 @@ class IntentDetector {
 
         if (q.match(/(police|constable|daroga|si|sub inspector|home guard)/i)) {
             domains.add('POLICE_JOB');
+            domains.add('GOVERNMENT_JOBS');
         }
 
         if (q.match(/(railway|rrb|rpf|alp|group d|ntpc)/i)) {
             domains.add('RAILWAY_JOB');
+            domains.add('GOVERNMENT_JOBS');
         }
 
         if (q.match(/(bank|ibps|sbi|rbi|clerk|po|so)/i)) {
             domains.add('BANK_JOB');
+            domains.add('GOVERNMENT_JOBS');
         }
 
         if (q.match(/(army|navy|air force|agniveer|defence|bsf|crpf|cisf|itbp|ssb)/i)) {
             domains.add('DEFENCE_JOB');
+            domains.add('GOVERNMENT_JOBS');
         }
 
         if (q.match(/(teacher|teaching|prt|tgt|pgt|lecturer|professor|assistant professor)/i)) {
             domains.add('TEACHING_JOB');
+            domains.add('GOVERNMENT_JOBS');
         }
 
         if (q.match(/(anganwadi|asha|anm|staff nurse|nurse|nursing|medical|health department)/i)) {
             domains.add('HEALTH_JOB');
+            domains.add('GOVERNMENT_JOBS');
         }
 
         if (q.match(/(scholarship|wazifa|stipend|chatravriti|छात्रवृत्ति)/i)) {

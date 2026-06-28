@@ -55,7 +55,8 @@
     },
     "userMessage": "fees kitni hai",
     "expected": {
-      "intent": "JOB_FEE_DETAILS"
+      "intent": "FIELD_DETAILS",
+      "followUpType": "FEES"
     }
   },
   {
@@ -68,7 +69,8 @@
     },
     "userMessage": "last date kya hai",
     "expected": {
-      "intent": "CHECK_LAST_DATE"
+      "intent": "FIELD_DETAILS",
+      "followUpType": "DATE"
     }
   },
   {
@@ -81,7 +83,8 @@
     },
     "userMessage": "official link do",
     "expected": {
-      "intent": "JOB_LINK_DETAILS"
+      "intent": "FIELD_DETAILS",
+      "followUpType": "LINK"
     }
   },
   {

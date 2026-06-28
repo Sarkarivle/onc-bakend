@@ -154,7 +154,7 @@ class Planner {
         if (primary.startsWith('MORE_')) return 'MORE_RESULTS';
         if (primary === 'CAREER_GUIDANCE' || domain === 'CAREER') return 'CAREER_GUIDANCE';
         if (primary === 'SCHOLARSHIP' || domain === 'SCHOLARSHIP') return 'SCHOLARSHIP';
-        if (primary === 'RESULT_ADMIT_CARD' || domain === 'RESULT' || domain === 'ADMIT_CARD') return 'RESULT';
+        if (primary === 'RESULT_ADMIT_CARD' || domain === 'RESULT' || domain === 'ADMIT_CARD' || domain === 'RESULT_ADMIT_CARD') return 'RESULT';
         if (primary === 'APPLICATION_HELP') return 'JOB_DETAILS';
         return 'GENERAL_HELP';
     }
