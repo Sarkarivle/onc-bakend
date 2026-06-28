@@ -1,47 +1,50 @@
 /**
  * KnowledgeRouter Module
- * Implements DATABASE PRIORITY POLICY.
+ * Routes by resolved intent and planner data policy.
  */
 class KnowledgeRouter {
-    /**
-     * @param {Object} plan - The decision object from Planner.
-     * @param {string} query - The query string.
-     * @returns {Object} Route configuration
-     */
     static route(plan, query) {
-        const q = query.toLowerCase();
+        const q = (query || "").toLowerCase();
         const sources = ['PROMPT_MODULES', 'LLM_BASE'];
 
-        // Greeting Isolation: No external data for pure greetings
-        if (plan.isPureGreeting || plan.behavior === 'GREET') {
+        if (plan.isPureGreeting || plan.behavior === 'GREET' || plan.intent === 'GREETING') {
             return {
                 selectedSources: sources,
                 shouldCheckSearchIfDbFails: false,
-                isFactualQuery: false
+                isFactualQuery: false,
+                usePreviousContext: false
             };
         }
 
-        // Upgraded factual check for new domains
-        const jobRelatedDomains = [
-            'GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB',
-            'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'
-        ];
+        const dataPolicy = plan.dataPolicy || 'LLM_ONLY';
+        const factual = this._isFactual(plan);
 
-        const isFactualQuery = jobRelatedDomains.includes(plan.intent) ||
-                              ['CAREER', 'SCHOLARSHIP', 'COLLEGE', 'RESUME', 'LATEST_VACANCY', 'JANSEWA', 'ELIGIBILITY', 'SALARY'].includes(plan.intent);
-
-        if (isFactualQuery) {
+        if (['DATABASE_FIRST', 'DATABASE_ONLY', 'PREVIOUS_ITEM_DATABASE'].includes(dataPolicy) || plan.needDatabase) {
             sources.push('DATABASE');
         }
 
-        // Search decision
-        const needsLiveUpdate = q.includes('latest') || q.includes('new') || q.includes('nayi') || q.includes('upcoming') || q.includes('notification');
+        const latest = /(latest|new|nayi|recent|fresh|upcoming|notification|today|current|abhi)/i.test(q);
+        const officialSearch = dataPolicy === 'OFFICIAL_SEARCH_IF_DB_FAILS' || latest || plan.intent === 'RESULT_ADMIT_CARD';
+        if (dataPolicy === 'SEARCH_FIRST') sources.push('SEARCH');
 
         return {
-            selectedSources: sources,
-            shouldCheckSearchIfDbFails: plan.needSearch || needsLiveUpdate,
-            isFactualQuery: isFactualQuery
+            selectedSources: [...new Set(sources)],
+            shouldCheckSearchIfDbFails: Boolean((plan.needSearch || officialSearch) && plan.intent !== 'GREETING'),
+            isFactualQuery: factual,
+            usePreviousContext: Boolean(plan.isFollowUp || dataPolicy === 'PREVIOUS_ITEM_DATABASE'),
+            pagination: plan.pagination || null
         };
+    }
+
+    static _isFactual(plan) {
+        const factualIntents = new Set([
+            'JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS', 'FIELD_DETAILS', 'JOB_FEE_DETAILS',
+            'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'SHOW_FULL_DETAILS',
+            'SCHOLARSHIP', 'RESULT_ADMIT_CARD', 'MORE_SCHOLARSHIPS', 'MORE_COLLEGES'
+        ]);
+
+        const factualDomains = new Set(['GOVT_JOB', 'SCHOLARSHIP', 'COLLEGE', 'RESULT_ADMIT_CARD']);
+        return factualIntents.has(plan.intent) || factualDomains.has(plan.domain);
     }
 }
 

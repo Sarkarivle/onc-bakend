@@ -4,6 +4,11 @@
  */
 
 class IntentDetector {
+    static async detectSemantic(query, state, profile) {
+        const SemanticIntentClassifier = require('./semanticIntentClassifier');
+        return await SemanticIntentClassifier.classify(query, state, profile);
+    }
+
     static detect(query = "") {
         const q = query.toLowerCase().trim();
 
@@ -41,6 +46,10 @@ class IntentDetector {
             acts.add('GREET');
         }
 
+        if (q.match(/^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/i)) {
+            acts.add('GREET');
+        }
+
         if (q.match(/^(yes|haan|ha|ji|ok|okay|theek|thik|sahi|bilkul|confirm|done|agree|ji haan|ha bhai|yes bro)$/i)) {
             acts.add('CONFIRM');
         }
@@ -74,7 +83,7 @@ class IntentDetector {
         // User kis topic par baat kar raha hai
         // -------------------------------
 
-        if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job|data|database|list)/i)) {
+        if (q.match(/(job|jobs|vacancy|naukri|bharti|recruitment|rojgar|sarkari naukri|government job|data|database|list|form|nikla|active|matching)/i)) {
             domains.add('GOVT_JOB');
         }
 

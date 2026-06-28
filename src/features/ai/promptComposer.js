@@ -10,15 +10,15 @@ class PromptComposer {
      * @param {string[]} priorityModules - Array of module keys.
      * @param {Object} userData - User profile.
      * @param {Object} liveData - DB/Search data.
-     * @param {Object} meta - { currentDate, currentYear, sessionId }
+     * @param {Object} meta - { currentDate, currentYear, sessionId, plan, turnCount, behavior }
      */
     static async build(priorityModules, userData, liveData, meta) {
-        const { currentDate, currentYear, sessionId, turnCount, behavior } = meta;
+        const { currentDate, currentYear, sessionId, turnCount, behavior, plan } = meta;
         const cleanUser = this._sanitizeData(userData);
 
         const isPureGreeting = behavior === 'GREET';
 
-        // 1. Fetch all required modules in parallel (Performance Optimization)
+        // 1. Fetch all required modules in parallel
         let allKeys = ['CORE', 'PERSONALITY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
         if (isPureGreeting) {
             allKeys = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
@@ -32,9 +32,35 @@ class PromptComposer {
 
         let promptChunks = [];
 
-        // 2. Assembly with Versioned Content
+        // 2. Assembly
         if (moduleMap.CORE) promptChunks.push(`[IDENTITY]:\n${moduleMap.CORE}`);
         if (moduleMap.PERSONALITY) promptChunks.push(`[PERSONALITY]:\n${moduleMap.PERSONALITY}`);
+
+        // 2b. Intent & Goal Injection
+        if (plan) {
+            let intentSection = `[CURRENT GOAL]: ${plan.intent}\n`;
+            if (plan.resolvedIntent) {
+                intentSection += `[RESOLVED INTENT]: ${JSON.stringify({
+                    primaryIntent: plan.resolvedIntent.primaryIntent,
+                    secondaryIntents: plan.resolvedIntent.secondaryIntents,
+                    communicationAct: plan.resolvedIntent.communicationAct,
+                    domain: plan.resolvedIntent.domain,
+                    task: plan.resolvedIntent.task,
+                    domainIntent: plan.resolvedIntent.domainIntent,
+                    confidence: plan.resolvedIntent.confidence,
+                    isFollowUp: plan.resolvedIntent.isFollowUp,
+                    referencedTopic: plan.resolvedIntent.referencedTopic,
+                    referencedItem: plan.resolvedIntent.referencedItem,
+                    entities: plan.resolvedIntent.entities,
+                    dataSourceNeeded: plan.resolvedIntent.dataSourceNeeded
+                })}\n`;
+                intentSection += `[RESPONSE MODE]: ${plan.responseMode || 'DIRECT'}\n`;
+                intentSection += `[DATA POLICY]: ${plan.dataPolicy || 'LLM_ONLY'}\n`;
+                if (plan.resolvedIntent.referencedTopic) intentSection += `[REFERENCED TOPIC]: ${plan.resolvedIntent.referencedTopic}\n`;
+                if (plan.resolvedIntent.referencedItem) intentSection += `[REFERENCED ITEM]: ${plan.resolvedIntent.referencedItem}\n`;
+            }
+            promptChunks.push(intentSection);
+        }
 
         priorityModules.forEach(mod => {
             if (moduleMap[mod] && !['CORE', 'PERSONALITY', 'OUTPUT', 'CONTEXT'].includes(mod)) {

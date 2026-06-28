@@ -18,10 +18,14 @@ class ResponseFormatter {
 
         // 3. Formatting Rules
         // Ensure bold exam names/dates (Simple regex fixes)
-        formatted = formatted.replace(/(Vacancy|Last Date|Official Link):\s*(?!\*\*)/gi, '$1: **');
+        formatted = formatted.replace(/^(\s*-?\s*(Vacancy|Last Date|Official Link):\s*)(?!\*\*)(.+)$/gim, (match, prefix, _label, value) => {
+            const cleanValue = value.trim();
+            if (!cleanValue || cleanValue.startsWith('**')) return match;
+            return `${prefix}**${cleanValue.replace(/\*\*$/g, '')}**`;
+        });
 
         // 4. Eligibility Stripping for job lists (if not asked)
-        const jobIntents = ['GOVT_JOB', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'];
+        const jobIntents = ['GOVT_JOB', 'JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS', 'FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'];
         const asksEligibility = /(eligibility|yogyata|qualification|educational qualification|kaun bhar sakta|eligible|पात्रता)/i.test(meta.query || "");
         if (jobIntents.includes(meta.intent) && !asksEligibility) {
             formatted = this._stripEligibilityLines(formatted);

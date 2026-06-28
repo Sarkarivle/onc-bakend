@@ -1,0 +1,276 @@
+[
+  {
+    "id": "followup_01",
+    "message": "Aur batao",
+    "context": { "topic": "SSC GD", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "MORE_RESULTS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_02",
+    "message": "Next",
+    "context": { "topic": "UP Police", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "MORE_RESULTS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_03",
+    "message": "Fee kitni hai?",
+    "context": { "topic": "Railway Group D", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_04",
+    "message": "Umar limit kya hai",
+    "context": { "topic": "Bank PO", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_05",
+    "message": "Apply kaise karein",
+    "context": { "topic": "Agniveer", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "APPLICATION_HELP",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_06",
+    "message": "Last date batao",
+    "context": { "topic": "Teacher bharti", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_07",
+    "message": "Iska link do",
+    "context": { "topic": "Nursing vacancy", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_08",
+    "message": "Details dikhao",
+    "context": { "topic": "SBI Clerk", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_09",
+    "message": "Syllabus kya hai",
+    "context": { "topic": "UPPSC", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_10",
+    "message": "Salary kitni milti hai",
+    "context": { "topic": "Constable", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_11",
+    "message": "Qualification kya chahiye?",
+    "context": { "topic": "Patwari", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_12",
+    "message": "More info",
+    "context": { "topic": "BPSC", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_13",
+    "message": "Dusra option batao",
+    "context": { "topic": "Railway", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "MORE_RESULTS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_14",
+    "message": "Link kidhar hai",
+    "context": { "topic": "SSC", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_15",
+    "message": "Kaha se apply karein",
+    "context": { "topic": "Health Dept", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "APPLICATION_HELP",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_16",
+    "message": "Age relaxation milega?",
+    "context": { "topic": "Army", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_17",
+    "message": "Sahi se batao",
+    "context": { "topic": "Career", "currentDomain": "CAREER" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_18",
+    "message": "Aur jobs",
+    "context": { "topic": "Teaching", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "MORE_RESULTS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_19",
+    "message": "Official link",
+    "context": { "topic": "Navodaya", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_20",
+    "message": "Kaise bharein",
+    "context": { "topic": "Vidyalaya", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "APPLICATION_HELP",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_21",
+    "message": "Exam pattern batao",
+    "context": { "topic": "SSC CGL", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_22",
+    "message": "Selection kaise hoga",
+    "context": { "topic": "Police", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_23",
+    "message": "Aakhri tarikh",
+    "context": { "topic": "Job", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_24",
+    "message": "Documents kya chahiye",
+    "context": { "topic": "Application", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "resolvedIntent": "FIELD_DETAILS",
+      "isFollowUp": true
+    }
+  },
+  {
+    "id": "followup_25",
+    "message": "Batao na",
+    "context": { "topic": "Topic", "currentDomain": "GOVERNMENT_JOBS" },
+    "userProfile": {},
+    "expected": {
+      "communicationAct": "FOLLOW_UP",
+      "isFollowUp": true
+    }
+  }
+]

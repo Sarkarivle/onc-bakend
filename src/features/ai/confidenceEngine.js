@@ -25,11 +25,12 @@ class ConfidenceEngine {
         }
 
         // 2. Intent Match Factor
-        if (validation && validation.isValid) {
+        if (validation && (validation.isValid || validation.passed)) {
             score += 5;
             reasons.push("Response matches intent logic");
         } else if (validation) {
-            score -= (100 - validation.score) / 2;
+            const validationScore = typeof validation.score === 'number' ? validation.score : (validation.severity === 'HIGH' ? 25 : 70);
+            score -= (100 - validationScore) / 2;
         }
 
         // 3. Search Success Factor

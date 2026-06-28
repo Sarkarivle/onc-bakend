@@ -37,9 +37,18 @@ const cleanAIResponse = (text) => {
             cleaned = cleaned.substring(start, end + 1);
         }
 
-        // Remove control characters
+        // 1. Fix missing commas between properties on new lines
+        // This must be done BEFORE removing newlines
+        cleaned = cleaned.replace(/([\"0-9\]\}])\s*\n\s*\"/g, '$1, "');
+
+        // 2. Remove control characters (but handle common ones safely)
         cleaned = cleaned.replace(/[\x00-\x1F\x7F-\x9F]/g, " ");
-        // Fix trailing commas
+
+        // 3. Fix missing commas that might have been lost or were horizontal: "key": "val" "key2"
+        // This heuristic is safer: a quote followed by space and another quote, only if NOT part of a colon.
+        // For simplicity, we'll use a more targeted one in the fallback parse if needed.
+
+        // 4. Fix trailing commas
         cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
 
         return cleaned;
@@ -116,8 +125,16 @@ const importJob = async (req, res) => {
         const fullResult = JSON.parse(cleanedJson);
         result = fullResult.structured_data || fullResult;
     } catch (parseErr) {
-        console.error('Raw AI Output that failed:', rawAiOutput);
-        throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
+        try {
+            // Aggressive fallback cleaning for unescaped quotes
+            // Look for quotes NOT preceded by structural chars and NOT followed by structural chars
+            const aggressive = cleanedJson.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
+            const fullResult = JSON.parse(aggressive);
+            result = fullResult.structured_data || fullResult;
+        } catch (secondaryErr) {
+            console.error('Raw AI Output that failed:', rawAiOutput);
+            throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
+        }
     }
 
     const parseDate = (dateStr) => {
@@ -300,15 +317,21 @@ const getAiMatchAdvice = async (req, res) => {
     });
 
     const rawOutput = aiRes.data.response;
-    const cleaned = cleanAIResponse(rawOutput);
+    let cleaned = cleanAIResponse(rawOutput);
 
     try {
         const parsed = JSON.parse(cleaned);
         res.status(200).json({ status: 'success', ...parsed });
     } catch (parseErr) {
-        console.error('Failed to parse AI advice:', cleaned);
-        // Fallback: try to find JSON in raw output if cleaning failed
-        res.status(200).json({ status: 'error', message: 'JSON Parse Error' });
+        try {
+            // Secondary attempt with aggressive quote fixing
+            const fixed = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
+            const parsed = JSON.parse(fixed);
+            res.status(200).json({ status: 'success', ...parsed });
+        } catch (e) {
+            console.error('Failed to parse AI advice:', cleaned);
+            res.status(200).json({ status: 'error', message: 'JSON Parse Error' });
+        }
     }
   } catch (err) {
     console.error('Match Advice Error:', err.message);

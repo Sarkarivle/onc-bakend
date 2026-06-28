@@ -57,30 +57,37 @@ class AIService {
 
             // --- PHASE 4: Intent Resolution ---
             ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
-            const intentObj = IntentDetector.detect(rawInput);
+            const resolvedIntent = await IntentDetector.detectSemantic(rawInput, state, profile);
+            const intentObj = IntentDetector.detect(rawInput); // Legacy fallback context
 
             // --- PHASE 5: Planning ---
             ProgressEmitter.emit(sessionId, 'PLANNING');
-            const plan = Planner.plan(rawInput, intentObj, state, profile);
+            const plan = Planner.plan(rawInput, resolvedIntent, state, profile);
             metrics.intent = plan.intent;
 
             // --- PHASE 6: Knowledge Routing ---
-            let queryForSearch = rawInput;
-            // If we have specific intents (like CHECK_SALARY), enhance the search query
-            if (plan.specificIntents && plan.specificIntents.length > 0) {
-                const intentKeywords = plan.specificIntents.map(i => i.replace(/_/g, ' ').toLowerCase()).join(' ');
-                queryForSearch = `${rawInput} ${intentKeywords}`;
+            let queryForSearch = resolvedIntent.isFollowUp ? (resolvedIntent.resolvedQuery || rawInput) : rawInput;
+
+            // If we have specific field details intent, make search more targeted
+            if (resolvedIntent.primaryIntent === 'FIELD_DETAILS' && state.topic) {
+                queryForSearch = `${state.topic} ${rawInput}`;
+            }
+            if (plan.referencedItem && ['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'SHOW_FULL_DETAILS'].includes(plan.intent)) {
+                queryForSearch = `${plan.referencedItem} ${resolvedIntent.entities?.field || rawInput}`;
             }
 
-            const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state.topic);
+            const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state);
             const routes = KnowledgeRouter.route(plan, rewrittenQuery);
 
             // --- PHASE 7: Data Collection ---
             let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile) };
-            if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
+            if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.needDatabase || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
                 let searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
+                if (routes.usePreviousContext && plan.referencedItem) {
+                    searchQuery = `${plan.referencedItem} ${resolvedIntent.entities?.field || rewrittenQuery}`;
+                }
 
                 // Improved follow-up search: If query is very short (e.g., "batao", "dikhao"), use the topic
                 const isShortQuery = rawInput.length < 10 && (rawInput.includes('batao') || rawInput.includes('dikhao') || rawInput.includes('jobs'));
@@ -89,11 +96,14 @@ class AIService {
                 }
 
                 let [dbResult, webData] = await Promise.all([
-                    this._fetchDatabaseKnowledge(searchQuery, profile),
+                    this._fetchDatabaseKnowledge(searchQuery, profile, { pagination: routes.pagination }),
                     routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
 
-                if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
+                if (dbResult && dbResult.jobs) {
+                    knowledgeContext.jobs = dbResult.jobs;
+                    knowledgeContext.count = dbResult.count || 0;
+                }
 
                 // Fallback to search if DB is empty and router allows it
                 if (!knowledgeContext.jobs && routes.shouldCheckSearchIfDbFails && !webData) {
@@ -117,7 +127,8 @@ class AIService {
                 currentYear: currentYear,
                 sessionId,
                 behavior: plan.behavior,
-                turnCount: state.turnCount || 0
+                turnCount: state.turnCount || 0,
+                plan: plan
             };
 
             let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
@@ -128,7 +139,8 @@ class AIService {
             }
 
             // Add strict constraint if no live data is available
-            if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && plan.intent !== 'GENERAL') {
+            const requiresVerifiedData = ['DATABASE_FIRST', 'DATABASE_ONLY', 'PREVIOUS_ITEM_DATABASE', 'OFFICIAL_SEARCH_IF_DB_FAILS', 'SEARCH_FIRST'].includes(plan.dataPolicy);
+            if (plan.behavior !== 'CLARIFY' && plan.behavior !== 'GREET' && requiresVerifiedData && !knowledgeContext.jobs && !knowledgeContext.web) {
                 systemInstruction += "\n\nCRITICAL: No verified job data found in [DATABASE] or [SEARCH]. You MUST NOT mention any specific jobs, dates, or vacancies. Simply state that you don't have verified info right now.";
             }
 
@@ -153,7 +165,9 @@ class AIService {
                 liveData: knowledgeContext,
                 intent: plan.intent,
                 userProfile: profile,
-                isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET'
+                isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET',
+                resolvedIntent: resolvedIntent,
+                state: state
             };
 
             let validation = ResponseValidator.validate(finalContent, validationInput);
@@ -162,7 +176,7 @@ class AIService {
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
             const sourceText = (knowledgeContext.jobs + " " + (knowledgeContext.web || "")).toLowerCase();
             let hasHallucinatedJob = false;
-            if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy')) {
+            if (plan.domain === 'GOVT_JOB' || plan.intent === 'JOB_QUERY' || finalContent.toLowerCase().includes('vacancy')) {
                 const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
                 if (jobMatches) {
                     for (const match of jobMatches) {
@@ -201,7 +215,7 @@ class AIService {
             }
 
             // Fallback for failed strict validation
-            if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
+            if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.domain) || ['JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.intent))) {
                 finalContent = ResponseCleaner.getFactualFallback();
             } else if (!validation.passed && validationInput.isPureGreeting) {
                 finalContent = ResponseCleaner.getGreetingFallback();
@@ -216,15 +230,26 @@ class AIService {
                 userProfile: profile
             });
 
-            // --- PHASE 11 & 12: Analytics ---
-            await ConversationState.update(sessionId, rawInput, intentObj.acts, intentObj.domains, finalContent);
+            // --- PHASE 11 & 12: Analytics & State Sync ---
+            const updatedState = await ConversationState.update(sessionId, {
+                query: rawInput,
+                acts: intentObj.acts,
+                domains: intentObj.domains,
+                intents: intentObj.intents,
+                resolvedIntent: resolvedIntent,
+                aiResponse: processed.message,
+                plan: plan,
+                knowledgeContext: knowledgeContext,
+                validation: validation
+            });
+
             metrics.latency = Date.now() - startTime;
             Metrics.logRequest(metrics);
-            await this._persistChat(userName, sessionId, rawInput, processed, metrics, state.topic);
+            await this._persistChat(userName, sessionId, rawInput, processed, metrics, updatedState.topic);
 
             ProgressEmitter.emit(sessionId, 'FINAL_RESPONSE_READY');
 
-            return { success: true, ...processed, confidence: confidence.score, topic: state.topic, requestId };
+            return { success: true, ...processed, confidence: confidence.score, topic: updatedState.topic, requestId };
 
         } catch (error) {
             ProgressEmitter.emit(sessionId, 'ERROR');
@@ -240,7 +265,7 @@ class AIService {
         return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
     }
 
-    static async _fetchDatabaseKnowledge(query, profile) {
+    static async _fetchDatabaseKnowledge(query, profile, options = {}) {
         const q = query.toLowerCase();
         // Skip filtering for generic "latest" or "top" queries
         const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy') || q.includes('bharti') || q.includes('data') || q.includes('database');
@@ -275,6 +300,8 @@ class AIService {
 
         // If user profile has qualification, we attempt to filter, but we don't make it mandatory if 0 results
         let jobs = [];
+        const offset = Math.max(0, Number(options.pagination?.offset || 0));
+        const limit = Math.max(1, Number(options.pagination?.limit || 10));
         if (profile?.qualification) {
             let qualCriteria = { ...criteria };
             const qualRegex = { $regex: profile.qualification, $options: 'i' };
@@ -283,7 +310,7 @@ class AIService {
             } else {
                 qualCriteria['eligibility.education'] = qualRegex;
             }
-            jobs = await Job.find(qualCriteria).sort({ createdAt: -1 }).limit(10);
+            jobs = await Job.find(qualCriteria).sort({ createdAt: -1 }).skip(offset).limit(limit);
         }
 
         if (jobs.length === 0) {
@@ -291,11 +318,13 @@ class AIService {
             if (q.includes('new') || q.includes('latest') || q.includes('fresh') || isGeneric) {
                 sortCriteria = { createdAt: -1 };
             }
-            jobs = await Job.find(criteria).sort(sortCriteria).limit(10);
+            jobs = await Job.find(criteria).sort(sortCriteria).skip(offset).limit(limit);
         }
 
+        const totalCount = await Job.countDocuments(criteria);
+
         return {
-            count: jobs.length,
+            count: totalCount,
             jobs: jobs.length > 0 ? jobs.map(j => {
                 let title = j.title;
                 let org = j.organization || "N/A";
