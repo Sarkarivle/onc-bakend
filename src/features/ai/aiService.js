@@ -110,7 +110,12 @@ class AIService {
                 behavior: plan.behavior
             };
 
-            const systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
+            let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
+
+            // Add strict constraint if no live data is available
+            if (!knowledgeContext.jobs && !knowledgeContext.web) {
+                systemInstruction += "\n\nCRITICAL: No verified job data found in [DATABASE] or [SEARCH]. You MUST NOT mention any specific jobs, dates, or vacancies. Simply state that you don't have verified info right now.";
+            }
 
             ProgressEmitter.emit(sessionId, 'LLM_THINKING');
 
@@ -129,8 +134,11 @@ class AIService {
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
             const validation = ResponseValidator.validate(finalContent, { query: rewrittenQuery, liveData: knowledgeContext, intent: plan.intent });
 
-            if (!validation.isValid && !knowledgeContext.jobs && !knowledgeContext.web && ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent)) {
-                // If data is missing, don't let AI guess
+            const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
+            const containsFactualInfo = /\d{3,}/.test(finalContent) || finalContent.toLowerCase().includes('police') || finalContent.toLowerCase().includes('constable') || finalContent.toLowerCase().includes('ssc');
+
+            if (!validation.isValid && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent) || containsFactualInfo)) {
+                // If data is missing but AI is giving factual info, override with error message
                 finalContent = "<USER_MESSAGE>Maaf kijiye, mujhe is baare mein abhi koi verified notification ya jankari nahi mili hai. Aap ek baar official website zaroor check kar lein.</USER_MESSAGE>";
             } else if (!validation.isValid && plan.needReasoning) {
                 const correction = await llm.chat([{ role: 'system', content: systemInstruction + "\n\nCRITICAL: Your previous response was rejected. Use only verified data." }, { role: 'user', content: rewrittenQuery }]);
@@ -245,11 +253,25 @@ class AIService {
     }
 
     static async _fetchWebKnowledge(query) {
-        const [key, cx] = await Promise.all([Settings.findOne({ key: 'GOOGLE_SEARCH_API_KEY' }), Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })]);
-        if (!key?.value) return "";
-        const results = await SearchService.search(query, key.value, cx.value);
+        const [key, cx] = await Promise.all([
+            Settings.findOne({ key: 'GOOGLE_SEARCH_API_KEY' }),
+            Settings.findOne({ key: 'GOOGLE_SEARCH_CX' })
+        ]);
+
+        const apiKey = key?.value || "AIzaSyDCOXTGWVsKdayMwQHT6f1NxZivfUSPg-A";
+        const cxId = cx?.value || "b5a3e21452b44a41e0";
+
+        if (!apiKey) return "";
+
+        const results = await SearchService.search(query, apiKey, cxId);
         const reranked = SearchReranker.rank(query, results);
-        return JSON.stringify(reranked);
+
+        if (!reranked || reranked.length === 0) return "";
+
+        // Format search results into a readable string for the LLM
+        return reranked.map((r, i) =>
+            `SOURCE ${i + 1}: [TITLE: ${r.title}] [URL: ${r.url}] [SNIPPET: ${r.snippet}]`
+        ).join("\n");
     }
 
     static _finalProcess(content, confidence) {
