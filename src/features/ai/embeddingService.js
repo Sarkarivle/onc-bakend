@@ -17,11 +17,11 @@ class EmbeddingService {
                 return null;
             }
 
-            // Using Gemini's text-embedding-004 model
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
+            // Using Gemini's embedding-001 model (More stable across regions/accounts)
+            const url = `https://generativelanguage.googleapis.com/v1/models/embedding-001:embedContent?key=${apiKey}`;
 
             const response = await axios.post(url, {
-                model: "models/text-embedding-004",
+                model: "models/embedding-001",
                 content: {
                     parts: [{ text: text }]
                 }
