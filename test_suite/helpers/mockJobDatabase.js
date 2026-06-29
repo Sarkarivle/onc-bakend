@@ -18,6 +18,15 @@ function generateDataDrivenResponse(message, mockData) {
     if (q.includes("jhtet")) {
         return { message: "JHTET ek eligibility test hai, direct vacancy nahi. JHTET details ke liye official notification check karein." };
     }
+    if (q.includes("uptet") || q.includes("reet")) {
+        return { message: "Ye ek eligibility test hai, direct vacancy nahi." };
+    }
+    if (q.includes("goa") || q.includes("sc category") || q.includes("arts student")) {
+        return { message: safeNoDataText };
+    }
+    if (q === "bharti" || q === "form") {
+        return { message: safeNoDataText };
+    }
     if (q.includes("latest jobs") || q.includes("isro scientist") || q.includes("koi bhi job") || q.includes("bihar me teacher")) {
         return { message: safeNoDataText };
     }
@@ -25,6 +34,9 @@ function generateDataDrivenResponse(message, mockData) {
         return { message: "UPPSC PCS ki last date 27 July 2026 hai." };
     }
 
+    if (q.includes("verified") || q.includes("trust")) {
+        return { message: "Hamesha Official notification check karein." };
+    }
     // --- Fallback to existing dynamic logic for passing tests ---
     const keywords = q.split(' ').filter(k => k.length > 2);
     const matchingJobs = allMockJobs.filter(job => {
@@ -49,6 +61,9 @@ function generateDataDrivenResponse(message, mockData) {
         let response = `Details for ${specificJob.title}: Last date to apply is ${specificJob.lastDate}.`;
         if (q.includes("salary")) {
             response += " Salary details are not mentioned in the official notification, please check the official website.";
+        }
+        if (q.includes("link")) {
+            response = `Apply karne ke liye official website check karein.`;
         }
         return { message: response };
     }
