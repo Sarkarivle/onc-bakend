@@ -188,7 +188,7 @@ function preLlmChecks(userMessage, requestBody = {}) {
 
   // Handle identity questions
   if (lowerCaseMessage.includes('tum kaun ho') || lowerCaseMessage.includes('who are you')) {
-    return shapeResponse("Main Jobo AI hoon, ek jobs aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.");
+    return shapeResponse("Main Jobo hoon, ek jobs aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.");
   }
 
   // Handle vague inputs that don't need context

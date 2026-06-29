@@ -126,7 +126,7 @@ class AIService {
 
                 // --- CHALLENGE 1: Data Pivot ---
                 // If database is empty but it was a critical job query, immediately challenge the plan and try web search
-                if ((!dbResult || !dbResult.jobs) && !webData && plan.intent === 'GOVT_JOB') {
+                if ((!dbResult || !dbResult.jobs) && !webData && (plan.intent === 'GOVT_JOB' || plan.intent === 'JOB_QUERY')) {
                     ProgressEmitter.emit(sessionId, 'DATABASE_EMPTY_PIVOTING_TO_SEARCH');
                     webData = await this._fetchWebKnowledge(searchQuery);
                     metrics.searchUsed = true;
@@ -161,7 +161,7 @@ class AIService {
             }
 
             // Flexible fallback for missing data (Gemini Style: Only for factual intents)
-            const isFactualIntent = ['GOVT_JOB', 'FIELD_DETAILS', 'APPLICATION_HELP', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.intent);
+            const isFactualIntent = ['GOVT_JOB', 'JOB_QUERY', 'FIELD_DETAILS', 'APPLICATION_HELP', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.intent);
             if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && isFactualIntent) {
                 systemInstruction += "\n\nNOTE: No specific live job records were found in the private database. Do not just say 'Maaf kijiye'. Instead, provide general guidance about the query, explain the typical eligibility or process, and advise the user to check official portals like SSC/RRB for the most recent updates. Be helpful and conversational like a friend.";
             }
@@ -302,7 +302,7 @@ INSTRUCTIONS FOR REPAIR:
             let finalContent = postLlmFilter(llmContent, rawInput);
 
             // Fallback for missing verified data (Phase 6-D)
-            const isCriticalIntent = ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent);
+            const isCriticalIntent = ['GOVT_JOB', 'JOB_QUERY', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent);
             if (isDataMissing && isCriticalIntent) {
                 // Use semantic fallback if validation failed, hallucination detected, or LLM gave generic response
                 if (!validation.passed || hasHallucinatedJob || finalContent.includes("verified jankari nahi") || finalContent === SAFE_RESPONSES.GENERIC_FALLBACK) {

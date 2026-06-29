@@ -1,4 +1,4 @@
 module.exports = {
-    DEFAULT_RUNPOD_URL: "http://<OLLAMA_IP>:11434/api/chat",
-    AI_MODEL_NAME: "llama3.3:70b" // Yahan naya model name daalein
+    DEFAULT_RUNPOD_URL: "http://127.0.0.1:11434/api/chat", // Agar Ollama usi VPS par hai toh 127.0.0.1 use karein
+    AI_MODEL_NAME: "llama3.3:70b" // Model name check karein (Ollama list me hona chahiye)
 };
