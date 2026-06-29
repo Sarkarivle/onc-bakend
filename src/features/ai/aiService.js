@@ -461,12 +461,22 @@ INSTRUCTIONS FOR REPAIR:
         } catch (error) {
             console.error("❌ Streaming Orchestration Error:", error);
             onChunk(SAFE_RESPONSES.GENERIC_FALLBACK);
+            // Send empty metadata to stop the "Dost soch raha hai" loader
+            onChunk(`\n\n[METADATA]${JSON.stringify({ success: false, requestId, suggestions: ["Try again", "Help"] })}`);
         }
     }
 
     static async _getLLMProvider() {
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
+        let baseUrl = setting?.value || constants.DEFAULT_RUNPOD_URL;
+
+        // Clean URL to avoid double /api/chat
+        baseUrl = baseUrl.replace(/\/api\/chat\/?$/, '').replace(/\/$/, '');
+
+        return new RunpodProvider({
+            baseUrl: `${baseUrl}/api/chat`,
+            model: constants.AI_MODEL_NAME
+        });
     }
 
     static async _fetchDatabaseKnowledge(query, profile, plan) {

@@ -9,7 +9,7 @@ class RunpodProvider extends LLMProvider {
         super();
         this.baseUrl = config.baseUrl;
         this.model = config.model;
-        this.timeout = config.timeout || 60000;
+        this.timeout = config.timeout || 120000; // Increased to 120s for 70B
     }
 
     async chat(messages, options = {}) {

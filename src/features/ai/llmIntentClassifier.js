@@ -10,8 +10,11 @@ class LLMIntentClassifier {
     static async classify(query, context = {}) {
         try {
             const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-            const runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
-            const url = runpodUrl.replace(/\/$/, '') + '/api/generate';
+            let baseUrl = runpodSetting?.value || constants.DEFAULT_RUNPOD_URL;
+
+            // Clean URL and switch to /api/generate for this specific call
+            baseUrl = baseUrl.replace(/\/api\/chat\/?$/, '').replace(/\/$/, '');
+            const url = `${baseUrl}/api/generate`;
 
             const prompt = `
             Task: Enterprise-grade Intent Classification for Jobo AI.
