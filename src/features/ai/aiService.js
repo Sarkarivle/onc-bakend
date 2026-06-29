@@ -106,14 +106,14 @@ class AIService {
             const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state);
             const routes = KnowledgeRouter.route(plan, rewrittenQuery);
 
-            // --- PHASE 7: Data Collection ---
+            // --- PHASE 7: Data Collection (with Challenge & Pivot) ---
             let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem };
             if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
                 let searchQuery = (rawInput.length < 5 && state.lastDomain !== 'GENERAL') ? state.lastDomain : rewrittenQuery;
 
-                // Improved follow-up search: If query is very short (e.g., "batao", "dikhao"), use the topic
+                // Improved follow-up search
                 const isShortQuery = rawInput.length < 10 && (rawInput.includes('batao') || rawInput.includes('dikhao') || rawInput.includes('jobs'));
                 if (isShortQuery && state.topic && state.topic !== 'GENERAL') {
                     searchQuery = state.topic + " " + rawInput;
@@ -124,14 +124,15 @@ class AIService {
                     routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
 
-                if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
-
-                // Fallback to search if DB is empty and router allows it
-                if (!knowledgeContext.jobs && routes.shouldCheckSearchIfDbFails && !webData) {
-                    ProgressEmitter.emit(sessionId, 'WEB_SEARCHING');
+                // --- CHALLENGE 1: Data Pivot ---
+                // If database is empty but it was a critical job query, immediately challenge the plan and try web search
+                if ((!dbResult || !dbResult.jobs) && !webData && plan.intent === 'GOVT_JOB') {
+                    ProgressEmitter.emit(sessionId, 'DATABASE_EMPTY_PIVOTING_TO_SEARCH');
                     webData = await this._fetchWebKnowledge(searchQuery);
+                    metrics.searchUsed = true;
                 }
 
+                if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
                 if (webData) knowledgeContext.web = webData;
             }
 
@@ -248,19 +249,19 @@ class AIService {
             while (!validation.passed && retryCount < MAX_RETRIES) {
                 if (validation.shouldRetryLLM) {
                     retryCount++;
-                    ProgressEmitter.emit(sessionId, `LLM_SELF_CORRECTING_V${retryCount}`);
+                    ProgressEmitter.emit(sessionId, `CHALLENGE_MODE_RETRY_${retryCount}`);
 
                     const critiquePrompt = `
-[SELF-CRITIQUE MODE]
-Your previous response had the following issues:
+[STRICT CRITIQUE & CHALLENGE]
+Your previous response was REJECTED by the quality controller for the following reasons:
 ${validation.issues.map(iss => `- ${iss}`).join('\n')}
 
-CRITICAL INSTRUCTIONS:
-1. Re-read the [REAL-TIME DATA SOURCE] carefully.
-2. Remove any facts, dates, or numbers NOT found in the source.
-3. Fix any internal leakage (never mention "database", "intent", "rules").
-4. Rewrite the response to be 100% accurate and professional.
-5. Wrap your NEW response in <USER_MESSAGE> tags.
+INSTRUCTIONS FOR REPAIR:
+1. You MUST fix the issues above. Do not argue.
+2. If you hallucinated a date or salary, remove it and say you don't have that verified info.
+3. If you used internal rules like "As per my database", DELETE that phrase immediately.
+4. Your goal is a 100% FACTUAL, friendly Hinglish response.
+5. START your response with <AGENT_THOUGHT> to re-evaluate your logic, then <USER_MESSAGE> for the final answer.
 `;
                     const repairResponse = await llm.chat([
                         { role: 'system', content: systemInstruction },

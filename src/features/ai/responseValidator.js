@@ -119,6 +119,18 @@ class ResponseValidator {
             }
         }
 
+        // 7. DISCOURSE CONSISTENCY CHALLENGE (Gemini-Grade)
+        if (resolvedIntent?.discourseType === 'NEW_TOPIC') {
+            // If it's a new topic but AI is still talking about the previous topic (e.g. from history)
+            if (state?.topic && state.topic !== 'GENERAL' && resLower.includes(state.topic.toLowerCase())) {
+                // Only an issue if the new query doesn't mention the old topic
+                if (!query.toLowerCase().includes(state.topic.toLowerCase())) {
+                    issues.push(`Context Leak: AI is still discussing "${state.topic}" even though the user switched to a NEW_TOPIC.`);
+                    severity = "HIGH";
+                }
+            }
+        }
+
         return {
             passed: issues.length === 0,
             issues: issues,
