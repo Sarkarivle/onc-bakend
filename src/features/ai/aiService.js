@@ -153,9 +153,9 @@ class AIService {
                 systemInstruction += "\n\nCRITICAL: The user's query is too short or ambiguous. Do not guess. Politely ask them to explain their question in detail using the template in your personality module.";
             }
 
-            // Add strict constraint if no live data is available
+            // Flexible fallback for missing data
             if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && plan.intent !== 'GENERAL') {
-                systemInstruction += "\n\nCRITICAL: No specific job records found in Database. You MUST NOT invent specific dates or vacancy counts. However, you can give general career guidance or explain the general process related to the user's query. If the user asks for 'latest' or 'active' jobs, politely explain that you don't see any active ones right now and suggest they check official websites like SSC or Railway boards.";
+                systemInstruction += "\n\nNOTE: No specific live job records were found in the private database. Do not just say 'Maaf kijiye'. Instead, provide general guidance about the query, explain the typical eligibility or process, and advise the user to check official portals like SSC/RRB for the most recent updates. Be helpful and conversational like a friend.";
             }
 
             // Specific follow-up prompt injection
