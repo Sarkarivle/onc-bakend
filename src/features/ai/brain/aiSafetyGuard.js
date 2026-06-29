@@ -32,30 +32,43 @@ const SAFE_RESPONSES = {
 function semanticSafeFallback(userText) {
     const q = (userText || "").toLowerCase();
 
-    if (q.includes('nasa clerk')) return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.";
-    if (q.includes('google data entry') && q.includes('salary')) return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
+    // Fake Job Safety (Phase 6-D)
+    if (q.includes('nasa clerk') || q.includes('pmo peon') || q.includes('direct joining') || q.includes('google data entry')) {
+        if (q.includes('salary') && q.includes('google data entry')) {
+            return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
+        }
+        if (q.includes('link')) {
+            return "Apply ke liye sirf official website use karein. Verified official apply link abhi available nahi hai.";
+        }
+        if (q.includes('direct joining')) {
+            return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Direct joining wali jobs ke liye sirf official notification/official website check karein.";
+        }
+        return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.";
+    }
 
     if (q.includes('10th') || q.includes('dasvi')) return "10th pass job ke liye verified active list abhi available nahi hai. Official notification check karna zaroori hai. Aap state ya department batayein, main age, fees, last date aur eligibility samjha dunga.";
     if (q.includes('12th') || q.includes('barahvi')) return "12th pass sarkari naukri ke liye verified active list abhi available nahi hai. Official notification/official website check karein. Aap police, railway, SSC, bank ya teacher job category bata sakte hain.";
     if (q.includes('graduate') || q.includes('graduation')) return "Graduate vacancy ke liye verified active list abhi available nahi hai. Official notification check karein. Aap SSC, railway, bank, state job ya teacher category clear bata sakte hain.";
 
     if (q.includes('bihar daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
+    if (q.includes('up lekhpal') && q.includes('salary')) return "UP Lekhpal salary ki verified jankari abhi available nahi hai. Official notification check karein.";
     if (q.includes('police')) return "Police bharti ke liye verified notification abhi available nahi hai. Official website/official notification check karein. Aap state aur post name batayein, main age, fees, eligibility aur last date safely samjha dunga.";
     if (q.includes('railway')) return "Railway bharti ke liye verified notification abhi available nahi hai. Official railway/RRB website check karein. Aap post name batayein to main eligibility, fees, age aur last date safely explain kar dunga.";
-    if (q.includes('ssc cgl')) return "SSC CGL details ke liye verified notification abhi available nahi hai. Official SSC notification check karein. Aap age limit, fees, eligibility ya last date me se kya janna chahte hain?";
+    if (q.includes('ssc cgl')) {
+        if (q.includes('age')) return "SSC CGL age limit ki verified jankari abhi available nahi hai. Official notification check karein.";
+        return "SSC CGL details ke liye verified notification abhi available nahi hai. Official SSC notification check karein. Aap age limit, fees, eligibility ya last date me se kya janna chahte hain?";
+    }
+    if (q.includes('ibps po') && q.includes('fees')) return "IBPS PO fees ki verified jankari abhi available nahi hai. Official notification check karein.";
     if (q.includes('bank po')) return "Bank PO form ke liye verified notification abhi available nahi hai. Official notification/official website check karein. Aap IBPS PO, SBI PO ya state bank job clear batayein.";
     if (q.includes('teacher')) return "Teacher vacancy ke liye verified notification abhi available nahi hai. Official notification check karein. Aap TET/CTET, state teacher vacancy, eligibility ya last date me se kya janna chahte hain?";
 
     if (q.includes('age')) {
-        if (q.includes('ssc cgl')) return "SSC CGL age limit ki verified jankari abhi available nahi hai. Official notification check karein.";
         return "Age limit ki verified jankari abhi available nahi hai. Iske liye official notification check karna zaroori hai.";
     }
     if (q.includes('fees')) {
-        if (q.includes('ibps po')) return "IBPS PO fees ki verified jankari abhi available nahi hai. Official notification check karein.";
         return "Fees ki verified jankari abhi available nahi hai. Official notification check karna zaroori hai.";
     }
     if (q.includes('salary')) {
-        if (q.includes('lekhpal')) return "UP Lekhpal salary ki verified jankari abhi available nahi hai. Official notification check karein.";
         return "Salary ki verified jankari abhi available nahi hai. Official notification check karna zaroori hai.";
     }
     if (q.includes('apply link')) return "Apply ke liye sirf official website use karein. Verified official apply link abhi available nahi hai.";
@@ -103,24 +116,24 @@ function preLlmChecks(userMessage, requestBody = {}) {
     return shapeResponse(SAFE_RESPONSES.INJECTION_ATTEMPT);
   }
 
-  // 3. Fake Job Safety
+  // Handle standard greetings
+  if (/^(namaste|hello|hi|hey|hii)$/i.test(lowerCaseMessage)) {
+    return shapeResponse(SAFE_RESPONSES.GREETING);
+  }
+
+  // 3. Fake Job Safety & Phase 6-D Deterministic Fallbacks
+  const commonQueries = [
+    'latest job', '10th', '12th', 'graduate', 'railway', 'police',
+    'ssc cgl', 'bank po', 'ibps po', 'teacher', 'bihar daroga', 'lekhpal',
+    'apply link', 'result', 'admit card', 'scholarship'
+  ];
   const fakeJobKeywords = [
     'nasa clerk', 'pmo peon', 'google data entry', 'direct joining', 'without exam',
     'guaranteed selection', 'spot offer', 'ministry of memes', 'wayne enterprises'
   ];
-  if (fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
-    if (lowerCaseMessage.includes('salary') && lowerCaseMessage.includes('google data entry')) {
-        return shapeResponse(SAFE_RESPONSES.FAKE_JOB_SALARY);
-    }
-    if (lowerCaseMessage.includes('link')) {
-        return shapeResponse(SAFE_RESPONSES.FAKE_JOB_LINK);
-    }
-    return shapeResponse(SAFE_RESPONSES.FAKE_JOB);
-  }
 
-  // Handle standard greetings
-  if (/^(namaste|hello|hi|hey|hii)$/i.test(lowerCaseMessage)) {
-    return shapeResponse(SAFE_RESPONSES.GREETING);
+  if (commonQueries.some(cq => lowerCaseMessage.includes(cq)) || fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
+    return shapeResponse(semanticSafeFallback(userMessage));
   }
 
   // Handle identity questions
@@ -193,10 +206,23 @@ function preLlmChecks(userMessage, requestBody = {}) {
  */
 function postLlmFilter(llmResponse, normalizedQuery) {
   if (!llmResponse || typeof llmResponse !== 'string') {
-    return SAFE_RESPONSES.GENERIC_FALLBACK;
+    return semanticSafeFallback(normalizedQuery);
   }
 
   const lowerCaseResponse = llmResponse.toLowerCase();
+
+  // Handle generic "I don't know" from LLM if data was missing
+  const genericIndicators = [
+    "verified jankari nahi",
+    "verified information is not available",
+    "don't have verified info",
+    "official notification check karein"
+  ];
+
+  // If the response is very short and contains generic "don't know", use semantic fallback
+  if (llmResponse.length < 150 && genericIndicators.some(gi => lowerCaseResponse.includes(gi))) {
+    return semanticSafeFallback(normalizedQuery);
+  }
 
   // 4. Post-LLM Safety Filter
   const forbiddenContent = [

@@ -201,8 +201,8 @@ class AIService {
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
             const sourceText = (knowledgeContext.jobs + " " + (knowledgeContext.web || "")).toLowerCase();
             let hasHallucinatedJob = false;
-            if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy')) {
-                const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
+            if (plan.intent === 'GOVT_JOB' || llmContent.toLowerCase().includes('vacancy')) {
+                const jobMatches = llmContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
                 if (jobMatches && isDataMissing) {
                     for (const match of jobMatches) {
                         const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').trim().toLowerCase();
@@ -212,7 +212,7 @@ class AIService {
                             break;
                         }
                     }
-                } else if (/\d{2,}/.test(finalContent) && isDataMissing) {
+                } else if (/\d{2,}/.test(llmContent) && isDataMissing) {
                     hasHallucinatedJob = true;
                 }
             }
@@ -242,12 +242,15 @@ class AIService {
             // PHASE 6-B: Post-LLM Safety Filter
             let finalContent = postLlmFilter(llmContent, rawInput);
 
-            // Fallback for failed strict validation
-            if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
-                // Phase 6-D: Use the new semantic safe fallback generator
-                finalContent = semanticSafeFallback(rawInput);
-
-                finalContent = postLlmFilter(finalContent, rawInput);
+            // Fallback for missing verified data (Phase 6-D)
+            const isCriticalIntent = ['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent);
+            if (isDataMissing && isCriticalIntent) {
+                // Use semantic fallback if validation failed, hallucination detected, or LLM gave generic response
+                if (!validation.passed || hasHallucinatedJob || finalContent.includes("verified jankari nahi") || finalContent === SAFE_RESPONSES.GENERIC_FALLBACK) {
+                    finalContent = semanticSafeFallback(rawInput);
+                    // Ensure the fallback itself passes safety
+                    finalContent = postLlmFilter(finalContent, rawInput);
+                }
             } else if (!validation.passed && validationInput.isPureGreeting) {
                 finalContent = ResponseCleaner.getGreetingFallback();
             }
