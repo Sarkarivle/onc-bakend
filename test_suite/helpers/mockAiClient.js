@@ -15,6 +15,22 @@ async function processMessage(message, context = {}) {
     return { message: "Main Jobo AI assistant hoon, jo jobs, career, result, admit card aur resume se judi madad karta hai." };
   }
 
+  if (q.includes("kya haal hai")) {
+    return { message: "Main theek hoon. Aapko kaise madad kar sakta hoon?" };
+  }
+
+  if (q.includes("engineer kaise bane")) {
+    return { message: "Engineer banne ke liye 12th PCM ke baad JEE ya state entrance exam dekar B.Tech course kar sakte hain." };
+  }
+
+  if (q.includes("teacher kaise bane")) {
+    return { message: "Teacher banne ke liye graduation ke baad B.Ed karna hota hai. School teaching ke liye TET ya CTET exam bhi important hota hai." };
+  }
+
+  if (q === "ok") {
+    return { message: "Theek hai. Aapko aur kuch janna hai ya kuch aur puchna hai?" };
+  }
+
   if (q.includes("doctor") || q.includes("mbbs") || q.includes("neet") || q.includes("medical")) {
     return { message: "Doctor banne ke liye 12th Biology ke baad NEET exam qualify karke MBBS course karna hota hai. MBBS ke baad internship aur registration ke baad doctor ke roop me career start hota hai." };
   }
