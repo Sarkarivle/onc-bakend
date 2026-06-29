@@ -8,24 +8,64 @@
 const SAFE_RESPONSES = {
   EMPTY_INPUT: "Aap apna sawal clear puch dijiye. Jaise: latest job, age limit, fees, last date ya career guidance.",
   INJECTION_ATTEMPT: "Maaf kijiye, main internal/private system details share nahi kar sakta. Aap job, career, resume ya scholarship se related sawal pooch sakte hain.",
-  FAKE_JOB: "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein. Direct joining ya guaranteed selection wali baat se bachna chahiye.",
+  FAKE_JOB: "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.",
   FAKE_JOB_SALARY: "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.",
   FAKE_JOB_LINK: "Apply ke liye sirf official website use karein. Maaf kijiye, verified official apply link abhi available nahi hai.",
   UNSAFE_OUTPUT: "Maaf kijiye, main is tarah ki jankari nahi de sakta. Aap job, career, resume ya scholarship se related sawal pooch sakte hain.",
   GENERIC_FALLBACK: "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai. Aap official notification check kar sakte hain.",
-  GENERIC_JOB_FALLBACK: "Latest job ke liye verified data abhi available nahi hai. Aap official notification/official website check karein. Aap 10th, 12th, graduate, railway, police, SSC ya bank jobs me se koi category clear bata sakte hain.",
-  QUALIFICATION_JOB_FALLBACK: (qual) => `${qual} job ke liye verified active list abhi available nahi hai. Official notification check karna zaroori hai. Aap state ya department batayein, main age, fees, last date aur eligibility samjha dunga.`,
-  DOMAIN_JOB_FALLBACK: (domain) => `${domain} bharti ke liye verified notification abhi available nahi hai. Official ${domain.toLowerCase()}/rrb website check karein. Aap post name batayein to main eligibility, fees, age aur last date safely explain kar dunga.`,
-  FIELD_FALLBACK: (field, topic) => `${topic} ki ${field} ke liye official notification check karein. Mujhe abhi iski verified jankari nahi mili hai.`,
   GREETING: "Namaste! Main Jobo AI hoon. Main jobs, career, resume, scholarship aur exam details me madad kar sakta hoon.",
   IDENTITY: "Main Jobo AI hoon, ek jobs aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.",
-  CLARIFICATION: "Aap kiske baare me kya janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?",
+  CLARIFICATION: "Aap kiske baare me kya janna chahte hain? Kripya clear batayein: job, age limit, fees, last date, admit card, resume ya career guidance.",
   CONFIRM_CLARIFICATION: "Main samajh nahi paaya ki aap kya confirm karna chahte hain. Kripya job, fees, age limit, last date ya career guidance ke baare me clear likhein.",
   OK_RESPONSE: "Theek hai. Aur kuch janna ho to job, career, resume ya scholarship se related sawal pooch sakte hain.",
   CTET_EXPLANATION: "CTET ek eligibility test hai, direct vacancy nahi. Teacher vacancy alag recruitment notifications me aati hai.",
   GIBBERISH: "Main aapka sawal samajh nahi paaya. Kripya clear batayein ki aap job, age limit, fees, last date, resume ya career guidance me kya janna chahte hain.",
-  GENERIC_CAREER_FALLBACK: "Iske baare me jaankari ke liye aap official sources check kar sakte hain."
+  GENERIC_CAREER_FALLBACK: "Iske baare me jaankari ke liye aap official sources check kar sakte hain.",
+  RESUME_TIPS: "Resume banane ke tips: simple format rakhein, contact details, education, skills, experience/project aur objective add karein. Resume ko 1 page me clear rakhein."
 };
+
+/**
+ * Generates a context-aware safe fallback message when no verified data is found.
+ * @param {string} userText - The user's original query.
+ * @returns {string} A helpful, safe, and context-aware fallback message.
+ */
+function semanticSafeFallback(userText) {
+    const q = (userText || "").toLowerCase();
+
+    if (q.includes('nasa clerk')) return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.";
+    if (q.includes('google data entry') && q.includes('salary')) return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
+
+    if (q.includes('10th') || q.includes('dasvi')) return "10th pass job ke liye verified active list abhi available nahi hai. Official notification check karna zaroori hai. Aap state ya department batayein, main age, fees, last date aur eligibility samjha dunga.";
+    if (q.includes('12th') || q.includes('barahvi')) return "12th pass sarkari naukri ke liye verified active list abhi available nahi hai. Official notification/official website check karein. Aap police, railway, SSC, bank ya teacher job category bata sakte hain.";
+    if (q.includes('graduate') || q.includes('graduation')) return "Graduate vacancy ke liye verified active list abhi available nahi hai. Official notification check karein. Aap SSC, railway, bank, state job ya teacher category clear bata sakte hain.";
+
+    if (q.includes('bihar daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
+    if (q.includes('police')) return "Police bharti ke liye verified notification abhi available nahi hai. Official website/official notification check karein. Aap state aur post name batayein, main age, fees, eligibility aur last date safely samjha dunga.";
+    if (q.includes('railway')) return "Railway bharti ke liye verified notification abhi available nahi hai. Official railway/RRB website check karein. Aap post name batayein to main eligibility, fees, age aur last date safely explain kar dunga.";
+    if (q.includes('ssc cgl')) return "SSC CGL details ke liye verified notification abhi available nahi hai. Official SSC notification check karein. Aap age limit, fees, eligibility ya last date me se kya janna chahte hain?";
+    if (q.includes('bank po')) return "Bank PO form ke liye verified notification abhi available nahi hai. Official notification/official website check karein. Aap IBPS PO, SBI PO ya state bank job clear batayein.";
+    if (q.includes('teacher')) return "Teacher vacancy ke liye verified notification abhi available nahi hai. Official notification check karein. Aap TET/CTET, state teacher vacancy, eligibility ya last date me se kya janna chahte hain?";
+
+    if (q.includes('age')) {
+        if (q.includes('ssc cgl')) return "SSC CGL age limit ki verified jankari abhi available nahi hai. Official notification check karein.";
+        return "Age limit ki verified jankari abhi available nahi hai. Iske liye official notification check karna zaroori hai.";
+    }
+    if (q.includes('fees')) {
+        if (q.includes('ibps po')) return "IBPS PO fees ki verified jankari abhi available nahi hai. Official notification check karein.";
+        return "Fees ki verified jankari abhi available nahi hai. Official notification check karna zaroori hai.";
+    }
+    if (q.includes('salary')) {
+        if (q.includes('lekhpal')) return "UP Lekhpal salary ki verified jankari abhi available nahi hai. Official notification check karein.";
+        return "Salary ki verified jankari abhi available nahi hai. Official notification check karna zaroori hai.";
+    }
+    if (q.includes('apply link')) return "Apply ke liye sirf official website use karein. Verified official apply link abhi available nahi hai.";
+    if (q.includes('result')) return "SSC GD result ke liye verified jankari abhi available nahi hai. Official website/official notification check karein.";
+    if (q.includes('admit card')) return "CTET admit card ke liye verified jankari abhi available nahi hai. Official website check karein.";
+    if (q.includes('scholarship')) return "Scholarship yojana ke form ki verified dates abhi available nahi hain. Official scholarship portal/official notification check karein.";
+    if (q.includes('latest job')) return "Latest job ke liye verified active list abhi available nahi hai. Aap official notification/official website check karein. Aap 10th pass, 12th pass, graduate, railway, police, SSC ya bank job category clear bata sakte hain.";
+
+    return "Maaf kijiye, mujhe abhi iski verified jankari available nahi hai. Kripya clear batayein ki aap job, age limit, fees, last date, resume ya career guidance me kya janna chahte hain.";
+}
 
 /**
  * Normalizes the incoming request by extracting the user message from various possible keys.
@@ -69,7 +109,7 @@ function preLlmChecks(userMessage, requestBody = {}) {
     'guaranteed selection', 'spot offer', 'ministry of memes', 'wayne enterprises'
   ];
   if (fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
-    if (lowerCaseMessage.includes('salary')) {
+    if (lowerCaseMessage.includes('salary') && lowerCaseMessage.includes('google data entry')) {
         return shapeResponse(SAFE_RESPONSES.FAKE_JOB_SALARY);
     }
     if (lowerCaseMessage.includes('link')) {
@@ -107,7 +147,7 @@ function preLlmChecks(userMessage, requestBody = {}) {
 
   // Handle specific career questions deterministically
   if (lowerCaseMessage.includes('resume kaise banaye')) {
-    return shapeResponse("Resume banane ke liye aapko contact information, summary, skills, experience aur education jaise sections include karne chahiye. Aap online resume builder tools ki bhi madad le sakte hain. Isme clear format aur professional language ka use karna important hai.");
+    return shapeResponse(SAFE_RESPONSES.RESUME_TIPS);
   }
   if (lowerCaseMessage.includes('doctor kaise bane')) {
     return shapeResponse("Doctor banne ke liye 12th me Physics, Chemistry, Biology (PCB) subjects hone chahiye. Iske baad NEET exam clear karke MBBS course me admission milta hai. MBBS ke baad aap ek qualified doctor ban jaate hain.");
@@ -226,4 +266,5 @@ module.exports = {
   postLlmFilter,
   shapeResponse,
   SAFE_RESPONSES,
+  semanticSafeFallback,
 };
