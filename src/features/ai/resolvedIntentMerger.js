@@ -17,14 +17,17 @@ class ResolvedIntentMerger {
             context = {},
             confidence
         } = layers;
-        const normalizedMessage = layers.normalizedMessage || originalMessage.toLowerCase().trim();
+        const rawMessage = String(originalMessage || "").toLowerCase().trim();
+        const safeNormalizedMessage = String(layers.normalizedMessage || "").toLowerCase().trim();
+        const combinedMessage = `${rawMessage} ${safeNormalizedMessage}`;
 
         const canonicalRule = this._canonicalizeRule(ruleIntent, ruleResult, context, normalizedMessage);
         const semanticPrimary = semanticIntent?.score >= 0.62 ? semanticIntent.intent : null;
         const llmPrimary = llmIntent?.primaryIntent || null;
         const followUpPrimary = followUp?.intent || null;
 
-        const isClarificationFollowUp = /\b(sahi se batao|achhe se batao|acche se batao|detail me batao|dobara batao|clear batao|samjha ke batao|properly batao|thoda aur samjhao)\b/i.test(normalizedMessage);
+        const isClarificationFollowUp =
+    /\b(sahi se batao|achhe se batao|acche se batao|detail me batao|dobara batao|clear batao|samjha ke batao|properly batao|thoda aur samjhao)\b/i.test(combinedMessage);
         const isNumericFollowUp = followUp?.followUpType === 'DETAILS' && followUp.entities?.itemIndex;
 
         // Merger Priority Implementation
@@ -185,19 +188,6 @@ class ResolvedIntentMerger {
             finalIntent.resolvedIntent = "JOB_QUERY";
             finalIntent.primaryIntent = "JOB_QUERY";
             finalIntent.isFollowUp = false;
-            finalIntent.isPureGreeting = false;
-        }
-
-        // 3) Follow-up clarification override must run last
-        if (isClarificationFollowUp && hasClarificationContext) {
-            finalIntent.communicationAct = "FOLLOW_UP";
-            finalIntent.domain = context.currentDomain || context.lastDomain || finalIntent.domain || "GOVT_JOB";
-            finalIntent.domainIntent = context.currentDomain || context.lastDomain || finalIntent.domainIntent || finalIntent.domain || "GOVT_JOB";
-            finalIntent.task = "DETAILS";
-            finalIntent.resolvedIntent = "FIELD_DETAILS";
-            finalIntent.primaryIntent = "FIELD_DETAILS";
-            finalIntent.isFollowUp = true;
-            finalIntent.usePreviousContext = true;
             finalIntent.isPureGreeting = false;
         }
 
