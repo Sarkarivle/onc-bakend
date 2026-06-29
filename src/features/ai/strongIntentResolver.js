@@ -89,7 +89,7 @@ class StrongIntentResolver {
         const jobAction = /\b(notification|recruitment|vacancy|vacancies|bharti|details|update|updates|year|date|rally|constable|clerk|po|jobs|job|naukri|naukari|rojgar|rozgar|202[4-5])\b/i;
 
         const hasJobMeaning = /\b(job|jobs|naukri|vacancy|vacancies|bharti|recruitment|government job|sarkari|railway|rrb|group d|rpf|sbi|ibps|bank|po|clerk|rbi|police|constable|daroga|home guard|army|navy|air force|agniveer|cisf|bsf|crpf|itbp|ssb|teacher|tgt|pgt|prt|ctet|tet|nurse|nursing|anm|gnm|asha|anganwadi|health worker)\b/.test(q);
-        const hasJobAsk = /(job|jobs|vacancy|vacancies|bharti|naukri|kaam|rojgar|form|apply|ke liye|dikhao|batao|hai kya|chahiye|jankari| kab |kab tak|notification|recruitment|update|updates|details|year|date|opening|listing|in\s+\w+|in bihar|in up|in delhi)/.test(q);
+        const hasJobAsk = /(job|jobs|vacancy|vacancies|bharti|naukri|kaam|rojgar|form|apply|ke liye|dikhao|batao|hai kya|chahiye|jankari| kab |kab tak|notification|recruitment|update|updates|details|year|date|opening|listing|in\s+\w+|in bihar|in up|in delhi|in madhya pradesh|in rajasthan)/.test(q);
 
         if ((jobEntity.test(q) && jobAction.test(q)) || (hasJobMeaning && hasJobAsk)) {
             const jobDomain = JobDomainResolver.resolve(q);
