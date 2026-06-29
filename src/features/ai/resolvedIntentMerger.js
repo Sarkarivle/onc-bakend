@@ -153,17 +153,6 @@ class ResolvedIntentMerger {
         // FINAL OVERRIDE BLOCK
         // ==================================================
 
-        // A) Follow-up clarification override
-        if (isClarificationFollowUp && hasContext) {
-            finalIntent.communicationAct = "FOLLOW_UP";
-            finalIntent.domain = context.currentDomain || context.lastDomain || "GOVT_JOB";
-            finalIntent.task = "DETAILS";
-            finalIntent.resolvedIntent = "FIELD_DETAILS";
-            finalIntent.primaryIntent = "FIELD_DETAILS";
-            finalIntent.isFollowUp = true;
-            finalIntent.isPureGreeting = false;
-        }
-
         // B) CAREER_GUIDANCE domain normalization
         if (finalIntent.resolvedIntent === 'CAREER_GUIDANCE' || finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
             finalIntent.domain = "CAREER";
@@ -182,6 +171,18 @@ class ResolvedIntentMerger {
             finalIntent.resolvedIntent = "JOB_QUERY";
             finalIntent.primaryIntent = "JOB_QUERY";
             finalIntent.isFollowUp = false;
+        }
+
+        // A) Follow-up clarification override (Runs last to have final say)
+        if (isClarificationFollowUp && hasContext) {
+            finalIntent.communicationAct = "FOLLOW_UP";
+            finalIntent.domain = context.currentDomain || context.lastDomain || "GOVT_JOB";
+            finalIntent.graphDomain = context.currentDomain || context.lastDomain || "GOVT_JOB";
+            finalIntent.task = "DETAILS";
+            finalIntent.resolvedIntent = "FIELD_DETAILS";
+            finalIntent.primaryIntent = "FIELD_DETAILS";
+            finalIntent.isFollowUp = true;
+            finalIntent.isPureGreeting = false;
         }
 
         // Ensure final domain for CAREER_GUIDANCE is correct after all overrides
