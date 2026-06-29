@@ -15,6 +15,27 @@ const StrongIntentResolver = require('./strongIntentResolver');
 class SemanticIntentClassifier {
     static async classify(query, state = {}, profile = {}) {
         const normalized = IndianLanguageNormalizer.normalize(query);
+        const q = String(normalized || query || '').toLowerCase().trim();
+
+        const vagueFollowUpPhrases = new Set([
+            "sahi se batao",
+            "achhe se batao",
+            "acche se batao",
+            "detail me batao",
+            "clear batao",
+            "batao na"
+        ]);
+
+        if (vagueFollowUpPhrases.has(q)) {
+            return {
+                communicationAct: "FOLLOW_UP",
+                domain: "GENERAL",
+                task: "DETAILS",
+                resolvedIntent: "FIELD_DETAILS",
+                isFollowUp: true,
+                isPureGreeting: false
+            };
+        }
 
         const ruleResult = IntentDetector.detect(normalized || query);
         const rulePrimaryIntent = ruleResult.intents?.[0] || 'GENERAL_QUERY';

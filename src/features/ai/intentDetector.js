@@ -12,6 +12,28 @@ class IntentDetector {
     static detect(query = "") {
         const q = query.toLowerCase().trim();
 
+        // High-priority standalone follow-up clarification phrases
+        // Must run before career/general intent detection.
+        const vagueFollowUpPhrases = new Set([
+            "sahi se batao",
+            "achhe se batao",
+            "acche se batao",
+            "detail me batao",
+            "clear batao",
+            "batao na"
+        ]);
+
+        if (vagueFollowUpPhrases.has(q)) {
+            return {
+                communicationAct: "FOLLOW_UP",
+                domain: "GENERAL",
+                task: "DETAILS",
+                resolvedIntent: "FIELD_DETAILS",
+                isFollowUp: true,
+                isPureGreeting: false
+            };
+        }
+
         const acts = new Set();
         const domains = new Set();
         const intents = new Set();
