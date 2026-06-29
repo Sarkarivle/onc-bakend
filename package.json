@@ -12,7 +12,8 @@
     "test:safety": "node test_suite/runSafetyTests.js",
     "test:data": "node test_suite/runDataTests.js",
     "test:performance": "node test_suite/runPerformanceTests.js",
-    "test:all": "node test_suite/runAllTests.js",
+    "test:all": "npm run test:intents && npm run test:conversation && npm run test:responses && npm run test:safety && npm run test:data && npm run test:performance",
+    "test:live-ai": "node test_suite/runLiveAiTests.js",
     "test:brain": "node test_suite/runBrainTests.js"
   },
   "dependencies": {
@@ -29,6 +30,10 @@
     "mongoose": "^7.5.0",
     "morgan": "^1.10.0",
     "validator": "^13.11.0",
-    "xss-clean": "^0.1.4"
+    "xss-clean": "^0.1.4",
+    "nodemon": "^3.0.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
   }
 }
