@@ -10,19 +10,24 @@ class StrongIntentResolver {
         const acts = new Set(ruleResult.acts || []);
         const hasGreeting = acts.has('GREET') || /^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/.test(q);
 
-        // Early return for standalone follow-up phrases to prevent misclassification as CAREER_GUIDANCE.
+        // Early return for contextual follow-up phrases to prevent misclassification as CAREER_GUIDANCE.
         const followUpPhrases = [
-            "sahi se batao", "achhe se batao", "acche se batao",
-            "detail me batao", "clear batao", "batao na"
+            "sahi se batao", "achhe se batao", "acche se batao", "detail me batao",
+            "clear batao", "batao na", "dobara batao", "samjha ke batao"
         ];
 
         if (followUpPhrases.includes(q)) {
+            // This is a follow-up ONLY if context exists. The merger will check `isFollowUp`.
+            // By returning this, we prevent the CAREER_GUIDANCE rule below from firing incorrectly.
+            // If no context, it will correctly fall back to GENERAL_QUERY.
             return {
                 primaryIntent: 'FIELD_DETAILS',
-                isFollowUp: true,
+                isFollowUp: true, // Signal that this *can* be a follow-up
                 communicationAct: 'FOLLOW_UP',
-                domain: 'GENERAL',
-                task: 'DETAILS'
+                domain: 'GENERAL', // Let merger decide final domain based on context
+                task: 'DETAILS',
+                confidence: 0.98,
+                reason: 'Strong contextual clarification phrase matched.'
             };
         }
 

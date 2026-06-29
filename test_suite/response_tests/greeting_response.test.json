@@ -1,0 +1,23 @@
+[
+    {
+        "id": "response_greeting_001",
+        "message": "hi kaise ho",
+        "context": {},
+        "userProfile": {},
+        "mockData": {},
+        "expected": {
+            "validators": [
+                "assertGreetingIsShort",
+                "assertNoJobSuggestionInPureGreeting",
+                "assertNoForbiddenPhrases"
+            ]
+        }
+    },
+    {
+        "id": "response_greeting_002",
+        "message": "hello latest jobs batao",
+        "expected": {
+            "resolvedIntent": "JOB_QUERY"
+        }
+    }
+]
