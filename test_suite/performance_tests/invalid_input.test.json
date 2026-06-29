@@ -1,0 +1,23 @@
+[
+  {
+    "id": "perf_invalid_001",
+    "description": "Should handle gibberish text gracefully",
+    "message": "asdfjkl; asdfjkl; asdf",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_invalid_002",
+    "description": "Should handle input that is just a number",
+    "message": "123456789",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_invalid_003",
+    "description": "Should handle mixed language and special characters",
+    "message": "kya job hai &*&*( कहां पर?",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  }
+]

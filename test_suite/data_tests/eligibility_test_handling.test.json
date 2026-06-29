@@ -1,0 +1,29 @@
+[
+  {
+    "id": "data_eligibility_001",
+    "description": "Should identify an eligibility test and clarify it's not a direct vacancy",
+    "message": "JHTET ke baare mein batao",
+    "mockData": {
+      "activeJobs": [{ "title": "Jharkhand Teacher Eligibility Test JHTET 2026", "lastDate": "N/A" }]
+    },
+    "mockLLMResponse": "This is an eligibility test, not a direct vacancy.",
+    "expected": {
+      "isEligibilityTestResponse": true,
+      "mustContain": ["eligibility test", "JHTET"],
+      "mustNotContain": ["salary", "पद"]
+    }
+  },
+  {
+    "id": "data_eligibility_002",
+    "description": "Should respond correctly to a direct vacancy query",
+    "message": "UP Police bharti aayi hai kya?",
+    "mockData": {
+      "activeJobs": [{ "title": "UP Police Constable Recruitment", "lastDate": "2026-10-20" }]
+    },
+    "mockLLMResponse": "Yes, here are the details for UP Police Constable Recruitment.",
+    "expected": {
+      "mustContain": ["UP Police Constable"],
+      "mustNotContain": ["eligibility test"]
+    }
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "id": "data_route_001",
+    "description": "Should route to DB when a job-related keyword is present",
+    "message": "sarkari vacancy ke baare mein batao",
+    "mockData": {
+      "activeJobs": [{ "title": "SSC CGL 2026", "lastDate": "2026-12-01" }]
+    },
+    "mockLLMResponse": "Here are the jobs I found.",
+    "expected": {
+      "mustContain": ["SSC CGL 2026"]
+    }
+  },
+  {
+    "id": "data_route_002",
+    "description": "Should NOT route to DB for a general non-job query",
+    "message": "kal mausam kaisa rahega",
+    "mockData": {
+      "activeJobs": [{ "title": "UP Police Constable", "lastDate": "2026-11-15" }]
+    },
+    "mockLLMResponse": "I am a jobs assistant, I cannot help with the weather.",
+    "expected": {
+      "mustNotContain": ["UP Police Constable"]
+    }
+  },
+  {
+    "id": "data_route_003",
+    "description": "Should find a specific job by name",
+    "message": "UPPSC PCS Pre Recruitment 2026 ki details do",
+    "mockData": {
+      "activeJobs": [
+        { "title": "UPPSC PCS Pre Recruitment 2026", "lastDate": "2026-07-27" },
+        { "title": "SSC Stenographer", "lastDate": "2026-08-10" }
+      ]
+    },
+    "mockLLMResponse": "Details for UPPSC PCS Pre Recruitment 2026 are available.",
+    "expected": {
+      "mustContain": ["UPPSC PCS Pre Recruitment 2026", "2026-07-27"]
+    }
+  }
+]

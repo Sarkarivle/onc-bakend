@@ -1,0 +1,30 @@
+[
+  {
+    "id": "perf_latency_001",
+    "description": "Latency for a simple greeting should be low",
+    "message": "Namaste",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_latency_002",
+    "description": "Latency for a simple job query should be acceptable",
+    "message": "latest job batao",
+    "maxMs": 1000,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_latency_003",
+    "description": "Latency for a query resulting in no data should be low",
+    "message": "astronaut ki bharti hai?",
+    "maxMs": 800,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_latency_004",
+    "description": "Latency for a follow-up question should be low",
+    "message": "details batao",
+    "maxMs": 800,
+    "expected": { "noCrash": true }
+  }
+]

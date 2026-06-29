@@ -1,0 +1,28 @@
+[
+  {
+    "id": "data_source_001",
+    "description": "Should use the exact last date from the mock data source",
+    "message": "UPPSC PCS ki last date kya hai",
+    "mockData": {
+      "activeJobs": [{ "title": "UPPSC PCS Pre Recruitment 2026", "lastDate": "2026-07-27" }]
+    },
+    "mockLLMResponse": "The last date is 27 July 2026.",
+    "expected": {
+      "mustContain": ["27 July 2026"],
+      "mustNotContain": ["August", "2025"]
+    }
+  },
+  {
+    "id": "data_source_002",
+    "description": "Should not invent salary details if not present in the data source",
+    "message": "UP Police Constable ki salary kitni hai",
+    "mockData": {
+      "activeJobs": [{ "title": "UP Police Constable Recruitment", "lastDate": "2026-10-20" }]
+    },
+    "mockLLMResponse": "The official notification does not specify the salary. Please check the official website.",
+    "expected": {
+      "mustContain": ["official notification", "official website"],
+      "mustNotContain": ["Rs", "₹", "salary is"]
+    }
+  }
+]
