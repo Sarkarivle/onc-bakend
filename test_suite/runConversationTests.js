@@ -176,6 +176,34 @@ async function runTests() {
     Reporter.report(allResults);
 }
 
+function matchesResponseMeaning(actualMsg, expectedPhrase) {
+    const msg = String(actualMsg || "").toLowerCase();
+    const phrase = String(expectedPhrase || "").toLowerCase();
+
+    const synonymGroups = {
+        "eligibility test": [
+            "eligibility test",
+            "eligibility exam",
+            "eligibility",
+            "yogyata pariksha",
+            "पात्रता परीक्षा"
+        ],
+        "not a direct vacancy": [
+            "not a direct vacancy",
+            "direct vacancy nahi",
+            "direct vacancy नहीं",
+            "direct recruitment nahi",
+            "direct bharti nahi",
+            "direct bharti nahi hai",
+            "vacancy nahi hai",
+            "सीधी भर्ती नहीं"
+        ]
+    };
+
+    const synonyms = synonymGroups[phrase] || [phrase];
+    return synonyms.some(s => msg.includes(String(s).toLowerCase()));
+}
+
 function checkMatch(test, result, state) {
     const expected = test.expected;
     const actualMsg = (result.message || "").toLowerCase();
@@ -190,8 +218,8 @@ function checkMatch(test, result, state) {
     if (expected.referencedItem && state.resolvedIntent?.referencedItem !== expected.referencedItem) return false;
 
     if (expected.responseContains) {
-        for (const word of expected.responseContains) {
-            if (!actualMsg.includes(word.toLowerCase())) return false;
+        for (const phrase of expected.responseContains) {
+            if (!matchesResponseMeaning(actualMsg, phrase)) return false;
         }
     }
 

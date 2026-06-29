@@ -153,6 +153,21 @@ class ResolvedIntentMerger {
         // FINAL OVERRIDE BLOCK
         // ==================================================
 
+        // B) CAREER_GUIDANCE domain normalization (runs before clarification override)
+        if (finalIntent.resolvedIntent === 'CAREER_GUIDANCE' || finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
+            finalIntent.domain = "CAREER";
+            finalIntent.domainIntent = "CAREER";
+            finalIntent.task = "GUIDANCE";
+            finalIntent.graphDomain = "CAREER";
+        }
+
+        // C) Explicit health job override (example of another override)
+        const healthTerms = /\b(nursing|nurse|anm|gnm|health worker|asha)\b/i;
+        const jobTerms = /\b(job|jobs|vacancy|recruitment|bharti|opening|listing|in bihar)\b/i;
+        if (healthTerms.test(normalizedMessage) && jobTerms.test(normalizedMessage)) {
+            // This logic would force JOB_QUERY, but we are focusing on the requested fixes.
+        }
+
         // A) Follow-up clarification override (Runs last to have final say)
         if (isClarificationFollowUp && hasContext) {
             finalIntent.communicationAct = "FOLLOW_UP";

@@ -27,16 +27,16 @@ const MINIMUM_TESTS_PER_FILE = {
  */
 function responseContains(responseText, expectedPhrase) {
     const text = responseText.toLowerCase();
-    const synonyms = {
+    const synonymGroups = {
         "eligibility test": ["eligibility test", "eligibility exam", "yogyata pariksha", "पात्रता परीक्षा", "eligibility"],
         "not a direct vacancy": ["not a direct vacancy", "direct vacancy nahi", "direct recruitment nahi", "direct bharti nahi", "vacancy nahi hai", "सीधी भर्ती नहीं", "direct vacancy नहीं"]
     };
 
     const phraseKey = expectedPhrase.toLowerCase();
 
-    if (synonyms[phraseKey]) {
+    if (synonymGroups[phraseKey]) {
         // If we have synonyms defined, check if any of them exist in the response
-        return synonyms[phraseKey].some(synonym => text.includes(synonym));
+        return synonymGroups[phraseKey].some(synonym => text.includes(synonym.toLowerCase()));
     } else {
         // Default behavior: simple substring check
         return text.includes(phraseKey);
