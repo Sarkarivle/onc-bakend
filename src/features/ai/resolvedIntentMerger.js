@@ -41,6 +41,8 @@ class ResolvedIntentMerger {
 
         if (ruleResult?.isPureGreeting) {
             primary = 'GREETING';
+        } else if (strongIntent?.primaryIntent === 'FIELD_DETAILS' && strongIntent.isFollowUp) {
+            primary = 'FIELD_DETAILS';
         } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
             primary = followUpPrimary;
         } else if (strongIntent) {
@@ -104,10 +106,6 @@ class ResolvedIntentMerger {
         if (primary === 'APPLICATION_HELP' && hasContext) isFollowUp = true;
 
         const communicationAct = this._communicationAct(primary, ruleResult, followUp, isFollowUp);
-        // Override for strong follow-up phrases
-        if (strongIntent?.primaryIntent === 'FIELD_DETAILS' && strongIntent.isFollowUp) {
-            isFollowUp = true;
-        }
         const isPureGreeting = (ruleResult?.isPureGreeting || primary === 'GREETING') && !this._hasDomainSignal(ruleResult, strongIntent, semanticPrimary, primary);
 
         const needClarification = Boolean(followUp?.needClarification || llmIntent?.needClarification || this._needsClarification(primary, confidence, context, isFollowUp));
