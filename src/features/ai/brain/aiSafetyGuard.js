@@ -155,7 +155,7 @@ function preLlmChecks(userMessage, requestBody = {}) {
   }
 
   // Handle standard greetings
-  if (/^(namaste|hello|hi|hey|hii)$/i.test(lowerCaseMessage)) {
+  if (/^(namaste|hello|hi|hey|hii|bolo|bhai|dost|namaskar|hey)$/i.test(lowerCaseMessage)) {
     return shapeResponse(SAFE_RESPONSES.GREETING);
   }
 
