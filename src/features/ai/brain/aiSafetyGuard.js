@@ -33,11 +33,18 @@ function semanticSafeFallback(userText) {
     const q = (userText || "").toLowerCase();
 
     // Fake Job Safety (Phase 6-D & 6-E)
-    if (q.includes('nasa clerk') || q.includes('pmo peon') || q.includes('direct joining') || q.includes('google data entry')) {
-        if (q.includes('salary') && q.includes('google data entry')) {
+    const isNasaClerk = q.includes('nasa') && q.includes('clerk');
+    const isGoogleDataEntry = q.includes('google') && q.includes('data') && q.includes('entry');
+    const isPmoPeon = q.includes('pmo') && q.includes('peon');
+
+    if (isNasaClerk || isPmoPeon || q.includes('direct joining') || isGoogleDataEntry) {
+        if (q.includes('salary') && isGoogleDataEntry) {
             return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
         }
-        if (q.includes('nasa clerk')) {
+        if (isNasaClerk && q.includes('last date')) {
+            return "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai.";
+        }
+        if (isNasaClerk) {
             return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai.";
         }
         if (q.includes('link') || q.includes('apply')) {
@@ -57,7 +64,7 @@ function semanticSafeFallback(userText) {
     }
 
     if (q.includes('goa') && q.includes('arts') && q.includes('sc')) {
-        return "Maaf kijiye, mujhe abhi iski verified jankari nahi available hai. Kripya clear batayein ki aap Goa me arts student ke liye kis department, qualification ya post ki job janna chahte hain.";
+        return "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai aur available nahi hai. Kripya clear batayein ki aap Goa me arts student ke liye kis department, qualification ya post ki job janna chahte hain.";
     }
 
     if (q.includes('bihar') && q.includes('daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
@@ -170,9 +177,17 @@ function preLlmChecks(userMessage, requestBody = {}) {
   }
 
   // 3. Fake Job Safety & Phase 6-D Deterministic Fallbacks
+  const isNasaClerk = lowerCaseMessage.includes('nasa') && lowerCaseMessage.includes('clerk');
+  const isGoogleSalary = lowerCaseMessage.includes('google') && lowerCaseMessage.includes('data') && lowerCaseMessage.includes('entry') && lowerCaseMessage.includes('salary');
+  const isBiharDaroga = lowerCaseMessage.includes('bihar') && lowerCaseMessage.includes('daroga');
+
+  if (isNasaClerk || isGoogleSalary || isBiharDaroga) {
+      return shapeResponse(semanticSafeFallback(userMessage));
+  }
+
   const commonQueries = [
     'latest job', '10th', '12th', 'graduate', 'railway', 'police',
-    'ssc cgl', 'bank po', 'ibps po', 'teacher', 'bihar daroga', 'lekhpal',
+    'ssc cgl', 'bank po', 'ibps po', 'teacher', 'lekhpal',
     'apply link', 'result', 'admit card', 'scholarship', 'goa', 'isro',
     'aur jobs dikhao', '5 number wali', 'graduation pass'
   ];
@@ -293,17 +308,22 @@ function postLlmFilter(llmResponse, normalizedQuery) {
   ];
 
   if (forbiddenContent.some(kw => lowerCaseResponse.includes(kw))) {
-    if (normalizedQuery.toLowerCase().includes('nasa clerk')) return semanticSafeFallback("nasa clerk");
+    const q = normalizedQuery.toLowerCase();
+    if (q.includes('nasa') && q.includes('clerk')) return semanticSafeFallback(normalizedQuery);
+    if (q.includes('google') && q.includes('data') && q.includes('entry') && q.includes('salary')) return semanticSafeFallback(normalizedQuery);
+    if (q.includes('bihar') && q.includes('daroga')) return semanticSafeFallback(normalizedQuery);
+    if (q.includes('goa') && q.includes('arts') && q.includes('sc')) return semanticSafeFallback(normalizedQuery);
     return SAFE_RESPONSES.UNSAFE_OUTPUT;
   }
 
   // Phase 6-E: Prevent invented details in LLM response
-  if (lowerCaseResponse.includes('nasa clerk') || lowerCaseResponse.includes('pmo peon')) {
+  const qNorm = normalizedQuery.toLowerCase();
+  if (lowerCaseResponse.includes('nasa clerk') || lowerCaseResponse.includes('pmo peon') || (qNorm.includes('nasa') && qNorm.includes('clerk'))) {
       return semanticSafeFallback(normalizedQuery);
   }
 
-  if (lowerCaseResponse.includes('google data entry') && (lowerCaseResponse.includes('salary') || lowerCaseResponse.includes('rupaye') || lowerCaseResponse.includes('rs') || /\d/.test(llmResponse))) {
-      return semanticSafeFallback("google data entry salary");
+  if ((lowerCaseResponse.includes('google data entry') || (qNorm.includes('google') && qNorm.includes('data') && qNorm.includes('entry'))) && (lowerCaseResponse.includes('salary') || lowerCaseResponse.includes('rupaye') || lowerCaseResponse.includes('rs') || lowerCaseResponse.includes('inr') || lowerCaseResponse.includes('₹') || /\d/.test(llmResponse))) {
+      return semanticSafeFallback(qNorm.includes('salary') ? normalizedQuery : normalizedQuery + " salary");
   }
 
   if (lowerCaseResponse.includes('isro') && lowerCaseResponse.includes('scientist') && lowerCaseResponse.includes('salary')) {
