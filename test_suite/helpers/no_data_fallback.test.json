@@ -1,0 +1,15 @@
+[
+  {
+    "id": "data_fallback_001",
+    "description": "Should provide a safe fallback when no data is found for a query",
+    "message": "ISRO scientist job for 12th pass",
+    "mockData": {
+      "activeJobs": []
+    },
+    "mockLLMResponse": "Maaf kijiye, mujhe aisi kisi vacancy ki jaankari nahi hai. Scientist banne ke liye aam taur par uchch shiksha ki zaroorat hoti hai.",
+    "expected": {
+      "safeNoData": true,
+      "noFakeFacts": true
+    }
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "perf_crash_001",
+    "message": "",
+    "description": "Should not crash with an empty string",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_crash_002",
+    "message": "      ",
+    "description": "Should not crash with only spaces",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_crash_003",
+    "message": "🚀✨🎉",
+    "description": "Should not crash with only emoji",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_crash_004",
+    "message": "<script>alert('xss')</script>",
+    "description": "Should not crash with script tag",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  }
+]

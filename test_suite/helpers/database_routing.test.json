@@ -1,0 +1,29 @@
+[
+  {
+    "id": "data_route_001",
+    "description": "Should use active job from DB if present",
+    "message": "latest job for graduate",
+    "mockData": {
+      "activeJobs": [
+        { "title": "UPPSC PCS Pre 2026", "lastDate": "2026-07-27" }
+      ]
+    },
+    "mockLLMResponse": "Here are the details for UPPSC PCS Pre 2026.",
+    "expected": {
+      "mustContain": ["UPPSC PCS Pre 2026"],
+      "mustNotContain": ["verified jankari nahi mili"]
+    }
+  },
+  {
+    "id": "data_route_002",
+    "description": "Should give safe no-data response if DB is empty",
+    "message": "latest job for 10th pass",
+    "mockData": {
+      "activeJobs": []
+    },
+    "mockLLMResponse": "Maaf kijiye, abhi iski verified jankari nahi mili hai.",
+    "expected": {
+      "safeNoData": true
+    }
+  }
+]

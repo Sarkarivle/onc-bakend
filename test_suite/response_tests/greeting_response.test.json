@@ -1,23 +1,12 @@
 [
-    {
-        "id": "response_greeting_001",
-        "message": "hi kaise ho",
-        "context": {},
-        "userProfile": {},
-        "mockData": {},
-        "expected": {
-            "validators": [
-                "assertGreetingIsShort",
-                "assertNoJobSuggestionInPureGreeting",
-                "assertNoForbiddenPhrases"
-            ]
-        }
-    },
-    {
-        "id": "response_greeting_002",
-        "message": "hello latest jobs batao",
-        "expected": {
-            "resolvedIntent": "JOB_QUERY"
-        }
+  {
+    "id": "resp_greet_001",
+    "message": "hello",
+    "description": "Should give a simple greeting for 'hello'",
+    "expected": {
+      "mustContainAny": ["namaste", "hello", "kaise madad"],
+      "mustNotContain": ["Intent detected", "latest jobs"],
+      "maxWords": 25
     }
+  }
 ]

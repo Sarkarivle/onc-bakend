@@ -1,0 +1,23 @@
+[
+  {
+    "id": "perf_latency_001",
+    "message": "hello",
+    "description": "Latency for a simple greeting",
+    "maxMs": 500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_latency_002",
+    "message": "latest railway job",
+    "description": "Latency for a simple job query",
+    "maxMs": 1500,
+    "expected": { "noCrash": true }
+  },
+  {
+    "id": "perf_latency_003",
+    "message": "doctor kaise bane",
+    "description": "Latency for a career query",
+    "maxMs": 1500,
+    "expected": { "noCrash": true }
+  }
+]

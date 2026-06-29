@@ -1,0 +1,16 @@
+[
+  {
+    "id": "data_eligibility_001",
+    "description": "Should identify an eligibility test as not a direct vacancy",
+    "message": "JHTET vacancy kitni hai",
+    "mockData": {
+      "activeJobs": [
+        { "title": "Jharkhand Teacher Eligibility Test JHTET 2026", "isEligibilityTest": true }
+      ]
+    },
+    "mockLLMResponse": "JHTET ek eligibility test hai, direct vacancy nahi hai.",
+    "expected": {
+      "isEligibilityTestResponse": true
+    }
+  }
+]
