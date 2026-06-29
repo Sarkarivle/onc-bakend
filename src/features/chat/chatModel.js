@@ -5,6 +5,7 @@ const chatSchema = new mongoose.Schema({
   sessionId: { type: String, required: true }, // Naya field session tracking ke liye
   role: { type: String, enum: ['user', 'assistant'], required: true },
   content: { type: String, required: true },
+  thought: String, // Agent's internal reasoning
   calculation: String,
   suggestions: [String], // Suggestions save karne ke liye
   metadata: mongoose.Schema.Types.Mixed, // Naya field for AI Pipeline metrics (confidence, topic, etc.)

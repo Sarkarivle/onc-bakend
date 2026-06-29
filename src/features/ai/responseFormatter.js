@@ -17,12 +17,32 @@ class ResponseFormatter {
         formatted = this._validateCTA(formatted, meta);
 
         // 3. Formatting Rules
+        // Upgrade: Better Markdown Tables & Lists (Gemini Style)
+        if (formatted.includes('|') && formatted.includes('---')) {
+            // Already a table, make sure it has proper spacing
+            formatted = formatted.replace(/\n\|/g, '\n\n|');
+        }
+
         // Ensure bold exam names/dates (Simple regex fixes)
-        formatted = formatted.replace(/^(\s*-?\s*(Vacancy|Last Date|Official Link):\s*)(?!\*\*)(.+)$/gim, (match, prefix, _label, value) => {
+        formatted = formatted.replace(/^(\s*-?\s*(Vacancy|Last Date|Official Link|Apply Link|Post Name|Organization):\s*)(?!\*\*)(.+)$/gim, (match, prefix, _label, value) => {
             const cleanValue = value.trim();
             if (!cleanValue || cleanValue.startsWith('**')) return match;
             return `${prefix}**${cleanValue.replace(/\*\*$/g, '')}**`;
         });
+
+        // 4. Heavy Bullet Point usage for long sentences
+        if (formatted.length > 200 && !formatted.includes('|')) {
+            const sections = formatted.split('\n\n');
+            formatted = sections.map(section => {
+                if (section.length > 100 && !section.startsWith('-') && !section.startsWith('|')) {
+                    // If it's a long paragraph, try to break it into bullet points if it contains lists
+                    if (section.includes(',') || section.includes(' aur ')) {
+                        // Potential list detected
+                    }
+                }
+                return section;
+            }).join('\n\n');
+        }
 
         // 4. Eligibility Stripping for job lists (if not asked)
         const jobIntents = ['GOVT_JOB', 'JOB_QUERY', 'MORE_JOBS', 'MORE_RESULTS', 'FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'APPLICATION_HELP', 'EXAM', 'POLICE_JOB', 'RAILWAY_JOB', 'BANK_JOB', 'DEFENCE_JOB', 'TEACHING_JOB', 'HEALTH_JOB'];

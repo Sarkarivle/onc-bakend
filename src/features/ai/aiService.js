@@ -33,6 +33,7 @@ const cheerio = require('cheerio');
 const RunpodProvider = require('./providers/runpodProvider');
 const Metrics = require('./observability/metrics');
 const SearchReranker = require('./searchReranker');
+const EmbeddingService = require('./embeddingService');
 
 class AIService {
     /**
@@ -63,7 +64,7 @@ class AIService {
             ProgressEmitter.emit(sessionId, 'CONVERSATION_STATE_LOADING');
             const [state, profile] = await Promise.all([
                 ConversationState.get(sessionId),
-                Promise.resolve(UserProfile.format({ name: userName, ...input }))
+                UserProfile.get(userName, input)
             ]);
             ProgressEmitter.emit(sessionId, 'USER_PROFILE_LOADING');
 
@@ -328,7 +329,7 @@ class AIService {
         try {
             const [state, profile] = await Promise.all([
                 ConversationState.get(sessionId),
-                Promise.resolve(UserProfile.format({ name: userName, ...input }))
+                UserProfile.get(userName, input)
             ]);
 
             const resolvedIntent = await IntentDetector.detectSemantic(rawInput, state, profile);
@@ -421,17 +422,45 @@ class AIService {
 
     static async _fetchDatabaseKnowledge(query, profile, plan) {
         const q = query.toLowerCase();
-        // Skip filtering for generic "latest" or "top" queries
-        const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy') || q.includes('bharti') || q.includes('data') || q.includes('database');
 
         if (plan.referencedItem) {
             return { count: 1, jobs: `- JOB: ${plan.referencedItem}` };
         }
 
+        // --- PHASE A: Semantic Search (Vector) ---
+        const queryVector = await EmbeddingService.generate(query);
+        if (queryVector) {
+            try {
+                const vectorJobs = await Job.aggregate([
+                    {
+                        $vectorSearch: {
+                            index: "vector_index",
+                            path: "searchVector",
+                            queryVector: queryVector,
+                            numCandidates: 100,
+                            limit: 10
+                        }
+                    },
+                    { $match: { isActive: true } }
+                ]);
+
+                if (vectorJobs.length > 0) {
+                    return {
+                        count: vectorJobs.length,
+                        jobs: vectorJobs.map(j => this._formatJobForContext(j)).join("\n")
+                    };
+                }
+            } catch (err) {
+                console.warn("⚠️ Vector Search failed or index missing:", err.message);
+            }
+        }
+
+        // --- PHASE B: Keyword Search (Fallback) ---
+        const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy') || q.includes('bharti') || q.includes('data') || q.includes('database');
+
         const keywords = q.split(/\s+/).filter(w => w.length > 2 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao', 'karein', 'kijiye', 'bare', 'mein', 'data', 'database'].includes(w));
 
         const now = new Date();
-        // Allow jobs that are active, even if lastDate is missing (fallback to null check)
         let criteria = {
             isActive: true,
             $or: [
@@ -444,7 +473,7 @@ class AIService {
         if (!isGeneric && keywords.length > 0) {
             criteria.$and = [
                 { isActive: true },
-                { $or: criteria.$or }, // Keep the date/active filter
+                { $or: criteria.$or },
                 {
                     $or: [
                         { title: { $regex: keywords.join('|'), $options: 'i' } },
@@ -457,7 +486,6 @@ class AIService {
             delete criteria.$or;
         }
 
-        // If user profile has qualification, we attempt to filter, but we don't make it mandatory if 0 results
         let jobs = [];
         if (profile?.qualification) {
             let qualCriteria = { ...criteria };
@@ -480,27 +508,29 @@ class AIService {
 
         return {
             count: jobs.length,
-            jobs: jobs.length > 0 ? jobs.map(j => {
-                let title = j.title;
-                let org = j.organization || "N/A";
-                let htmlDetails = "";
-
-                if (j.fullHtmlContent) {
-                    const $ = cheerio.load(j.fullHtmlContent);
-                    if (!title || title === "N/A") {
-                        title = $('h1, h2, h3, b, strong').first().text().trim().substring(0, 100);
-                    }
-                    $('script, style, nav, footer').remove();
-                    htmlDetails = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 600);
-                }
-
-                let info = `- JOB: ${title || "N/A"} | Org: ${org} | Vacancy: ${j.totalVacancy || "N/A"} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`;
-                if (htmlDetails) info += ` | Summary: ${htmlDetails}...`;
-                if (j.eligibility?.education) info += ` | Qualification: ${j.eligibility.education}`;
-
-                return info;
-            }).join("\n") : ""
+            jobs: jobs.length > 0 ? jobs.map(j => this._formatJobForContext(j)).join("\n") : ""
         };
+    }
+
+    static _formatJobForContext(j) {
+        let title = j.title;
+        let org = j.organization || "N/A";
+        let htmlDetails = "";
+
+        if (j.fullHtmlContent) {
+            const $ = cheerio.load(j.fullHtmlContent);
+            if (!title || title === "N/A") {
+                title = $('h1, h2, h3, b, strong').first().text().trim().substring(0, 100);
+            }
+            $('script, style, nav, footer').remove();
+            htmlDetails = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 600);
+        }
+
+        let info = `- JOB: ${title || "N/A"} | Org: ${org} | Vacancy: ${j.totalVacancy || "N/A"} | Last Date: ${j.importantDates?.applicationLastDate || "Check Site"}`;
+        if (htmlDetails) info += ` | Summary: ${htmlDetails}...`;
+        if (j.eligibility?.education) info += ` | Qualification: ${j.eligibility.education}`;
+
+        return info;
     }
 
     static async _fetchWebKnowledge(query) {
@@ -526,23 +556,30 @@ class AIService {
     }
 
     static _finalProcess(content, confidence, meta = {}) {
-        // 1. Code-based Cleaning
-        let message = ResponseCleaner.clean(content, meta);
+        // 1. Extract Agent Thought & User Message
+        const thoughtMatch = content.match(/<AGENT_THOUGHT>([\s\S]*?)<\/AGENT_THOUGHT>/i);
+        const userMsgMatch = content.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
 
-        // 2. Formatting & Polish
+        // If <USER_MESSAGE> is missing, use the content after </AGENT_THOUGHT> or the whole thing
+        let message = userMsgMatch ? userMsgMatch[1].trim() : content.replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '').trim();
+
+        // 2. Code-based Cleaning
+        message = ResponseCleaner.clean(message, meta);
+
+        // 3. Formatting & Polish
         message = ResponseFormatter.format(message, meta);
 
-        // 3. Suggestions extraction
+        // 4. Suggestions extraction
         const suggestMatch = content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
         let suggestions = suggestMatch ? suggestMatch[1].split(',').map(s => s.trim()) : [];
 
-        // Extra metadata extraction for legacy support if needed
+        // Legacy/Math support
         const mathMatch = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
-        const thinkMatch = content.match(/<(?:think|CALC)>([\s\S]*?)<\/(?:think|CALC)>/i);
 
         return {
             message,
-            calculation: mathMatch ? mathMatch[1].trim() : (thinkMatch ? thinkMatch[1].trim() : ""),
+            thought: thoughtMatch ? thoughtMatch[1].trim() : "",
+            calculation: mathMatch ? mathMatch[1].trim() : "",
             suggestions: suggestions.slice(0, 3)
         };
     }
@@ -584,7 +621,16 @@ class AIService {
         if (!user || !processed.message) return;
         await Promise.all([
             Chat.create({ userName: user, sessionId: session, role: 'user', content: input }),
-            Chat.create({ userName: user, sessionId: session, role: 'assistant', content: processed.message, calculation: processed.calculation, suggestions: processed.suggestions, metadata: { confidence: metrics.confidence, topic } })
+            Chat.create({
+                userName: user,
+                sessionId: session,
+                role: 'assistant',
+                content: processed.message,
+                thought: processed.thought,
+                calculation: processed.calculation,
+                suggestions: processed.suggestions,
+                metadata: { confidence: metrics.confidence, topic }
+            })
         ]);
     }
 }

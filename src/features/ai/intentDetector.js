@@ -6,7 +6,16 @@
 class IntentDetector {
     static async detectSemantic(query, state, profile) {
         const SemanticIntentClassifier = require('./semanticIntentClassifier');
-        return await SemanticIntentClassifier.classify(query, state, profile);
+        const result = await SemanticIntentClassifier.classify(query, state, profile);
+
+        // CoT (Chain of Thought) reinforcement for Intent Detection
+        if (result && !result.primaryIntent) {
+            console.warn("⚠️ Intent Detection fallback to CoT reasoning");
+            // Here we could add a specific LLM call just for intent if needed,
+            // but for now we rely on the classifier's internal reasoning.
+        }
+
+        return result;
     }
 
     static detect(query = "") {

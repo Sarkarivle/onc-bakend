@@ -35,6 +35,9 @@ const jobSchema = new mongoose.Schema({
   aiCoreSummary: mongoose.Schema.Types.Mixed,
   fullData: mongoose.Schema.Types.Mixed,
 
+  // Semantic Search (Vector)
+  searchVector: { type: [Number], index: false }, // Store embeddings here
+
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });

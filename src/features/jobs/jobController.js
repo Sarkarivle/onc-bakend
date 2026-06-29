@@ -5,6 +5,7 @@ const jobPrompts = require('./jobPrompts');
 const matchPrompts = require('./matchPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const EmbeddingService = require('../ai/embeddingService');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -158,7 +159,7 @@ const importJob = async (req, res) => {
         } catch (e) { return null; }
     };
 
-    const newJob = await Job.create({
+    const jobObject = {
       title: result.title || 'N/A',
       organization: result.subtitle || 'N/A',
       totalVacancy: toStr(result.job_overview?.total_vacancies),
@@ -188,7 +189,18 @@ const importJob = async (req, res) => {
       jobSpecifications: result.job_specifications || [],
       aiCoreSummary: { summary: result.about_post },
       fullData: result
-    });
+    };
+
+    // --- PHASE: Semantic Search Integration ---
+    try {
+        const textToEmbed = EmbeddingService.createJobText(jobObject);
+        const vector = await EmbeddingService.generate(textToEmbed);
+        if (vector) jobObject.searchVector = vector;
+    } catch (vErr) {
+        console.error("⚠️ Failed to generate job vector:", vErr.message);
+    }
+
+    const newJob = await Job.create(jobObject);
 
     res.status(201).json({ status: 'success', data: newJob });
   } catch (err) {

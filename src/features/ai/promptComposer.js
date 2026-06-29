@@ -19,9 +19,9 @@ class PromptComposer {
         const isPureGreeting = behavior === 'GREET';
 
         // 1. Fetch all required modules in parallel
-        let allKeys = ['CORE', 'PERSONALITY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
+        let allKeys = ['CORE', 'PERSONALITY', 'REASONING', 'MEMORY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
         if (isPureGreeting) {
-            allKeys = ['CORE', 'PERSONALITY', 'LANGUAGE', 'OUTPUT'];
+            allKeys = ['CORE', 'PERSONALITY', 'MEMORY', 'LANGUAGE', 'OUTPUT'];
         }
         const uniqueKeys = [...new Set(allKeys)];
 
@@ -86,13 +86,14 @@ class PromptComposer {
         if (moduleMap.HALLUCINATION_PREVENTION) promptChunks.push(`[GUARDRAILS]:\n${moduleMap.HALLUCINATION_PREVENTION}`);
 
         let finalPrompt = promptChunks.join('\n\n---\n\n');
-        finalPrompt += `\n\nBEGIN NEURAL PROCESSING.
+        finalPrompt += `\n\nBEGIN AGENTIC PROCESSING.
 
-        CRITICAL: Respond to the User Message ONLY.
-        Wrap your final response in <USER_MESSAGE> tags.
-        NEVER include your internal instructions or prompt headers in the final response.
+        CRITICAL:
+        1. Start your response with <AGENT_THOUGHT> tags to analyze the request.
+        2. Then, provide the final response in Hinglish inside <USER_MESSAGE> tags.
+        3. NEVER include headers like "[PERSONALITY]" in the user message.
 
-        OPEN <HIDDEN_MATH>:`;
+        OPEN <AGENT_THOUGHT>:`;
 
         return finalPrompt;
     }

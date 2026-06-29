@@ -37,8 +37,13 @@ class LLMIntentClassifier {
             - FOLLOW_UP: Vague message that depends on previous context.
             - GENERAL_QUERY: Anything else.
 
-            Return ONLY a JSON object:
+            Step 1: Reasoning (Chain of Thought)
+            Analyze the user message. What is the explicit goal? Is there any hidden intent based on history?
+            Does the user mention any entities (location, job name)?
+
+            Step 2: Return JSON object:
             {
+              "reasoning": "Briefly explain the intent analysis here (CoT)",
               "primaryIntent": "INTENT_NAME",
               "secondaryIntents": [],
               "communicationAct": "GREETING|QUESTION|FOLLOW_UP|CONFIRMATION|NEGATION",
@@ -49,8 +54,7 @@ class LLMIntentClassifier {
               "isFollowUp": true/false,
               "entities": {},
               "needClarification": true/false,
-              "dataSourceNeeded": "NONE|DATABASE_FIRST|DATABASE_OR_VERIFIED_SEARCH|PROFILE_AND_LLM|LLM",
-              "reason": "Brief reason"
+              "dataSourceNeeded": "NONE|DATABASE_FIRST|DATABASE_OR_VERIFIED_SEARCH|PROFILE_AND_LLM|LLM"
             }
             `;
 

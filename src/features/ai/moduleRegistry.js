@@ -23,6 +23,7 @@ const resume = require('./prompts/resume');
 const interview = require('./prompts/interview');
 const scholarship = require('./prompts/scholarship');
 const skills = require('./prompts/skills');
+const memory = require('./prompts/memory');
 const motivation = require('./prompts/motivation');
 const search_decision = require('./prompts/search_decision');
 const student_guidance = require('./prompts/student_guidance');
@@ -54,6 +55,7 @@ module.exports = {
     INTERVIEW: interview,
     SCHOLARSHIP: scholarship,
     SKILLS: skills,
+    MEMORY: memory,
     MOTIVATION: motivation,
     SEARCH_DECISION: search_decision,
     STUDENT_GUIDANCE: student_guidance,

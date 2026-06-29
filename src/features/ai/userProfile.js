@@ -4,7 +4,31 @@
  */
 class UserProfile {
     /**
-     * Normalizes user data into a structured profile object.
+     * Fetches user profile from DB and formats it.
+     */
+    static async get(userName, sessionData = {}) {
+        const User = require('../auth/userModel');
+        let dbUser = null;
+
+        if (userName && userName !== 'User') {
+            dbUser = await User.findOne({ name: userName }).lean();
+        }
+
+        return {
+            name: userName || "User",
+            qualification: sessionData.qualification || dbUser?.education || null,
+            dob: sessionData.dob || dbUser?.dob || null,
+            state: sessionData.state || dbUser?.domicileState || null,
+            category: sessionData.category || dbUser?.category || null,
+            gender: sessionData.gender || dbUser?.gender || null,
+            city: sessionData.city || dbUser?.city || null,
+            isNewUser: !dbUser,
+            insights: dbUser ? `Previous user. Known qualification: ${dbUser.education || 'Unknown'}` : "New user."
+        };
+    }
+
+    /**
+     * Normalizes user data into a structured profile object (Legacy/Internal).
      */
     static format(data) {
         return {
