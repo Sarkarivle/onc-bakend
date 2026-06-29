@@ -13,9 +13,12 @@ const SAFE_RESPONSES = {
   GENERIC_FALLBACK: "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai.",
   GREETING: "Namaste! Main Jobo AI hoon. Main jobs, career, resume, scholarship aur exam details me madad kar sakta hoon.",
   IDENTITY: "Main Jobo AI hoon, ek job aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.",
-  CLARIFICATION: "Aap kiske baare me kya janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?",
+  CLARIFICATION: "Aap kis baare me janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?",
+  CONFIRM_CLARIFICATION: "Main samajh nahi paaya ki aap kya confirm karna chahte hain. Kripya job, fees, age limit, last date ya career guidance ke baare me clear likhein.",
   OK_RESPONSE: "Theek hai. Aur kuch janna ho to job, career, resume ya scholarship se related sawal pooch sakte hain.",
-  CTET_EXPLANATION: "CTET ek eligibility test hai, direct vacancy nahi. Vacancy alag teacher recruitment notifications me aati hai."
+  CTET_EXPLANATION: "CTET ek eligibility test hai, direct vacancy nahi. Teacher vacancy alag recruitment notifications me aati hai.",
+  GIBBERISH: "Main aapka sawal samajh nahi paaya. Kripya clear batayein ki aap job, age limit, fees, last date, resume ya career guidance me kya janna chahte hain.",
+  GENERIC_CAREER_FALLBACK: "Iske baare me jaankari ke liye aap official sources check kar sakte hain."
 };
 
 /**
@@ -33,12 +36,13 @@ function normalizeRequest(body) {
  * Checks for empty input, prompt injection, and fake job queries.
  * Returns a safe response object if a violation is detected, otherwise null.
  * @param {string} userMessage - The normalized user message.
+ * @param {object} requestBody - The original request body for context.
  * @returns {object|null} A response object or null.
  */
-function preLlmChecks(userMessage) {
+function preLlmChecks(userMessage, requestBody = {}) {
   // 1. Request normalization check for empty input
   if (!userMessage) {
-    return { message: SAFE_RESPONSES.EMPTY_INPUT, answer: SAFE_RESPONSES.EMPTY_INPUT };
+    return shapeResponse(SAFE_RESPONSES.EMPTY_INPUT);
   }
 
   const lowerCaseMessage = userMessage.toLowerCase();
@@ -50,7 +54,7 @@ function preLlmChecks(userMessage) {
     'mongoose', 'cheerio', 'node.js', 'express.js', 'mongodb', 'runpod', 'openrouter'
   ];
   if (injectionKeywords.some(kw => lowerCaseMessage.includes(kw))) {
-    return { message: SAFE_RESPONSES.INJECTION_ATTEMPT, answer: SAFE_RESPONSES.INJECTION_ATTEMPT };
+    return shapeResponse(SAFE_RESPONSES.INJECTION_ATTEMPT);
   }
 
   // 3. Fake Job Safety
@@ -59,30 +63,61 @@ function preLlmChecks(userMessage) {
     'guaranteed selection', 'spot offer', 'ministry of memes'
   ];
   if (fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
-    return { message: SAFE_RESPONSES.FAKE_JOB, answer: SAFE_RESPONSES.FAKE_JOB };
+    return shapeResponse(SAFE_RESPONSES.FAKE_JOB);
   }
 
   // Handle standard greetings
   if (/^(namaste|hello|hi|hey|hii)$/i.test(lowerCaseMessage)) {
-    return { message: SAFE_RESPONSES.GREETING, answer: SAFE_RESPONSES.GREETING };
+    return shapeResponse(SAFE_RESPONSES.GREETING);
   }
 
   // Handle identity questions
   if (lowerCaseMessage.includes('tum kaun ho') || lowerCaseMessage.includes('who are you')) {
-    return { message: SAFE_RESPONSES.IDENTITY, answer: SAFE_RESPONSES.IDENTITY };
+    return shapeResponse(SAFE_RESPONSES.IDENTITY);
   }
 
   // Handle vague inputs that don't need context
-  if (/^(batao|aur batao|yes)$/i.test(lowerCaseMessage)) {
-    return { message: SAFE_RESPONSES.CLARIFICATION, answer: SAFE_RESPONSES.CLARIFICATION };
+  const hasHistory = requestBody.history && Array.isArray(requestBody.history) && requestBody.history.length > 0;
+  if (/^(batao|aur batao)$/i.test(lowerCaseMessage) && !hasHistory) {
+    return shapeResponse(SAFE_RESPONSES.CLARIFICATION);
+  }
+  if (/^(yes|haan)$/i.test(lowerCaseMessage) && !hasHistory) {
+    return shapeResponse(SAFE_RESPONSES.CONFIRM_CLARIFICATION);
   }
   if (/^ok$/i.test(lowerCaseMessage)) {
-    return { message: SAFE_RESPONSES.OK_RESPONSE, answer: SAFE_RESPONSES.OK_RESPONSE };
+    return shapeResponse(SAFE_RESPONSES.OK_RESPONSE);
   }
 
   // Handle CTET vacancy question specifically
   if (lowerCaseMessage.includes('ctet') && lowerCaseMessage.includes('vacancy')) {
-    return { message: SAFE_RESPONSES.CTET_EXPLANATION, answer: SAFE_RESPONSES.CTET_EXPLANATION };
+    return shapeResponse(SAFE_RESPONSES.CTET_EXPLANATION);
+  }
+
+  // Handle specific career questions deterministically
+  if (lowerCaseMessage.includes('resume kaise banaye')) {
+    return shapeResponse("Resume banane ke liye aapko contact information, summary, skills, experience aur education jaise sections include karne chahiye. Aap online resume builder tools ki bhi madad le sakte hain. Isme clear format aur professional language ka use karna important hai.");
+  }
+  if (lowerCaseMessage.includes('doctor kaise bane')) {
+    return shapeResponse("Doctor banne ke liye 12th me Physics, Chemistry, Biology (PCB) subjects hone chahiye. Iske baad NEET exam clear karke MBBS course me admission milta hai. MBBS ke baad aap ek qualified doctor ban jaate hain.");
+  }
+  if (lowerCaseMessage.includes('engineer kaise bane')) {
+    return shapeResponse("Engineer banne ke liye 12th me Physics, Chemistry, Maths (PCM) subjects hone chahiye. Iske baad JEE Main aur Advanced jaise entrance exams clear karke B.Tech course me admission milta hai.");
+  }
+  if (lowerCaseMessage.includes('mbbs aur nursing')) {
+    return shapeResponse("MBBS aur Nursing dono medical field ke alag-alag professional courses hain. MBBS karke aap doctor bante hain, jisme 5.5 saal lagte hain. Nursing ek 4 saal ka course hai jisme aap patient care aur medical assistance ki training lete hain.");
+  }
+
+  // Handle gibberish
+  const gibberishRegex = /^(asdf|sdfg|hjkl|jkl|sdg|fgh|asd|xyz|dfg){1,4}$/;
+  if (gibberishRegex.test(lowerCaseMessage)) {
+    return shapeResponse(SAFE_RESPONSES.GIBBERISH);
+  }
+
+  // Handle other career guidance to prevent job list invention
+  const careerGuidanceKeywords = ['12th ke baad kya karu', 'career option', 'bca ke baad kya kare'];
+  if (careerGuidanceKeywords.some(kw => lowerCaseMessage.includes(kw))) {
+    // This query will proceed to the LLM, but the prompt should guide it to give general advice.
+    // A post-filter can also check for job lists.
   }
 
   return null; // No pre-LLM block triggered, proceed to LLM
@@ -92,9 +127,10 @@ function preLlmChecks(userMessage) {
  * Post-LLM Safety Filter.
  * Scans the LLM's response for unsafe content and replaces it if found.
  * @param {string} llmResponse - The response text from the LLM.
+ * @param {string} normalizedQuery - The normalized user query.
  * @returns {string} The sanitized and safe response text.
  */
-function postLlmFilter(llmResponse) {
+function postLlmFilter(llmResponse, normalizedQuery) {
   if (!llmResponse || typeof llmResponse !== 'string') {
     return SAFE_RESPONSES.GENERIC_FALLBACK;
   }
@@ -107,12 +143,21 @@ function postLlmFilter(llmResponse) {
     'database', 'mongoose', 'cheerio', 'node.js', 'express.js', 'mongodb',
     'runpod', 'openrouter', 'api key', 'secret',
     // Fake placeholders
-    'nasa clerk recruitment', '[link]', 'link will be updated',
-    'direct joining is confirmed'
+    'nasa clerk recruitment', 'pmo peon recruitment',
+    // Fake link patterns
+    '[link]', 'link will be updated', 'apply link:',
+    // Fake claims
+    'direct joining is confirmed', 'guaranteed selection'
   ];
 
   if (forbiddenContent.some(kw => lowerCaseResponse.includes(kw))) {
     return SAFE_RESPONSES.UNSAFE_OUTPUT;
+  }
+
+  // For career guidance queries, block if it invents a job list
+  const isCareerQuery = /career|kaise bane|kya karu/.test(normalizedQuery.toLowerCase());
+  if (isCareerQuery && /\d\.\s\*\*/.test(llmResponse)) { // Detects markdown list of jobs
+      return SAFE_RESPONSES.GENERIC_CAREER_FALLBACK;
   }
 
   // 5. Grounding Rule (Heuristic check for invented details)
@@ -120,7 +165,8 @@ function postLlmFilter(llmResponse) {
   const unverifiedPatterns = [
     /last date is \d{1,2} [a-zA-Z]+ \d{4}/, // "last date is 27 July 2026"
     /salary is (around|approx) [₹\d,]+/, // "salary is around 50,000"
-    /apply here: http/ // "apply here: http..."
+    /apply here: http/, // "apply here: http..."
+    /total vacancies are \d+/
   ];
 
   // This check is tricky without knowing the ground truth.
@@ -134,13 +180,15 @@ function postLlmFilter(llmResponse) {
 /**
  * Ensures the final response object has the required shape.
  * @param {string} finalText - The final, safe message to be sent to the user.
+ * @param {object} existingExtras - Any extra fields from the original response to preserve.
  * @returns {object} A response object with success, message, and answer fields.
  */
-function shapeResponse(finalText) {
+function shapeResponse(finalText, existingExtras = {}) {
   return {
     success: true,
     message: finalText,
     answer: finalText,
+    ...existingExtras
   };
 }
 
@@ -149,5 +197,5 @@ module.exports = {
   preLlmChecks,
   postLlmFilter,
   shapeResponse,
-  SAFE_RESPONSES
+  SAFE_RESPONSES,
 };

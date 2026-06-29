@@ -1,5 +1,12 @@
 const Chat = require('../chat/chatModel');
 const Feedback = require('../feedback/feedbackModel');
+const {
+    normalizeRequest,
+    preLlmChecks,
+    postLlmFilter,
+    shapeResponse,
+    SAFE_RESPONSES
+} = require('./brain/aiSafetyGuard');
 const Settings = require('../settings/settingsModel');
 const Job = require('../jobs/jobModel');
 const Jansewa = require('../jansewa/jansewaModel');
@@ -33,15 +40,19 @@ class AIService {
     static async processRequest(input) {
         const startTime = Date.now();
         const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-        const { userMessage, question, userName, history } = input;
 
+        // PHASE 6-B: Pre-LLM Safety Gate Integration
+        const userMessage = normalizeRequest(input);
+        const preCheckResponse = preLlmChecks(userMessage, input);
+        if (preCheckResponse) {
+            return { ...preCheckResponse, requestId };
+        }
+
+        const { userName, history } = input;
         const sessionId = input.sessionId || `session_${Date.now()}`;
-        const rawInput = (userMessage || question || "").trim();
+        const rawInput = userMessage; // Already normalized
 
         ProgressEmitter.emit(sessionId, 'REQUEST_RECEIVED');
-
-        if (!rawInput) return { success: false, message: "Empty input.", requestId };
-
         ProgressEmitter.emit(sessionId, 'INPUT_PROCESSING');
 
         let metrics = { intent: 'UNKNOWN', provider: 'NONE', searchUsed: false, requestId };
@@ -168,7 +179,7 @@ class AIService {
                 { role: 'user', content: rewrittenQuery }
             ]);
 
-            let finalContent = aiResponse.content;
+            let llmContent = aiResponse.content;
 
             // --- PHASE 10: Validation & Repair Pipeline ---
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
@@ -183,7 +194,7 @@ class AIService {
                 state: state
             };
 
-            let validation = ResponseValidator.validate(finalContent, validationInput);
+            let validation = ResponseValidator.validate(llmContent, validationInput);
 
             // Hallucination Check for Jobs (Additional layer)
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
@@ -191,7 +202,7 @@ class AIService {
             let hasHallucinatedJob = false;
             if (plan.intent === 'GOVT_JOB' || finalContent.toLowerCase().includes('vacancy')) {
                 const jobMatches = finalContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
-                if (jobMatches) {
+                if (jobMatches && isDataMissing) {
                     for (const match of jobMatches) {
                         const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').trim().toLowerCase();
                         const words = jobName.split(' ').filter(w => w.length > 3);
@@ -214,12 +225,12 @@ class AIService {
                         { role: 'system', content: systemInstruction + repairPrompt },
                         { role: 'user', content: rewrittenQuery }
                     ]);
-                    finalContent = repairResponse.content;
+                    llmContent = repairResponse.content;
                     // Final Validation after repair
-                    validation = ResponseValidator.validate(finalContent, validationInput);
+                    validation = ResponseValidator.validate(llmContent, validationInput);
                 } else {
                     // Code-based cleanup is usually enough for LOW/MEDIUM issues
-                    finalContent = ResponseCleaner.clean(finalContent, {
+                    llmContent = ResponseCleaner.clean(llmContent, {
                         isPureGreeting: validationInput.isPureGreeting,
                         intent: plan.intent,
                         query: rewrittenQuery
@@ -227,9 +238,13 @@ class AIService {
                 }
             }
 
+            // PHASE 6-B: Post-LLM Safety Filter
+            let finalContent = postLlmFilter(llmContent, rawInput);
+
             // Fallback for failed strict validation
             if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
                 finalContent = ResponseCleaner.getFactualFallback();
+                finalContent = postLlmFilter(finalContent, rawInput); // Filter the fallback too
             } else if (!validation.passed && validationInput.isPureGreeting) {
                 finalContent = ResponseCleaner.getGreetingFallback();
             }
@@ -260,16 +275,20 @@ class AIService {
             Metrics.logRequest(metrics);
             await this._persistChat(userName, sessionId, rawInput, processed, metrics, state.topic);
 
+            // PHASE 6-B: Final shaping of the response
+            const { message, ...extraFields } = processed;
+            const finalResponse = shapeResponse(message, extraFields);
+
             ProgressEmitter.emit(sessionId, 'FINAL_RESPONSE_READY');
 
-            return { success: true, ...processed, confidence: confidence.score, topic: state.topic, requestId };
+            return { ...finalResponse, confidence: confidence.score, topic: state.topic, requestId };
 
         } catch (error) {
             ProgressEmitter.emit(sessionId, 'ERROR');
             metrics.error = error.message;
             Metrics.logRequest(metrics);
             console.error("❌ Orchestration Error:", error);
-            return { success: false, message: "Service temporarily unavailable." };
+            return { ...shapeResponse(SAFE_RESPONSES.GENERIC_FALLBACK), success: false, requestId };
         }
     }
 
