@@ -486,12 +486,6 @@ INSTRUCTIONS FOR REPAIR:
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         let baseUrl = setting?.value || constants.DEFAULT_RUNPOD_URL;
 
-        // EMERGENCY OVERRIDE: If DB has an old/dead proxy URL, force use constants
-        if (setting?.value && setting.value.includes('proxy.runpod.net')) {
-            console.log("⚠️ [AI_CONFIG] Detected dead proxy in DB, forcing Local Ollama from constants.");
-            baseUrl = constants.DEFAULT_RUNPOD_URL;
-        }
-
         // Clean URL to avoid double /api/chat
         baseUrl = baseUrl.replace(/\/api\/chat\/?$/, '').replace(/\/$/, '');
         const finalUrl = `${baseUrl}/api/chat`;
