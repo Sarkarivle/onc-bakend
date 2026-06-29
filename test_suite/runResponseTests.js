@@ -5,7 +5,39 @@
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
+
+// --- COMPLETE MOCKING (BEFORE ANY AI SERVICE IMPORT) ---
+mongoose.set('bufferCommands', false);
+mongoose.connect = async () => {};
+mongoose.connection.readyState = 1;
+
+const mockModel = {
+  findOne: async () => null,
+  find: () => ({
+    sort: () => ({ lean: async () => [] }),
+    lean: async () => [],
+    limit: () => ({ lean: async () => [] }),
+    skip: () => ({ limit: () => ({ lean: async () => [] }) })
+  }),
+  countDocuments: async () => 0,
+  create: async (data) => data,
+  updateOne: async () => ({ acknowledged: true }),
+  findOneAndUpdate: async () => null
+};
+mongoose.model = () => mockModel;
+
 const axios = require('axios');
+axios.post = async (url, data) => {
+    const userQuery = data.messages.find(m => m.role === 'user')?.content || '';
+    let content = `This is a mock response for: ${userQuery}`;
+    if (userQuery.toLowerCase().includes('namaste')) {
+        content = "Namaste! Main Jobo AI hoon. Main aapki kaise madad kar sakta hoon?";
+    }
+    return { data: { message: { content: content + " [SUGGESTIONS: Details, Apply, Fees]" } } };
+};
+
+require('../src/features/ai/searchService').search = async () => [];
+
 const AIService = require('../src/features/ai/aiService');
 const ConversationState = require('../src/features/ai/conversationState');
 const Reporter = require('./responseTestReporter'); // Using a dedicated reporter
@@ -15,21 +47,6 @@ const {
     containsAllMeaning,
     doesNotContainForbidden
 } = require('./helpers/responseValidators');
-
-// --- MOCK INFRASTRUCTURE ---
-const mockModel = { findOne: async () => ({ value: 'mock_value' }), find: () => ({ sort: () => ({ lean: () => Promise.resolve([]) }) }), countDocuments: async () => 0, create: async (data) => data };
-mongoose.model = (name) => mockModel;
-mongoose.connect = async () => {};
-require('../src/features/ai/searchService').search = async () => [];
-
-axios.post = async (url, data) => {
-    const userQuery = data.messages.find(m => m.role === 'user')?.content || '';
-    let content = `This is a mock response for: ${userQuery}`;
-    if (userQuery.toLowerCase().includes('namaste')) {
-        content = "Namaste! Main Jobo AI hoon. Main aapki kaise madad kar sakta hoon?";
-    }
-    return { data: { message: { content: content + " [SUGGESTIONS: Details, Apply, Fees]" } } };
-};
 
 AIService._fetchDatabaseKnowledge = async (query, profile, plan) => {
     // This can be expanded with mock data from the test case itself
