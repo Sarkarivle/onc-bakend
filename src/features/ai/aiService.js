@@ -44,8 +44,15 @@ class AIService {
         const startTime = Date.now();
         const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-        // PHASE 6-B: Pre-LLM Safety Gate Integration
         const userMessage = normalizeRequest(input);
+
+        // --- EMERGENCY GREETING BYPASS ---
+        const cleanMsg = userMessage.toLowerCase().replace(/[?.!]/g, '').trim();
+        if (/^(hi|hello|namaste|hey|hii|bolo|bhai|dost|kya haal hai|kaise ho)$/i.test(cleanMsg)) {
+            return { ...shapeResponse(SAFE_RESPONSES.GREETING), requestId };
+        }
+
+        // PHASE 6-B: Pre-LLM Safety Gate Integration
         const preCheckResponse = preLlmChecks(userMessage, input);
         if (preCheckResponse) {
             return { ...preCheckResponse, requestId };
@@ -364,6 +371,15 @@ INSTRUCTIONS FOR REPAIR:
         const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
         const userMessage = normalizeRequest(input);
+
+        // --- EMERGENCY GREETING BYPASS ---
+        const cleanMsg = userMessage.toLowerCase().replace(/[?.!]/g, '').trim();
+        if (/^(hi|hello|namaste|hey|hii|bolo|bhai|dost|kya haal hai|kaise ho)$/i.test(cleanMsg)) {
+            onChunk(SAFE_RESPONSES.GREETING);
+            onChunk(`\n\n[METADATA]${JSON.stringify({ success: true, requestId, isFullResponse: true, suggestions: ["Sarkari Naukri", "Career Advice"] })}`);
+            return;
+        }
+
         const preCheckResponse = preLlmChecks(userMessage, input);
         if (preCheckResponse) {
             onChunk(preCheckResponse.message); // Send text first
@@ -470,11 +486,20 @@ INSTRUCTIONS FOR REPAIR:
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         let baseUrl = setting?.value || constants.DEFAULT_RUNPOD_URL;
 
+        // EMERGENCY OVERRIDE: If DB has an old/dead proxy URL, force use constants
+        if (setting?.value && setting.value.includes('proxy.runpod.net')) {
+            console.log("⚠️ [AI_CONFIG] Detected dead proxy in DB, forcing Local Ollama from constants.");
+            baseUrl = constants.DEFAULT_RUNPOD_URL;
+        }
+
         // Clean URL to avoid double /api/chat
         baseUrl = baseUrl.replace(/\/api\/chat\/?$/, '').replace(/\/$/, '');
+        const finalUrl = `${baseUrl}/api/chat`;
+
+        console.log(`[AI_CONFIG] 🚀 Using Model: ${constants.AI_MODEL_NAME} | URL: ${finalUrl}`);
 
         return new RunpodProvider({
-            baseUrl: `${baseUrl}/api/chat`,
+            baseUrl: finalUrl,
             model: constants.AI_MODEL_NAME
         });
     }
