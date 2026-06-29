@@ -17,8 +17,12 @@ class ResolvedIntentMerger {
             context = {},
             confidence
         } = layers;
+        const normalizedMessage = String(
+            layers.normalizedMessage || originalMessage || ""
+        ).toLowerCase().trim();
+
         const rawMessage = String(originalMessage || "").toLowerCase().trim();
-        const safeNormalizedMessage = String(layers.normalizedMessage || "").toLowerCase().trim();
+        const safeNormalizedMessage = normalizedMessage;
         const combinedMessage = `${rawMessage} ${safeNormalizedMessage}`;
 
         const canonicalRule = this._canonicalizeRule(ruleIntent, ruleResult, context, normalizedMessage);
