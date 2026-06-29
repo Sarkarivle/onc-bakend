@@ -155,7 +155,8 @@ function preLlmChecks(userMessage, requestBody = {}) {
   }
 
   // Handle standard greetings
-  if (/^(namaste|hello|hi|hey|hii|bolo|bhai|dost|namaskar|hey)$/i.test(lowerCaseMessage)) {
+  const cleanMsg = lowerCaseMessage.replace(/[?.!]/g, '').trim();
+  if (/^(namaste|hello|hi|hey|hii|bolo|bhai|dost|namaskar|hey|ram ram|shubh prabhat)$/i.test(cleanMsg)) {
     return shapeResponse(SAFE_RESPONSES.GREETING);
   }
 
