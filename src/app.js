@@ -164,4 +164,23 @@ app.post('/api/v1/ai/ask', async (req, res) => {
     }
 });
 
+// Streaming AI Route
+app.post('/api/v1/ai/ask-stream', async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    try {
+        await AIService.processRequestStream(req.body, (chunk) => {
+            res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+        });
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch (error) {
+        console.error("Streaming Route Error:", error);
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.end();
+    }
+});
+
 module.exports = app;

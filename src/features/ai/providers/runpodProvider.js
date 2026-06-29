@@ -30,6 +30,47 @@ class RunpodProvider extends LLMProvider {
             provider: 'runpod'
         };
     }
+
+    async chatStream(messages, onChunk, options = {}) {
+        const response = await axios.post(this.baseUrl, {
+            model: this.model,
+            messages: messages,
+            stream: true,
+            options: { temperature: options.temperature || 0.5 }
+        }, {
+            timeout: this.timeout,
+            responseType: 'stream'
+        });
+
+        return new Promise((resolve, reject) => {
+            let fullContent = "";
+            response.data.on('data', chunk => {
+                const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+                for (const line of lines) {
+                    if (line.includes('[DONE]')) continue;
+                    try {
+                        const parsed = JSON.parse(line.replace(/^data: /, ''));
+                        const content = parsed.choices?.[0]?.delta?.content || parsed.message?.content || "";
+                        if (content) {
+                            fullContent += content;
+                            onChunk(content);
+                        }
+                    } catch (e) {
+                        // Sometimes chunks are partial JSON
+                    }
+                }
+            });
+
+            response.data.on('end', () => {
+                resolve({
+                    content: fullContent,
+                    provider: 'runpod'
+                });
+            });
+
+            response.data.on('error', reject);
+        });
+    }
 }
 
 module.exports = RunpodProvider;

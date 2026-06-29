@@ -72,6 +72,17 @@ class AIService {
             const resolvedIntent = await IntentDetector.detectSemantic(rawInput, state, profile);
             const intentObj = IntentDetector.detect(rawInput); // Legacy fallback context
 
+            // --- PHASE 4-B: Profile Sync ---
+            if (resolvedIntent.entities && Object.keys(resolvedIntent.entities).length > 0) {
+                await UserProfile.syncToDb(userName, {
+                    qualification: resolvedIntent.entities.qualification,
+                    state: resolvedIntent.entities.location || resolvedIntent.entities.state,
+                    category: resolvedIntent.entities.category,
+                    dob: resolvedIntent.entities.dob,
+                    gender: resolvedIntent.entities.gender
+                });
+            }
+
             // --- PHASE 5: Planning ---
             ProgressEmitter.emit(sessionId, 'PLANNING');
             const plan = Planner.plan(rawInput, resolvedIntent, state, profile);
@@ -295,6 +306,110 @@ class AIService {
             Metrics.logRequest(metrics);
             console.error("❌ Orchestration Error:", error);
             return { ...shapeResponse(SAFE_RESPONSES.GENERIC_FALLBACK), success: false, requestId };
+        }
+    }
+
+    static async processRequestStream(input, onChunk) {
+        const startTime = Date.now();
+        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+        const userMessage = normalizeRequest(input);
+        const preCheckResponse = preLlmChecks(userMessage, input);
+        if (preCheckResponse) {
+            onChunk(JSON.stringify({ ...preCheckResponse, requestId, isFullResponse: true }));
+            return;
+        }
+
+        const { userName, history } = input;
+        const sessionId = input.sessionId || `session_${Date.now()}`;
+        const rawInput = userMessage;
+
+        try {
+            const [state, profile] = await Promise.all([
+                ConversationState.get(sessionId),
+                Promise.resolve(UserProfile.format({ name: userName, ...input }))
+            ]);
+
+            const resolvedIntent = await IntentDetector.detectSemantic(rawInput, state, profile);
+            const intentObj = IntentDetector.detect(rawInput);
+
+            // --- Profile Sync ---
+            if (resolvedIntent.entities && Object.keys(resolvedIntent.entities).length > 0) {
+                await UserProfile.syncToDb(userName, {
+                    qualification: resolvedIntent.entities.qualification,
+                    state: resolvedIntent.entities.location || resolvedIntent.entities.state,
+                    category: resolvedIntent.entities.category,
+                    dob: resolvedIntent.entities.dob,
+                    gender: resolvedIntent.entities.gender
+                });
+            }
+
+            const plan = Planner.plan(rawInput, resolvedIntent, state, profile);
+
+            let queryForSearch = resolvedIntent.isFollowUp ? (resolvedIntent.normalizedMessage || rawInput) : rawInput;
+            const rewrittenQuery = QueryRewriter.rewrite(queryForSearch, state);
+            const routes = KnowledgeRouter.route(plan, rewrittenQuery);
+
+            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem };
+            if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
+                let [dbResult, webData] = await Promise.all([
+                    this._fetchDatabaseKnowledge(rewrittenQuery, profile, plan),
+                    routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(rewrittenQuery) : null
+                ]);
+                if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
+                if (webData) knowledgeContext.web = webData;
+            }
+
+            const options = { timeZone: "Asia/Kolkata", day: '2-digit', month: 'long', year: 'numeric' };
+            const indiaDateStr = new Intl.DateTimeFormat('en-GB', options).format(new Date());
+            const currentYear = new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata", year: 'numeric' });
+
+            const promptMeta = { currentDate: indiaDateStr, currentYear, sessionId, behavior: plan.behavior, turnCount: state.turnCount || 0, plan };
+            let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
+
+            const llm = await this._getLLMProvider();
+
+            let fullContent = "";
+            const streamResponse = await llm.chatStream([
+                { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. Only discuss jobs active in ${currentYear} or later.` },
+                ...(history || []),
+                { role: 'user', content: rewrittenQuery }
+            ], (chunk) => {
+                fullContent += chunk;
+                onChunk(chunk); // Send raw chunk to UI
+            });
+
+            // Post-stream processing
+            const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, { passed: true });
+            const processed = this._finalProcess(fullContent, confidence, {
+                intent: plan.intent,
+                query: rewrittenQuery,
+                userProfile: profile
+            });
+
+            await ConversationState.update(sessionId, {
+                query: rawInput,
+                acts: intentObj.acts,
+                domains: intentObj.domains,
+                intents: intentObj.intents,
+                resolvedIntent: resolvedIntent,
+                aiResponse: processed.message,
+                plan: plan,
+                knowledgeContext: knowledgeContext,
+                userName
+            });
+
+            // Final metadata chunk
+            onChunk(`\n\n[METADATA]${JSON.stringify({
+                confidence: confidence.score,
+                topic: state.topic,
+                requestId,
+                suggestions: processed.suggestions
+            })}`);
+
+        } catch (error) {
+            console.error("❌ Streaming Orchestration Error:", error);
+            onChunk(SAFE_RESPONSES.GENERIC_FALLBACK);
         }
     }
 

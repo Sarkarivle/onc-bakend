@@ -14,7 +14,9 @@
     "test:performance": "node test_suite/runPerformanceTests.js",
     "test:all": "npm run test:intents && npm run test:conversation && npm run test:responses && npm run test:safety && npm run test:data && npm run test:performance",
     "test:live-ai": "node test_suite/runLiveAiTests.js",
-    "test:brain": "node test_suite/runBrainTests.js"
+    "test:brain": "node test_suite/runBrainTests.js",
+    "test:release": "npm run test:all && npm run test:brain",
+    "test:release-live": "npm run test:all && npm run test:brain && npm run test:live-ai"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

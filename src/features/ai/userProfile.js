@@ -40,6 +40,30 @@ class UserProfile {
 
         return parts.length > 0 ? parts.join(" | ") : "User Profile is currently empty.";
     }
+
+    /**
+     * Syncs profile info to the User database model.
+     */
+    static async syncToDb(userName, profileUpdates) {
+        const User = require('../auth/userModel');
+        if (!userName || userName === 'User' || !profileUpdates) return;
+
+        const updateData = {};
+        if (profileUpdates.qualification) updateData.education = profileUpdates.qualification;
+        if (profileUpdates.state) updateData.domicileState = profileUpdates.state;
+        if (profileUpdates.category) updateData.category = profileUpdates.category;
+        if (profileUpdates.dob) updateData.dob = profileUpdates.dob;
+        if (profileUpdates.gender) updateData.gender = profileUpdates.gender;
+
+        if (Object.keys(updateData).length === 0) return;
+
+        try {
+            // Try matching by name (this is a simple fallback, phone is better but might not be in session)
+            await User.findOneAndUpdate({ name: userName }, updateData, { new: true });
+        } catch (e) {
+            console.error("Profile sync error:", e.message);
+        }
+    }
 }
 
 module.exports = UserProfile;
