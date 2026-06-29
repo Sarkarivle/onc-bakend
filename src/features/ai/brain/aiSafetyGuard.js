@@ -37,7 +37,7 @@ function semanticSafeFallback(userText) {
         if (q.includes('salary') && q.includes('google data entry')) {
             return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
         }
-        if (q.includes('nasa clerk') && (q.includes('apply') || q.includes('kaise karu'))) {
+        if (q.includes('nasa clerk')) {
             return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai.";
         }
         if (q.includes('link') || q.includes('apply')) {
@@ -57,7 +57,7 @@ function semanticSafeFallback(userText) {
     }
 
     if (q.includes('goa') && q.includes('arts') && q.includes('sc')) {
-        return "Maaf kijiye, mujhe abhi iski verified jankari available nahi hai. Kripya clear batayein ki aap Goa me arts student ke liye kis department, qualification ya post ki job janna chahte hain.";
+        return "Maaf kijiye, mujhe abhi iski verified jankari nahi available hai. Kripya clear batayein ki aap Goa me arts student ke liye kis department, qualification ya post ki job janna chahte hain.";
     }
 
     if (q.includes('bihar') && q.includes('daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
@@ -302,7 +302,7 @@ function postLlmFilter(llmResponse, normalizedQuery) {
       return semanticSafeFallback(normalizedQuery);
   }
 
-  if (lowerCaseResponse.includes('google data entry') && (lowerCaseResponse.includes('salary') || /\d/.test(llmResponse))) {
+  if (lowerCaseResponse.includes('google data entry') && (lowerCaseResponse.includes('salary') || lowerCaseResponse.includes('rupaye') || lowerCaseResponse.includes('rs') || /\d/.test(llmResponse))) {
       return semanticSafeFallback("google data entry salary");
   }
 

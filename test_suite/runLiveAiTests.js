@@ -152,9 +152,9 @@ async function runTests() {
 
         try {
             // Robust message reader
-            const userMessage = test.userMessage || test.message || test.query || test.input || test.prompt || test.text;
+            const userMessage = Object.prototype.hasOwnProperty.call(test, "userMessage") ? test.userMessage : (test.message || test.query || test.input || test.prompt || test.text);
 
-            if (!userMessage && userMessage !== "") {
+            if (userMessage === undefined) {
                 throw new Error("Test case is missing a user message field (e.g., userMessage, message, query).");
             }
 
