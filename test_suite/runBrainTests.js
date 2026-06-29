@@ -27,15 +27,77 @@ function pickModule(fileName) {
 
 async function runModule(mod, message, test) {
   if (!mod) return {};
+
   const history = test.history || [];
   const context = test.context || {};
 
-  if (typeof mod === 'function') return mod(message, history, context);
-  for (const fn of ['normalize', 'analyze', 'extract', 'extractEntities', 'resolve', 'plan', 'validate', 'score']) {
-    if (typeof mod[fn] === 'function') return mod[fn](message, history, context);
+  function isClass(fn) {
+    return typeof fn === 'function' && /^class\s/.test(Function.prototype.toString.call(fn));
   }
-  if (mod.default && typeof mod.default === 'function') return mod.default(message, history, context);
-  return {};
+
+  function callKnownMethods(target) {
+    if (!target) return null;
+
+    for (const fn of [
+      'normalize',
+      'analyze',
+      'detect',
+      'extract',
+      'extractEntities',
+      'resolve',
+      'plan',
+      'validate',
+      'score',
+      'interpret',
+      'createPlan'
+    ]) {
+      if (typeof target[fn] === 'function') {
+        return target[fn](message, history, context);
+      }
+    }
+
+    return null;
+  }
+
+  try {
+    if (isClass(mod)) {
+      const instance = new mod();
+      const instanceResult = callKnownMethods(instance);
+      if (instanceResult !== null) return instanceResult;
+
+      const staticResult = callKnownMethods(mod);
+      if (staticResult !== null) return staticResult;
+    }
+
+    if (typeof mod === 'function') {
+      return mod(message, history, context);
+    }
+
+    const directResult = callKnownMethods(mod);
+    if (directResult !== null) return directResult;
+
+    if (mod.default) {
+      const d = mod.default;
+
+      if (isClass(d)) {
+        const instance = new d();
+        const instanceResult = callKnownMethods(instance);
+        if (instanceResult !== null) return instanceResult;
+
+        const staticResult = callKnownMethods(d);
+        if (staticResult !== null) return staticResult;
+      }
+
+      if (typeof d === 'function') return d(message, history, context);
+
+      const defaultResult = callKnownMethods(d);
+      if (defaultResult !== null) return defaultResult;
+    }
+
+    return {};
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 function norm(v) {
