@@ -14,6 +14,8 @@ function getExpected(test) {
 }
 
 function pickModule(fileName) {
+  if (fileName.includes('semantic_query_interpreter')) return brain.semanticQueryInterpreter;
+  if (fileName.includes('semantic_retrieval_planner')) return brain.semanticRetrievalPlanner;
   if (fileName.includes('query_normalizer')) return brain.queryNormalizer;
   if (fileName.includes('intent_domain_analyzer')) return brain.intentDomainAnalyzer;
   if (fileName.includes('entity_extractor')) return brain.entityExtractor;
@@ -105,6 +107,26 @@ function norm(v) {
 }
 
 function valueMatches(actualValue, expectedValue) {
+  if (
+    expectedValue &&
+    typeof expectedValue === 'object' &&
+    !Array.isArray(expectedValue) &&
+    expectedValue.minScore !== undefined
+  ) {
+    const score = actualValue?.score ?? actualValue?.overallConfidence ?? actualValue?.confidence ?? actualValue;
+    return Number(score) >= Number(expectedValue.minScore);
+  }
+
+  if (
+    expectedValue &&
+    typeof expectedValue === 'object' &&
+    !Array.isArray(expectedValue) &&
+    expectedValue.maxScore !== undefined
+  ) {
+    const score = actualValue?.score ?? actualValue?.overallConfidence ?? actualValue?.confidence ?? actualValue;
+    return Number(score) <= Number(expectedValue.maxScore);
+  }
+
   if (Array.isArray(expectedValue)) {
     const actualArray = Array.isArray(actualValue) ? actualValue : [actualValue];
     return expectedValue.every(e => actualArray.map(norm).includes(norm(e)));

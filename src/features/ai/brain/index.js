@@ -6,5 +6,7 @@ module.exports = {
   retrievalPlanner: require('./retrievalPlanner'),
   responsePlanner: require('./responsePlanner'),
   guardrailValidator: require('./guardrailValidator'),
-  confidenceScorer: require('./confidenceScorer')
+  confidenceScorer: require('./confidenceScorer'),
+  semanticQueryInterpreter: require('./semanticQueryInterpreter'),
+  semanticRetrievalPlanner: require('./semanticRetrievalPlanner')
 };
