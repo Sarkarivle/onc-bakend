@@ -42,14 +42,30 @@ class ResolvedIntentMerger {
         const lastItems = context.lastShownItems || context.lastShownJobs || [];
         const hasContext = lastItems.length > 0 || (context.currentDomain && context.currentDomain !== 'GENERAL');
 
+        const hasClarificationContext =
+            hasContext ||
+            Boolean(context.currentTopic) ||
+            Boolean(context.topic) ||
+            Boolean(context.lastAssistantQuestion) ||
+            Boolean(followUp?.isFollowUp) ||
+            Boolean(followUpPrimary) ||
+            (ruleResult?.acts || []).includes('FOLLOW_UP') ||
+            ruleResult?.communicationAct === 'FOLLOW_UP';
+
+        const isExplicitHealthJobQuery =
+            /\b(nursing|nurse|anm|gnm|health worker|asha)\b/i.test(normalizedMessage) &&
+            /\b(job|jobs|vacancy|recruitment|bharti|opening|listing|in bihar|in up|in delhi|in rajasthan|in madhya pradesh)\b/i.test(normalizedMessage);
+
         if (ruleResult?.isPureGreeting) {
             primary = 'GREETING';
-        } else if (isClarificationFollowUp && hasContext) {
+        } else if (isClarificationFollowUp && hasClarificationContext) {
             primary = 'FIELD_DETAILS';
         } else if (isNumericFollowUp && hasContext) {
             primary = 'FIELD_DETAILS';
         } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
             primary = followUpPrimary;
+        } else if (isExplicitHealthJobQuery) {
+            primary = 'JOB_QUERY';
         } else if (strongIntent) {
             primary = strongIntent.primaryIntent;
         } else if (isCareerLock) {
@@ -108,7 +124,7 @@ class ResolvedIntentMerger {
         if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
         if (isCareerLock && !isClarificationFollowUp) isFollowUp = false;
 
-        if (isClarificationFollowUp && hasContext) {
+        if (isClarificationFollowUp && hasClarificationContext) {
             isFollowUp = true;
         } else if (primary === 'FIELD_DETAILS' && hasContext) {
             isFollowUp = true;
@@ -153,30 +169,35 @@ class ResolvedIntentMerger {
         // FINAL OVERRIDE BLOCK
         // ==================================================
 
-        // B) CAREER_GUIDANCE domain normalization (runs before clarification override)
-        if (finalIntent.resolvedIntent === 'CAREER_GUIDANCE' || finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
+        // 1) Career guidance domain normalization
+        if (finalIntent.resolvedIntent === "CAREER_GUIDANCE" || finalIntent.primaryIntent === "CAREER_GUIDANCE") {
             finalIntent.domain = "CAREER";
             finalIntent.domainIntent = "CAREER";
             finalIntent.task = "GUIDANCE";
-            finalIntent.graphDomain = "CAREER";
         }
 
-        // C) Explicit health job override (example of another override)
-        const healthTerms = /\b(nursing|nurse|anm|gnm|health worker|asha)\b/i;
-        const jobTerms = /\b(job|jobs|vacancy|recruitment|bharti|opening|listing|in bihar)\b/i;
-        if (healthTerms.test(normalizedMessage) && jobTerms.test(normalizedMessage)) {
-            // This logic would force JOB_QUERY, but we are focusing on the requested fixes.
+        // 2) Explicit health job override
+        if (isExplicitHealthJobQuery) {
+            finalIntent.communicationAct = "QUESTION";
+            finalIntent.domain = "HEALTH_JOB";
+            finalIntent.domainIntent = "HEALTH_JOB";
+            finalIntent.task = "LATEST";
+            finalIntent.resolvedIntent = "JOB_QUERY";
+            finalIntent.primaryIntent = "JOB_QUERY";
+            finalIntent.isFollowUp = false;
+            finalIntent.isPureGreeting = false;
         }
 
-        // A) Follow-up clarification override (Runs last to have final say)
-        if (isClarificationFollowUp && hasContext) {
+        // 3) Follow-up clarification override must run last
+        if (isClarificationFollowUp && hasClarificationContext) {
             finalIntent.communicationAct = "FOLLOW_UP";
-            finalIntent.domain = context.currentDomain || context.lastDomain || "GOVT_JOB";
-            finalIntent.graphDomain = context.currentDomain || context.lastDomain || "GOVT_JOB";
+            finalIntent.domain = context.currentDomain || context.lastDomain || finalIntent.domain || "GOVT_JOB";
+            finalIntent.domainIntent = context.currentDomain || context.lastDomain || finalIntent.domainIntent || finalIntent.domain || "GOVT_JOB";
             finalIntent.task = "DETAILS";
             finalIntent.resolvedIntent = "FIELD_DETAILS";
             finalIntent.primaryIntent = "FIELD_DETAILS";
             finalIntent.isFollowUp = true;
+            finalIntent.usePreviousContext = true;
             finalIntent.isPureGreeting = false;
         }
 
