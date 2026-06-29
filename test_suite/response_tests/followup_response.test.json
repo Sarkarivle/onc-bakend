@@ -1,0 +1,12 @@
+[
+  {
+    "id": "resp_followup_001",
+    "message": "aur batao",
+    "description": "Should handle a generic followup",
+    "expected": {
+      "mustContainAny": ["kiske baare me", "kya janna", "please specify"],
+      "mustNotContain": ["Intent detected"],
+      "maxWords": 50
+    }
+  }
+]

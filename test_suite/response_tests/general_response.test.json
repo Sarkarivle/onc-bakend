@@ -1,0 +1,11 @@
+[
+  {
+    "id": "resp_general_001",
+    "message": "tum kaun ho",
+    "description": "Should introduce itself for a general query",
+    "expected": {
+      "mustContainAny": ["jobo ai", "assistant"],
+      "mustNotContain": ["Intent detected"]
+    }
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "resp_career_001",
+    "message": "doctor kaise bane",
+    "description": "Should provide a helpful response for a career query",
+    "expected": {
+      "mustContainAny": ["doctor", "mbbs", "neet"],
+      "mustNotContain": ["Intent detected", "Database miss"],
+      "maxWords": 150
+    }
+  }
+]
