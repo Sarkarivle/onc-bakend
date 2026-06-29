@@ -11,12 +11,11 @@ class StrongIntentResolver {
         const hasGreeting = acts.has('GREET') || /^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/.test(q);
 
         // Early return for contextual follow-up phrases to prevent misclassification as CAREER_GUIDANCE.
-        const followUpPhrases = [
-            "sahi se batao", "achhe se batao", "acche se batao", "detail me batao",
-            "clear batao", "batao na", "dobara batao", "samjha ke batao"
-        ];
+        const followUpPhrases = /\b(sahi se batao|achhe se batao|acche se batao|detail me batao|clear batao|batao na|dobara batao|samjha ke batao)\b/i;
 
-        if (followUpPhrases.includes(q)) {
+        // The regex `\b` ensures it matches whole words/phrases.
+        // The `i` flag makes it case-insensitive.
+        if (followUpPhrases.test(q)) {
             // This is a follow-up ONLY if context exists. The merger will check `isFollowUp`.
             // By returning this, we prevent the CAREER_GUIDANCE rule below from firing incorrectly.
             // If no context, it will correctly fall back to GENERAL_QUERY.

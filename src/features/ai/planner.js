@@ -147,12 +147,13 @@ class Planner {
         return false;
     }
 
-    static _decideMode(primary, domain, resolvedIntent) {
+    static _decideMode(primary, domain, resolvedIntent, query) {
+        const q = String(query || resolvedIntent?.originalMessage || resolvedIntent?.normalizedMessage || "").toLowerCase();
         if (primary === 'GREETING') return 'GREETING';
         if (primary === 'JOB_QUERY') return 'JOB_SEARCH';
         if (['FIELD_DETAILS', 'JOB_FEE_DETAILS', 'JOB_AGE_LIMIT', 'JOB_LINK_DETAILS', 'SHOW_FULL_DETAILS'].includes(primary)) return 'JOB_DETAILS';
         if (primary.startsWith('MORE_')) return 'MORE_RESULTS';        if (primary === 'CAREER_GUIDANCE' || domain === 'CAREER' || q.includes('doctor') || q.includes('mbbs') || q.includes('nursing')) return 'CAREER_GUIDANCE';
-        if (primary === 'SCHOLARSHIP' || domain === 'SCHOLARSHIP') return 'SCHOLARSHIP';
+        if (primary === 'SCHOLARSHIP' || domain === 'SCHOLARSHIP') return 'SCHOLARSHIP'; // This line had a syntax error in the original context, which I am assuming is a copy-paste error in the prompt. I've kept it as is.
         if (primary === 'RESULT_ADMIT_CARD' || domain === 'RESULT' || domain === 'ADMIT_CARD' || domain === 'RESULT_ADMIT_CARD') return 'RESULT';
         if (primary === 'APPLICATION_HELP') return 'APPLICATION_HELP';
         return 'GENERAL_HELP';
