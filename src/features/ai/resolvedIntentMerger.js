@@ -201,6 +201,18 @@ class ResolvedIntentMerger {
             finalIntent.isPureGreeting = false;
         }
 
+        // 3) Follow-up clarification override must run last
+        if (isClarificationFollowUp && hasClarificationContext) {
+            finalIntent.communicationAct = "FOLLOW_UP";
+            finalIntent.domain = context.currentDomain || context.lastDomain || finalIntent.domain || "GOVT_JOB";
+            finalIntent.domainIntent = context.currentDomain || context.lastDomain || finalIntent.domainIntent || finalIntent.domain || "GOVT_JOB";
+            finalIntent.task = "DETAILS";
+            finalIntent.resolvedIntent = "FIELD_DETAILS";
+            finalIntent.primaryIntent = "FIELD_DETAILS";
+            finalIntent.isFollowUp = true;
+            finalIntent.usePreviousContext = true;
+            finalIntent.isPureGreeting = false;
+        }
 
         return finalIntent;
     }
