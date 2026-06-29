@@ -160,8 +160,9 @@ class AIService {
                 systemInstruction += "\n\nCRITICAL: The user's query is too short or ambiguous. Do not guess. Politely ask them to explain their question in detail using the template in your personality module.";
             }
 
-            // Flexible fallback for missing data
-            if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && plan.intent !== 'GENERAL') {
+            // Flexible fallback for missing data (Gemini Style: Only for factual intents)
+            const isFactualIntent = ['GOVT_JOB', 'FIELD_DETAILS', 'APPLICATION_HELP', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(plan.intent);
+            if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && isFactualIntent) {
                 systemInstruction += "\n\nNOTE: No specific live job records were found in the private database. Do not just say 'Maaf kijiye'. Instead, provide general guidance about the query, explain the typical eligibility or process, and advise the user to check official portals like SSC/RRB for the most recent updates. Be helpful and conversational like a friend.";
             }
 

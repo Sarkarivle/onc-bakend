@@ -46,7 +46,7 @@ class IntentDetector {
             if (currentMonth >= 4 && currentMonth <= 6) intents.add('RESULT_SEASON_QUERY'); // May-July
         }
 
-        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai)$/i) !== null;
+        const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai|bolo|kya ho rha h|kya chal rha h)$/i) !== null;
 
         if (isPureGreeting) {
             acts.add('GREET');
