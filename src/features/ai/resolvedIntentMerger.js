@@ -121,7 +121,7 @@ class ResolvedIntentMerger {
         const needClarification = Boolean(followUp?.needClarification || llmIntent?.needClarification || this._needsClarification(primary, confidence, context, isFollowUp));
         const dataSourceNeeded = this._dataSourceNeeded(graphDomain, task, primary);
 
-        return {
+        let finalIntent = {
             originalMessage,
             normalizedMessage,
             resolvedQuery: followUp?.resolvedQuery || strongIntent?.resolvedQuery || originalMessage,
@@ -148,6 +148,51 @@ class ResolvedIntentMerger {
             dataSourceNeeded,
             reason: this._reason(primary, { canonicalRule, semanticIntent, llmIntent, followUp, strongIntent })
         };
+
+        // ==================================================
+        // FINAL OVERRIDE BLOCK
+        // ==================================================
+
+        // A) Follow-up clarification override
+        if (isClarificationFollowUp && hasContext) {
+            finalIntent.communicationAct = "FOLLOW_UP";
+            finalIntent.domain = context.currentDomain || context.lastDomain || "GOVT_JOB";
+            finalIntent.task = "DETAILS";
+            finalIntent.resolvedIntent = "FIELD_DETAILS";
+            finalIntent.primaryIntent = "FIELD_DETAILS";
+            finalIntent.isFollowUp = true;
+            finalIntent.isPureGreeting = false;
+        }
+
+        // B) CAREER_GUIDANCE domain normalization
+        if (finalIntent.resolvedIntent === 'CAREER_GUIDANCE' || finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
+            finalIntent.domain = "CAREER";
+            finalIntent.domainIntent = "CAREER";
+            finalIntent.task = "GUIDANCE";
+        }
+
+        // C) Explicit health job override
+        const healthTerms = /\b(nursing|nurse|anm|gnm|health worker|asha)\b/i;
+        const jobTerms = /\b(job|jobs|vacancy|recruitment|bharti|opening|listing|in bihar|in up|in delhi|in madhya pradesh|in rajasthan)\b/i;
+
+        if (healthTerms.test(normalizedMessage) && jobTerms.test(normalizedMessage)) {
+            finalIntent.communicationAct = "QUESTION";
+            finalIntent.domain = "HEALTH_JOB";
+            finalIntent.task = "LATEST";
+            finalIntent.resolvedIntent = "JOB_QUERY";
+            finalIntent.primaryIntent = "JOB_QUERY";
+            finalIntent.isFollowUp = false;
+        }
+
+        // Ensure final domain for CAREER_GUIDANCE is correct after all overrides
+        if (finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
+            finalIntent.domain = 'CAREER';
+            finalIntent.domainIntent = 'CAREER';
+            finalIntent.graphDomain = 'CAREER';
+        }
+
+
+        return finalIntent;
     }
 
     static _canonicalizeRule(ruleIntent, ruleResult = {}, context = {}, q = "") {
