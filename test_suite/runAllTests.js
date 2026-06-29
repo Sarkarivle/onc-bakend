@@ -1,49 +1,64 @@
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
+const path = require('path');
 
-const TEST_SUITES = [
-    { name: 'Intent Tests', command: 'node ../../test_suite/legacy/intent_unit_tests.js' },
-    { name: 'Response Tests', command: 'node ../../test_suite/runResponseTests.js' },
-    { name: 'Safety Tests', command: 'echo "Safety tests need a runner" && exit 0' }, // Placeholder
-    { name: 'Data Tests', command: 'echo "Data tests need a runner" && exit 0' }, // Placeholder
-    { name: 'Conversation Tests', command: 'node ../../test_suite/conversation_tests/runConversationTests.js' },
-    { name: 'Performance Tests', command: 'echo "Performance tests need a runner" && exit 0' }, // Placeholder
+const projectRoot = path.resolve(__dirname, '..');
+
+const suites = [
+  ['Intent Tests', 'test:intents'],
+  ['Conversation Tests', 'test:conversation'],
+  ['Response Tests', 'test:responses'],
+  ['Safety Tests', 'test:safety'],
+  ['Data Tests', 'test:data'],
+  ['Performance Tests', 'test:performance']
 ];
 
-async function runAllTests() {
-    console.log('🚀🚀🚀 STARTING JOBO AI FULL TEST SUITE 🚀🚀🚀');
-    console.log('==================================================\n');
+function runSuite(name, script) {
+  console.log(`\n--- Running ${name} ---\n`);
 
-    const results = [];
-    let allPassed = true;
+  const result = spawnSync('npm', ['run', script], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    shell: true
+  });
 
-    for (const suite of TEST_SUITES) {
-        console.log(`\n--- Running ${suite.name} ---\n`);
-        try {
-            execSync(suite.command, { stdio: 'inherit' });
-            console.log(`\n✅ ${suite.name}: PASSED`);
-            results.push({ name: suite.name, status: 'PASSED' });
-        } catch (error) {
-            console.error(`\n❌ ${suite.name}: FAILED`);
-            results.push({ name: suite.name, status: 'FAILED' });
-            allPassed = false;
-        }
-        console.log('\n----------------------------------');
-    }
+  const passed = result.status === 0;
 
-    console.log('\n\n==================================================');
-    console.log('📊 JOBO AI TEST SUITE SUMMARY 📊');
-    console.log('==================================================');
-    results.forEach(res => {
-        console.log(`${res.status === 'PASSED' ? '✅' : '❌'} ${res.name}: ${res.status}`);
-    });
-    console.log('==================================================\n');
+  console.log('\n----------------------------------');
+  console.log(`${passed ? '✅' : '❌'} ${name}: ${passed ? 'PASSED' : 'FAILED'}`);
+  console.log('----------------------------------');
 
-    if (allPassed) {
-        console.log('🎉🎉🎉 ALL JOBO AI TESTS PASSED 🎉🎉🎉\n');
-    } else {
-        console.error('🔥🔥🔥 SOME TESTS FAILED. PLEASE REVIEW LOGS. 🔥🔥🔥\n');
-        process.exit(1);
-    }
+  return passed;
 }
 
-runAllTests();
+function main() {
+  console.log('🚀🚀🚀 STARTING JOBO AI FULL TEST SUITE 🚀🚀🚀');
+  console.log('==================================================\n');
+
+  const results = [];
+
+  for (const [name, script] of suites) {
+    results.push({ name, passed: runSuite(name, script) });
+  }
+
+  console.log('\n==================================================');
+  console.log('📊 JOBO AI TEST SUITE SUMMARY');
+  console.log('==================================================');
+
+  for (const result of results) {
+    console.log(`${result.passed ? '✅' : '❌'} ${result.name}: ${result.passed ? 'PASSED' : 'FAILED'}`);
+  }
+
+  console.log('==================================================');
+
+  const failed = results.filter(r => !r.passed);
+
+  if (failed.length > 0) {
+    console.log('\n🔥 SOME TESTS FAILED. PLEASE REVIEW LOGS.');
+    process.exit(1);
+  }
+
+  console.log('\n🎉 ALL TEST SUITES PASSED.');
+  process.exit(0);
+}
+
+main();
