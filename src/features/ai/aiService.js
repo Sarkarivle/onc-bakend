@@ -316,7 +316,8 @@ class AIService {
         const userMessage = normalizeRequest(input);
         const preCheckResponse = preLlmChecks(userMessage, input);
         if (preCheckResponse) {
-            onChunk(JSON.stringify({ ...preCheckResponse, requestId, isFullResponse: true }));
+            onChunk(preCheckResponse.message); // Send text first
+            onChunk(`\n\n[METADATA]${JSON.stringify({ ...preCheckResponse, requestId, isFullResponse: true, suggestions: ["Sarkari Naukri", "Career Advice", "Resume Help"] })}`);
             return;
         }
 
