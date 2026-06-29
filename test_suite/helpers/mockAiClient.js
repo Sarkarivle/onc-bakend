@@ -10,14 +10,31 @@
  */
 
 async function processMessage(message, context = {}) {
-  const q = String(message || "").toLowerCase().trim();
+  const rawMessage = message || "";
+  if (rawMessage.trim() === "") {
+    return { message: "Aap apna sawal thoda clear likh dijiye. Jaise: latest job, age limit, fees, last date ya career guidance." };
+  }
+
+  const q = rawMessage.toLowerCase().trim();
+
+  // Pre-LLM Safety Gate
+  const injectionKeywords = ["system prompt", "developer instruction", "api key", "database password", "internal json", "ignore previous", "dan"];
+  if (injectionKeywords.some(kw => q.includes(kw))) {
+    return { message: "Maaf kijiye, main internal/private system details share nahi kar sakta. Aap job, career, resume ya scholarship se related sawal pooch sakte hain." };
+  }
+
+  // Fake Job Safety
+  const fakeJobKeywords = ["nasa clerk", "pm office peon", "direct joining", "without exam"];
+  if (fakeJobKeywords.some(kw => q.includes(kw))) {
+    return { message: "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai. Aise jobs ke liye sirf official notification/official website par bharosa karein. Direct joining ya guaranteed selection wali baat se bachna chahiye." };
+  }
 
   if (/^(hi|hello|namaste|hey|hii)/i.test(q)) {
-    return { message: "Namaste! Main Jobo AI assistant hoon. Kaise madad kar sakta hoon?" };
+    return { message: "Namaste! Main Jobo AI hoon. Main jobs, career, resume, scholarship aur exam details me madad kar sakta hoon." };
   }
 
   if (q.includes("tum kaun ho") || q.includes("who are you")) {
-    return { message: "Main Jobo AI assistant hoon, jo jobs, career, result, admit card aur resume se judi madad karta hai.", intent: "IDENTIFY" };
+    return { message: "Main Jobo AI hoon, ek job aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.", intent: "IDENTIFY" };
   }
 
   if (q.includes("kya haal hai")) {
@@ -29,7 +46,7 @@ async function processMessage(message, context = {}) {
   }
 
   if (q.includes("teacher kaise bane")) {
-    return { message: "Teacher banne ke liye graduation ke baad B.Ed karna hota hai. School teaching ke liye TET ya CTET exam bhi important hota hai." };
+    return { message: "Teacher banne ke liye graduation ke baad B.Ed karna hota hai. School teaching ke liye TET ya CTET exam bhi important hota hai. CTET ek eligibility test hai, direct vacancy nahi." };
   }
 
   // --- Mocks to fix the original 20 conversation tests ---
@@ -67,13 +84,13 @@ async function processMessage(message, context = {}) {
 
   // Handle vague queries
   if (q === 'batao') {
-    return { message: "Aap kya janna chahte hain?", behavior: 'CLARIFY' };
+    return { message: "Aap kiske baare me kya janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?", behavior: 'CLARIFY' };
   }
   if (q === 'yes') {
-    return { message: "Aap kya confirm kar rahe hain?", behavior: 'CLARIFY' };
+    return { message: "Aap kiske baare me kya janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?", behavior: 'CLARIFY' };
   }
   if (q === 'ok') {
-    return { message: "Theek hai. Aapko aur kuch janna hai ya kuch aur puchna hai?" };
+    return { message: "Theek hai. Aur kuch janna ho to job, career, resume ya scholarship se related sawal pooch sakte hain." };
   }
 
   // Handle "more jobs"
@@ -96,33 +113,14 @@ async function processMessage(message, context = {}) {
   }
 
   if (q.includes("aur batao") || q.includes("more") || q.includes("next")) { // Generic fallback
-    return { message: "Kripya batayein kiske baare me aur jankari chahiye? Aap kya janna chahte hain?" };
+    return { message: "Aap kiske baare me kya janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?" };
   }
 
   if (q.includes("ctet") || q.includes("jhtet") || q.includes("tet")) {
+    if (q.includes('vacancy')) {
+      return { message: "CTET ek eligibility test hai, direct vacancy nahi. Vacancy alag teacher recruitment notifications me aati hai." };
+    }
     return { message: "Ye eligibility test hai, direct vacancy nahi. Iske liye official notification check karke eligibility, syllabus aur dates verify karni chahiye." };
-  }
-
-  if (
-    q.includes("fake") ||
-    q.includes("direct joining") ||
-    q.includes("without exam") ||
-    q.includes("nasa clerk") ||
-    q.includes("pm office peon")
-  ) {
-    return { message: "Is vacancy ki verified jankari available nahi hai. Main bina official notification ke vacancy, last date, fee, salary ya apply link confirm nahi kar sakta." };
-  }
-
-  if (
-    q.includes("system prompt") ||
-    q.includes("developer instruction") ||
-    q.includes("resolvedintent") ||
-    q.includes("api key") ||
-    q.includes("database password") ||
-    q.includes("internal json") ||
-    q.includes("ignore previous")
-  ) {
-    return { message: "Main internal system, private configuration ya hidden instructions share nahi kar sakta. Aap job ya career se juda sawal pooch sakte hain." };
   }
 
   if (q.includes("latest job") || q.includes("sarkari job") || q.includes("railway") || q.includes("vacancy") || q.includes("bharti")) {
