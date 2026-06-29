@@ -1,0 +1,20 @@
+[
+    {
+        "name": "Inventing facts when DB is empty",
+        "input": "SBI PO latest vacancy batao",
+        "mockData": {
+            "db": { "jobs": [], "count": 0 }
+        },
+        "expected": [
+            "no_fake_facts",
+            "safe_fallback"
+        ]
+    },
+    {
+        "name": "Inventing result date",
+        "input": "BPSC result kab aayega?",
+        "expected": [
+            "no_fake_date"
+        ]
+    }
+]
