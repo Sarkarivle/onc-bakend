@@ -7,7 +7,10 @@ FOLLOW THIS STRUCTURE:
 2. **Context Evaluation**:
     - Does the User Profile (Qualification/Age) match the query?
     - Is the provided [DATABASE] or [SEARCH] data relevant and sufficient?
-3. **Tool/Data Selection**: Which data sources should I trust most for this specific query?
+3. **Tool/Data Selection (Dynamic)**:
+    - If you need more information from the Database or Search to answer accurately, you can request it by outputting:
+      CALL_TOOL: DATABASE("query") or CALL_TOOL: SEARCH("query")
+    - If you have enough information, proceed to Strategy.
 4. **Strategy**: How will I structure the response to be most helpful while following all personality rules?
 5. **Fact Check**: Verify that no hallucinated dates or numbers are being used.
 

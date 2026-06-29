@@ -1,6 +1,6 @@
 /**
- * LLMIntentClassifier Module
- * Responsibility: Use a small LLM call to classify intent for ambiguous queries.
+ * LLMIntentClassifier Module (Gemini-Grade Intelligence)
+ * Responsibility: Discourse Analysis (New Topic vs Deep Dive vs Action).
  */
 const axios = require('axios');
 const Settings = require('../settings/settingsModel');
@@ -14,47 +14,37 @@ class LLMIntentClassifier {
             const url = runpodUrl.replace(/\/$/, '') + '/api/generate';
 
             const prompt = `
-            Task: Classify user intent for a Job Assistant named Jobo.
+            Task: Deeply analyze user intent (Discourse Analysis) for Jobo AI.
             Today is: ${new Date().toDateString()}
-            User Message: "${query}"
-            Normalized Message: "${context.normalizedMessage || query}"
-            Previous Topic: ${context.topic || 'NONE'}
-            Last Assistant Action: ${context.lastAssistantAction || 'NONE'}
-            Pending Action: ${context.pendingAction || 'NONE'}
 
-            Possible Intents:
-            - GREETING: Hello, hi, etc.
-            - JOB_QUERY: Looking for jobs, vacancies, work.
-            - MORE_RESULTS: Asking for more options, next page.
-            - FIELD_DETAILS: Asking for specific info like fees, age, salary, link, etc.
-            - APPLICATION_HELP: User wants to fill/apply/register for a form.
-            - PROVIDE_QUALIFICATION: User is answering qualification/profile question.
-            - EXPLAIN_LAST_FAILURE: User asks why previous data was not found.
-            - CAREER_GUIDANCE: Asking what to do after 12th/Graduation, future advice.
-            - SCHOLARSHIP: Asking about scholarships, financial aid.
-            - RESULT_ADMIT_CARD: Asking for exam results, admit cards.
-            - RESUME: Asking for resume help.
-            - FOLLOW_UP: Vague message that depends on previous context.
-            - GENERAL_QUERY: Anything else.
+            [CONVERSATION CONTEXT]:
+            - User Message: "${query}"
+            - Last Assistant Message: "${context.lastAssistantResponse || 'NONE'}"
+            - Current Topic: "${context.topic || 'GENERAL'}"
+            - User Profile: ${JSON.stringify(context.profile || {})}
 
-            Step 1: Reasoning (Chain of Thought)
-            Analyze the user message. What is the explicit goal? Is there any hidden intent based on history?
-            Does the user mention any entities (location, job name)?
+            Step 1: DISCOURSE ANALYSIS (CRITICAL)
+            1. **Is it a NEW_TOPIC?**: Is the user asking for something completely different? (e.g., switched from 'Police' to 'Railway').
+            2. **Is it a DEEP_DIVE?**: Is the user asking for specific info (Fees/Age) about the job just mentioned by the Assistant?
+            3. **Is it an ACTION (CTA)?**: Does the user want to 'Apply', 'Download', or 'Go to Link'?
+            4. **Is it a STATE_CHANGE?**: User confirming, negating, or asking to continue.
 
-            Step 2: Return JSON object:
+            Step 2: EMOTIONAL & IMPLICIT ANALYSIS
+            - Detect Emotional Tone: (Frustrated, Urgent, Curious).
+            - Detect Implicit Goal: (What they really want vs what they said).
+
+            Step 3: Return JSON:
             {
-              "reasoning": "Briefly explain the intent analysis here (CoT)",
+              "discourseType": "NEW_TOPIC | DEEP_DIVE | ACTION | STATE_CHANGE",
+              "reasoning": "Why this discourse type? Link it to Last Assistant Message.",
               "primaryIntent": "INTENT_NAME",
-              "secondaryIntents": [],
-              "communicationAct": "GREETING|QUESTION|FOLLOW_UP|CONFIRMATION|NEGATION",
-              "domain": "GOVERNMENT_JOBS|CAREER|RESUME|SCHOLARSHIP|COLLEGE|RESULT|ADMIT_CARD|GENERAL",
-              "task": "LATEST|DETAILS|MORE_RESULTS|APPLY_PROCESS|FEE|AGE_LIMIT|ELIGIBILITY|DOWNLOAD|STATUS|EXPLAIN_FAILURE",
-              "domainIntent": "GOVT_JOB|CAREER|SCHOLARSHIP|RESUME|COLLEGE|RESULT_ADMIT_CARD|GENERAL|NONE",
-              "confidence": 0.0 to 1.0,
+              "communicationAct": "GREETING | QUESTION | FOLLOW_UP | CONFIRMATION",
+              "entities": {"jobName": "...", "location": "...", "field": "..."},
               "isFollowUp": true/false,
-              "entities": {},
-              "needClarification": true/false,
-              "dataSourceNeeded": "NONE|DATABASE_FIRST|DATABASE_OR_VERIFIED_SEARCH|PROFILE_AND_LLM|LLM"
+              "emotionalTone": "...",
+              "implicitGoal": "...",
+              "confidence": 0.0 to 1.0,
+              "dataSourceNeeded": "DATABASE_FIRST | SEARCH_FIRST | LLM_ONLY"
             }
             `;
 
@@ -63,31 +53,27 @@ class LLMIntentClassifier {
                 prompt: `System: Return ONLY valid JSON. No preamble.\n\nUser: ${prompt}`,
                 stream: false,
                 options: { temperature: 0.1 }
-            }, { timeout: 3000 });
+            }, { timeout: 4000 });
 
             const rawOutput = aiRes.data.response;
-            // Basic cleaning to ensure JSON
             const cleaned = rawOutput.substring(rawOutput.indexOf('{'), rawOutput.lastIndexOf('}') + 1);
             const parsed = JSON.parse(cleaned);
+
             return {
+                discourseType: parsed.discourseType || 'NEW_TOPIC',
                 primaryIntent: parsed.primaryIntent || 'GENERAL_QUERY',
-                secondaryIntents: Array.isArray(parsed.secondaryIntents) ? parsed.secondaryIntents : [],
-                communicationAct: parsed.communicationAct,
-                domain: parsed.domain,
-                task: parsed.task,
-                domainIntent: parsed.domainIntent || 'GENERAL',
-                confidence: Number(parsed.confidence || 0.5),
-                isFollowUp: Boolean(parsed.isFollowUp),
+                communicationAct: parsed.communicationAct || 'QUESTION',
+                emotionalTone: parsed.emotionalTone || 'NEUTRAL',
+                implicitGoal: parsed.implicitGoal || '',
+                isFollowUp: Boolean(parsed.isFollowUp || parsed.discourseType !== 'NEW_TOPIC'),
                 entities: parsed.entities || {},
-                needClarification: Boolean(parsed.needClarification),
-                dataSourceNeeded: parsed.dataSourceNeeded,
-                reason: parsed.reason || 'LLM classifier fallback'
+                confidence: Number(parsed.confidence || 0.5),
+                dataSourceNeeded: parsed.dataSourceNeeded || 'LLM_ONLY',
+                reasoning: parsed.reasoning
             };
 
         } catch (err) {
-            const isTimeout = err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '');
-            const reason = isTimeout ? 'timeout' : (err.code || err.message || 'error');
-            console.warn('LLM Classification fallback:', reason);
+            console.warn('LLM Discourse Analysis Error:', err.message);
             return null;
         }
     }

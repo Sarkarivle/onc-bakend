@@ -36,15 +36,31 @@ class ResponseValidator {
             severity = "HIGH";
         }
 
-        // 2. CONTEXT ADAPTIVITY SELF-CHECK (Gemini-like)
-        if (plan?.mode === 'CAREER_GUIDANCE' && !query.toLowerCase().includes('isro')) {
-            if (resLower.includes('isro') || resLower.includes('technician')) {
-                issues.push("Context leakage: Mentioned previous ISRO job in new career query.");
-                severity = "HIGH";
+        // 2. HYPER-PERSONALIZATION & ELIGIBILITY CHECK (Gemini-like Focus)
+        if (userProfile?.qualification && resLower.includes('job')) {
+            const qual = userProfile.qualification.toLowerCase();
+            // If user is 10th/12th pass but response shows 'Graduate' or 'Degree' jobs specifically
+            if ((qual.includes('10th') || qual.includes('12th')) && !qual.includes('graduate')) {
+                if (resLower.includes('graduate required') || resLower.includes('degree mandatory')) {
+                    issues.push("Personalization Error: Suggested a Graduate job to a 10th/12th pass user.");
+                    severity = "HIGH";
+                }
             }
         }
 
-        // 3. HALLUCINATION GUARD (Jobs)
+        // 3. ZERO PRE-AMBLE CHECK (Direct Start)
+        const preAmblePatterns = [
+            "aapke liye ye rahi", "main samajh sakta", "ye rahi jankari",
+            "is naukri ke bare mein", "naukri ki list", "here is the information"
+        ];
+        for (const pattern of preAmblePatterns) {
+            if (resLower.startsWith(pattern) || (resLower.split('\n')[0].includes(pattern))) {
+                issues.push(`Style Error: Pre-amble found ("${pattern}"). Gemini style must be direct.`);
+                severity = "MEDIUM";
+            }
+        }
+
+        // 4. HALLUCINATION GUARD (Jobs)
         const jobModes = ['JOB_SEARCH', 'JOB_DETAILS', 'MORE_RESULTS', 'RESULT'];
         if (jobModes.includes(plan?.mode)) {
             const hasData = (liveData.jobs && liveData.jobs.length > 0) || (liveData.web && liveData.web.length > 0);

@@ -54,13 +54,40 @@ class ResponseCleaner {
             cleanText = cleanText.replace(/main aapka career assistant hu[.!]*\s*/gi, '');
         }
 
-        // 5. Expired Job Removal (Code-based block removal)
+        // 5. Gemini Fluff Stripper (Laser Focus)
+        cleanText = this._stripGeminiFluff(cleanText);
+
+        // 6. Expired Job Removal (Code-based block removal)
         cleanText = this._removeExpiredJobBlocks(cleanText);
 
         // 6. Final whitespace cleanup
         cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
 
-        return cleanText;
+            return cleanText;
+    }
+
+    /**
+     * Strips introductory fluff to maintain Gemini-like directness.
+     */
+    static _stripGeminiFluff(text) {
+        const fluffLines = [
+            /^Aapke liye ye rahi jankari:?\s*/i,
+            /^Aapke liye acchi jobs ki list:?\s*/i,
+            /^Main samajh sakta hoon कि आप[^.\n]*[.\n]?/i,
+            /^Sarkari naukriyon mein[^.\n]*[.\n]?/i,
+            /^Ye rahi details:?\s*/i,
+            /^Niche di gayi jankari check karein:?\s*/i,
+            /^Main aapki madad kar sakta hoon:?\s*/i,
+            /^Zaroor, main aapko batata hoon:?\s*/i,
+            /^Ye rahi puri details:?\s*/i
+        ];
+
+        let cleaned = text;
+        fluffLines.forEach(pattern => {
+            cleaned = cleaned.replace(pattern, '');
+        });
+
+        return cleaned.trim();
     }
 
     /**

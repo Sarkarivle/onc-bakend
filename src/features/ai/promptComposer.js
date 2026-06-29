@@ -48,6 +48,9 @@ class PromptComposer {
 
             intentSection += `\n[RESOLVED INTENT]: ${JSON.stringify({
                 primaryIntent: plan.intent,
+                emotionalTone: plan.emotionalTone,
+                userConstraints: plan.userConstraints,
+                implicitGoal: plan.implicitGoal,
                 communicationAct: plan.resolvedIntent?.communicationAct,
                 domain: plan.domain,
                 task: plan.resolvedIntent?.task,

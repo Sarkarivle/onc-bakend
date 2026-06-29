@@ -39,6 +39,13 @@ class IntentDetector {
         // User ka communication style
         // -------------------------------
 
+        // 1. Seasonal & Contextual Intelligence (Gemini Style)
+        const currentMonth = new Date().getMonth(); // 0-11
+        if (q.match(/(exams|exam kab hai|paper|boards|result)/i)) {
+            if (currentMonth >= 1 && currentMonth <= 3) intents.add('EXAM_SEASON_QUERY'); // Feb-April
+            if (currentMonth >= 4 && currentMonth <= 6) intents.add('RESULT_SEASON_QUERY'); // May-July
+        }
+
         const isPureGreeting = q.match(/^(hi|hello|namaste|namaskar|hey|hii|hiii|heyy|adaab|ram ram|kaise ho|hi kaise ho|kya haal hai|suprabhat|shubh sandhya|hello jobo|hi jobo|hey jobo|hello dost|hi dost|namaste bro|hello bro|hey bhai|namaste bhai)$/i) !== null;
 
         if (isPureGreeting) {

@@ -11,9 +11,15 @@ class Planner {
         const primary = resolvedIntent.primaryIntent || 'GENERAL_QUERY';
         const domain = resolvedIntent.domainIntent || 'GENERAL';
 
-        // 1. Context Relevance Gate (Gemini-like Reasoning)
+        // 1. Discourse-Aware Context Logic (Gemini Style)
+        const discourseType = resolvedIntent.discourseType || 'NEW_TOPIC';
         let usePreviousContext = resolvedIntent.usePreviousContext;
-        if (usePreviousContext === undefined || usePreviousContext === null) {
+
+        if (discourseType === 'DEEP_DIVE' || discourseType === 'ACTION') {
+            usePreviousContext = true;
+        } else if (discourseType === 'NEW_TOPIC') {
+            usePreviousContext = false;
+        } else if (usePreviousContext === undefined || usePreviousContext === null) {
             usePreviousContext = this._shouldUseContext(q, resolvedIntent, state);
         }
 
@@ -27,7 +33,9 @@ class Planner {
         // 3. Refusal Check (Safety)
         const shouldRefuse = this._shouldRefuse(q, resolvedIntent, state);
 
-        if (resolvedIntent.needClarification || (resolvedIntent.confidence < 0.6 && !usePreviousContext)) {
+        // 3. Ambiguity & Clarification Gate (Gemini Style)
+        const isAmbiguous = (q.split(' ').length <= 2 && !['latest', 'new', 'naukri'].includes(q)) || resolvedIntent.needClarification;
+        if (isAmbiguous && !usePreviousContext) {
             return this._base({
                 mode: 'GENERAL_HELP',
                 behavior: 'CLARIFY',
@@ -58,6 +66,13 @@ class Planner {
         }
 
         const modules = this._modulesFor(domain, primary, mode);
+
+        // Upgrade: Force Career Roadmap for "How-to" queries
+        if (q.includes('kaise bane') || q.includes('how to become') || q.includes('career in')) {
+            if (!modules.includes('CAREER')) modules.push('CAREER');
+            mode = 'CAREER_GUIDANCE';
+        }
+
         const dataPolicy = this._dataPolicy(primary, domain, mode);
         const needsDatabase = ['DATABASE_FIRST', 'DATABASE_ONLY', 'PREVIOUS_ITEM_DATABASE'].includes(dataPolicy);
         const needsSearch = ['OFFICIAL_SEARCH_IF_DB_FAILS', 'SEARCH_FIRST'].includes(dataPolicy);
@@ -68,6 +83,9 @@ class Planner {
             behavior: primary === 'PROVIDE_QUALIFICATION' ? 'PROCESS_INPUT' : 'RESPOND',
             intent: primary,
             resolvedIntent,
+            emotionalTone: resolvedIntent.emotionalTone || 'NEUTRAL',
+            userConstraints: resolvedIntent.userConstraints || [],
+            implicitGoal: resolvedIntent.implicitGoal || '',
             domain,
             priorityModules: modules,
             missingFields,

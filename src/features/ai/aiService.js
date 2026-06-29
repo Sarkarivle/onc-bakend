@@ -26,6 +26,7 @@ const ResponseValidator = require('./responseValidator');
 const ResponseCleaner = require('./responseCleaner');
 const ResponseFormatter = require('./responseFormatter');
 const ConfidenceEngine = require('./confidenceEngine');
+const SuggestionEngine = require('./suggestionEngine');
 const ProgressEmitter = require('./progressEmitter');
 const cheerio = require('cheerio');
 
@@ -70,7 +71,11 @@ class AIService {
 
             // --- PHASE 4: Intent Resolution ---
             ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
-            const resolvedIntent = await IntentDetector.detectSemantic(rawInput, state, profile);
+            // Upgrade: Passing last response content for better follow-up resolution
+            const resolvedIntent = await IntentDetector.detectSemantic(rawInput, {
+                ...state,
+                lastAssistantResponse: state.aiResponse || ""
+            }, profile);
             const intentObj = IntentDetector.detect(rawInput); // Legacy fallback context
 
             // --- PHASE 4-B: Profile Sync ---
@@ -186,7 +191,7 @@ class AIService {
             const llm = await this._getLLMProvider();
             metrics.provider = llm.provider;
 
-            const aiResponse = await llm.chat([
+            let aiResponse = await llm.chat([
                 { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. The current year is ${currentYear}. Only discuss jobs active in ${currentYear} or later. Disregard any internal knowledge of previous years.` },
                 ...(history || []),
                 { role: 'user', content: rewrittenQuery }
@@ -194,7 +199,35 @@ class AIService {
 
             let llmContent = aiResponse.content;
 
-            // --- PHASE 10: Validation & Repair Pipeline ---
+            // --- PHASE 9-B: Dynamic Tool Looping (Mid-Conversation Thinking) ---
+            const toolCallMatch = llmContent.match(/CALL_TOOL:\s*(DATABASE|SEARCH)\("(.*?)"\)/i);
+            if (toolCallMatch) {
+                const toolType = toolCallMatch[1].toUpperCase();
+                const toolQuery = toolCallMatch[2];
+                ProgressEmitter.emit(sessionId, `DYNAMIC_${toolType}_CALLING`);
+
+                let additionalData = "";
+                if (toolType === 'DATABASE') {
+                    const dbRes = await this._fetchDatabaseKnowledge(toolQuery, profile, plan);
+                    additionalData = dbRes.jobs;
+                } else if (toolType === 'SEARCH') {
+                    additionalData = await this._fetchWebKnowledge(toolQuery);
+                }
+
+                if (additionalData) {
+                    ProgressEmitter.emit(sessionId, 'LLM_RE_THINKING');
+                    const secondResponse = await llm.chat([
+                        { role: 'system', content: systemInstruction },
+                        ...(history || []),
+                        { role: 'user', content: rewrittenQuery },
+                        { role: 'assistant', content: llmContent },
+                        { role: 'system', content: `[ADDITIONAL ${toolType} DATA]: ${additionalData}\n\nNow, finalize your response based on this new information.` }
+                    ]);
+                    llmContent = secondResponse.content;
+                }
+            }
+
+            // --- PHASE 10: Validation & Self-Critique Loop (Gemini-like) ---
             ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
 
             const validationInput = {
@@ -204,50 +237,62 @@ class AIService {
                 userProfile: profile,
                 isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET',
                 resolvedIntent: resolvedIntent,
-                state: state
+                state: state,
+                plan: plan
             };
 
             let validation = ResponseValidator.validate(llmContent, validationInput);
+            let retryCount = 0;
+            const MAX_RETRIES = 2;
 
-            // Hallucination Check for Jobs (Additional layer)
+            while (!validation.passed && retryCount < MAX_RETRIES) {
+                if (validation.shouldRetryLLM) {
+                    retryCount++;
+                    ProgressEmitter.emit(sessionId, `LLM_SELF_CORRECTING_V${retryCount}`);
+
+                    const critiquePrompt = `
+[SELF-CRITIQUE MODE]
+Your previous response had the following issues:
+${validation.issues.map(iss => `- ${iss}`).join('\n')}
+
+CRITICAL INSTRUCTIONS:
+1. Re-read the [REAL-TIME DATA SOURCE] carefully.
+2. Remove any facts, dates, or numbers NOT found in the source.
+3. Fix any internal leakage (never mention "database", "intent", "rules").
+4. Rewrite the response to be 100% accurate and professional.
+5. Wrap your NEW response in <USER_MESSAGE> tags.
+`;
+                    const repairResponse = await llm.chat([
+                        { role: 'system', content: systemInstruction },
+                        ...(history || []),
+                        { role: 'user', content: rewrittenQuery },
+                        { role: 'assistant', content: llmContent },
+                        { role: 'system', content: critiquePrompt }
+                    ]);
+
+                    llmContent = repairResponse.content;
+                    validation = ResponseValidator.validate(llmContent, validationInput);
+                } else {
+                    // Low severity issues can be fixed by code cleanup
+                    llmContent = ResponseCleaner.clean(llmContent, {
+                        isPureGreeting: validationInput.isPureGreeting,
+                        intent: plan.intent,
+                        query: rewrittenQuery
+                    });
+                    break;
+                }
+            }
+
+            // Hallucination Check for Jobs (Additional layer for extra safety)
             const isDataMissing = !knowledgeContext.jobs && !knowledgeContext.web;
             const sourceText = (knowledgeContext.jobs + " " + (knowledgeContext.web || "")).toLowerCase();
             let hasHallucinatedJob = false;
             if (plan.intent === 'GOVT_JOB' || llmContent.toLowerCase().includes('vacancy')) {
                 const jobMatches = llmContent.match(/\d\.\s+\*\*(.*?)\*\*/g);
                 if (jobMatches && isDataMissing) {
-                    for (const match of jobMatches) {
-                        const jobName = match.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').trim().toLowerCase();
-                        const words = jobName.split(' ').filter(w => w.length > 3);
-                        if (words.length > 0 && !words.some(word => sourceText.includes(word))) {
-                            hasHallucinatedJob = true;
-                            break;
-                        }
-                    }
+                    hasHallucinatedJob = true;
                 } else if (/\d{2,}/.test(llmContent) && isDataMissing) {
                     hasHallucinatedJob = true;
-                }
-            }
-
-            // REPAIR LOGIC
-            if (!validation.passed || hasHallucinatedJob) {
-                if (validation.shouldRetryLLM) {
-                    ProgressEmitter.emit(sessionId, 'LLM_REPAIRING');
-                    const repairPrompt = `\n\nCRITICAL: Your previous response was rejected due to: ${validation.issues.join(', ')}. Please re-write using ONLY verified data. Remove any invented facts or internal rules.`;
-                    const repairResponse = await llm.chat([
-                        { role: 'system', content: systemInstruction + repairPrompt },
-                        { role: 'user', content: rewrittenQuery }
-                    ]);
-                    llmContent = repairResponse.content;
-                    // Final Validation after repair
-                    validation = ResponseValidator.validate(llmContent, validationInput);
-                } else {
-                    // Code-based cleanup is usually enough for LOW/MEDIUM issues
-                    llmContent = ResponseCleaner.clean(llmContent, {
-                        isPureGreeting: validationInput.isPureGreeting,
-                        intent: plan.intent,
-                        query: rewrittenQuery
-                    });
                 }
             }
 
@@ -273,7 +318,9 @@ class AIService {
                 intent: plan.intent,
                 query: rewrittenQuery,
                 isPureGreeting: validationInput.isPureGreeting,
-                userProfile: profile
+                userProfile: profile,
+                plan: plan,
+                knowledgeContext: knowledgeContext
             });
 
             // --- PHASE 11 & 12: Analytics & State Sync ---
@@ -569,9 +616,10 @@ class AIService {
         // 3. Formatting & Polish
         message = ResponseFormatter.format(message, meta);
 
-        // 4. Suggestions extraction
+        // 4. Dynamic Suggestions (Gemini-style)
         const suggestMatch = content.match(/\[SUGGESTIONS\s*:\s*(.*?)\]/i);
-        let suggestions = suggestMatch ? suggestMatch[1].split(',').map(s => s.trim()) : [];
+        const aiSuggestions = suggestMatch ? suggestMatch[1].split(',').map(s => s.trim()) : [];
+        const suggestions = SuggestionEngine.generate(meta.plan, meta.knowledgeContext, aiSuggestions);
 
         // Legacy/Math support
         const mathMatch = content.match(/<HIDDEN_MATH>([\s\S]*?)<\/HIDDEN_MATH>/i);
@@ -580,7 +628,7 @@ class AIService {
             message,
             thought: thoughtMatch ? thoughtMatch[1].trim() : "",
             calculation: mathMatch ? mathMatch[1].trim() : "",
-            suggestions: suggestions.slice(0, 3)
+            suggestions
         };
     }
 
