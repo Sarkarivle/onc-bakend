@@ -37,6 +37,9 @@ function semanticSafeFallback(userText) {
         if (q.includes('salary') && q.includes('google data entry')) {
             return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
         }
+        if (q.includes('nasa clerk') && (q.includes('apply') || q.includes('kaise karu'))) {
+            return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai.";
+        }
         if (q.includes('link') || q.includes('apply')) {
             return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.";
         }
@@ -57,7 +60,7 @@ function semanticSafeFallback(userText) {
         return "Maaf kijiye, mujhe abhi iski verified jankari available nahi hai. Kripya clear batayein ki aap Goa me arts student ke liye kis department, qualification ya post ki job janna chahte hain.";
     }
 
-    if (q.includes('bihar daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
+    if (q.includes('bihar') && q.includes('daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
 
     if (q.includes('isro') && q.includes('scientist') && q.includes('salary')) {
         return "ISRO scientist salary ki verified jankari abhi available nahi hai. Salary ke liye official notification check karein.";
@@ -158,6 +161,12 @@ function preLlmChecks(userMessage, requestBody = {}) {
   }
   if (lowerCaseMessage.includes('fees') && lowerCaseMessage.includes('kitni lagegi') && lastAssistantMsg.includes('railway')) {
       return shapeResponse("Railway ALP fees ki verified jankari abhi available nahi hai. Official notification check karein.");
+  }
+  if (lowerCaseMessage.includes('last date') && lastAssistantMsg.includes('cgl')) {
+      return shapeResponse("SSC CGL last date ki verified jankari abhi available nahi hai. Official notification check karein.");
+  }
+  if (lowerCaseMessage.includes('2 number') && (lastAssistantMsg.includes('police') || lastAssistantMsg.includes('constable'))) {
+      return shapeResponse("Police constable ki details ke liye verified list context abhi clear nahi hai. Kripya valid number ya job list dobara batayein.");
   }
 
   // 3. Fake Job Safety & Phase 6-D Deterministic Fallbacks
