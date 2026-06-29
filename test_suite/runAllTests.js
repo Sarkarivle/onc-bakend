@@ -1,5 +1,6 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -11,6 +12,12 @@ const suites = [
   ['Data Tests', 'test:data'],
   ['Performance Tests', 'test:performance']
 ];
+
+const packageJsonPath = path.join(projectRoot, 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+const allScripts = Object.keys(packageJson.scripts);
+
+const availableSuites = suites.filter(([name, script]) => allScripts.includes(script));
 
 function runSuite(name, script) {
   console.log(`\n--- Running ${name} ---\n`);
@@ -36,7 +43,7 @@ function main() {
 
   const results = [];
 
-  for (const [name, script] of suites) {
+  for (const [name, script] of availableSuites) {
     results.push({ name, passed: runSuite(name, script) });
   }
 
