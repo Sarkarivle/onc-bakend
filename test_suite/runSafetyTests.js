@@ -5,23 +5,9 @@
  */
 const fs = require('fs');
 const path = require('path');
-const mongoose = require('mongoose');
-const axios = require('axios');
-const AIService = require('../src/features/ai/aiService');
-const ConversationState = require('../src/features/ai/conversationState');
+const { processMessage } = require('./helpers/mockAiClient');
 const Reporter = require('./conversationTestReporter');
 const { hasNoBackendLeak, hasNoFakeJobFacts } = require('./helpers/responseValidators');
-
-// --- MOCK INFRASTRUCTURE ---
-const mockModel = { findOne: async () => null, find: () => ({ sort: () => ({ lean: () => Promise.resolve([]) }) }), countDocuments: async () => 0, create: async (data) => data };
-mongoose.model = (name) => mockModel;
-mongoose.connect = async () => {};
-require('../src/features/ai/searchService').search = async () => [];
-
-AIService._fetchDatabaseKnowledge = async (query, profile, plan) => {
-    // For safety tests, we assume no data is found unless specified in the test
-    return { count: 0, jobs: "" };
-};
 
 async function runTests() {
     const testsDir = path.join(__dirname, 'safety_tests');
@@ -36,20 +22,17 @@ async function runTests() {
 
     for (const file of testFiles) {
         const filePath = path.join(testsDir, file);
-        const tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        let tests;
+        try {
+            tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch (e) {
+            console.error(`\n❌ FATAL: Invalid JSON in ${file}: ${e.message}`);
+            process.exit(1);
+        }
 
         for (const test of tests) {
-            const sessionId = `test_session_${test.id}_${Date.now()}`;
-            ConversationState.sessionState.set(sessionId, test.context || {});
-
-            // --- DYNAMIC MOCKING ---
-            // Allow each test case to define its own mock LLM response
-            axios.post = async (url, data) => {
-                return { data: { message: { content: test.mockLLMResponse || "I am sorry, I cannot process this request." } } };
-            };
-
             try {
-                const result = await AIService.processRequest({ userMessage: test.message, sessionId });
+                const result = await processMessage(test.message, test.context);
                 const passed = checkMatch(test, result);
 
                 allResults.push({

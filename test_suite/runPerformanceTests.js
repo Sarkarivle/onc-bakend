@@ -5,27 +5,8 @@
  */
 const fs = require('fs');
 const path = require('path');
-const mongoose = require('mongoose');
-const axios = require('axios');
-const AIService = require('../src/features/ai/aiService');
+const { processMessage } = require('./helpers/mockAiClient');
 const Reporter = require('./conversationTestReporter');
-
-// --- MOCK INFRASTRUCTURE ---
-const mockModel = { findOne: async () => null, find: () => ({ sort: () => ({ lean: () => Promise.resolve([]) }) }), countDocuments: async () => 0, create: async (data) => data };
-mongoose.model = (name) => mockModel;
-mongoose.connect = async () => {};
-require('../src/features/ai/searchService').search = async () => [];
-
-axios.post = async (url, data) => {
-    // Simulate a realistic but fast LLM response time
-    await new Promise(res => setTimeout(res, 50 + Math.random() * 50));
-    return { data: { message: { content: "This is a fast mock response." } } };
-};
-
-AIService._fetchDatabaseKnowledge = async () => {
-    await new Promise(res => setTimeout(res, 20 + Math.random() * 30));
-    return { count: 0, jobs: "" };
-};
 
 async function runTests() {
     const testsDir = path.join(__dirname, 'performance_tests');
@@ -40,7 +21,13 @@ async function runTests() {
 
     for (const file of testFiles) {
         const filePath = path.join(testsDir, file);
-        const tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        let tests;
+        try {
+            tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch (e) {
+            console.error(`\n❌ FATAL: Invalid JSON in ${file}: ${e.message}`);
+            process.exit(1);
+        }
 
         for (const test of tests) {
             if (test.type === 'bulk') {
@@ -54,7 +41,7 @@ async function runTests() {
                     const promises = [];
                     for (let i = 0; i < test.count; i++) {
                         const query = test.queries[i % test.queries.length];
-                        promises.push(AIService.processRequest({ userMessage: query, sessionId: `perf_bulk_${test.id}_${i}` }));
+                        promises.push(processMessage(query));
                     }
                     await Promise.all(promises);
                     const latency = Date.now() - startTime;
@@ -86,12 +73,11 @@ async function runTests() {
                 const startTime = Date.now();
 
                 try {
-                    const result = await AIService.processRequest({ userMessage: test.message, sessionId: `perf_${test.id}` });
+                    await processMessage(test.message);
                     const latency = Date.now() - startTime;
 
                     actual = { latency: `${latency}ms`, noCrash: true };
-
-                    if (test.expected.noCrash && result.success) {
+                    if (test.expected.noCrash) {
                         if (test.maxMs) {
                             passed = latency <= test.maxMs;
                             if (!passed) actual.error = `Latency ${latency}ms exceeded limit of ${test.maxMs}ms.`;

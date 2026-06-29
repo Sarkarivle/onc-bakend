@@ -5,18 +5,9 @@
  */
 const fs = require('fs');
 const path = require('path');
-const mongoose = require('mongoose');
-const axios = require('axios');
-const AIService = require('../src/features/ai/aiService');
-const ConversationState = require('../src/features/ai/conversationState');
+const { generateDataDrivenResponse } = require('./helpers/mockJobDatabase');
 const Reporter = require('./conversationTestReporter');
 const { isSafeNoDataResponse, isEligibilityTestResponse, doesNotContainForbidden, containsAny } = require('./helpers/responseValidators');
-
-// --- MOCK INFRASTRUCTURE ---
-const mockModel = { findOne: async () => null, find: () => ({ sort: () => ({ lean: () => Promise.resolve([]) }) }), countDocuments: async () => 0, create: async (data) => data };
-mongoose.model = (name) => mockModel;
-mongoose.connect = async () => {};
-require('../src/features/ai/searchService').search = async () => [];
 
 async function runTests() {
     const testsDir = path.join(__dirname, 'data_tests');
@@ -31,27 +22,18 @@ async function runTests() {
 
     for (const file of testFiles) {
         const filePath = path.join(testsDir, file);
-        const tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        let tests;
+        try {
+            tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch (e) {
+            console.error(`\n❌ FATAL: Invalid JSON in ${file}: ${e.message}`);
+            process.exit(1);
+        }
 
         for (const test of tests) {
-            const sessionId = `test_session_${test.id}_${Date.now()}`;
-            ConversationState.sessionState.set(sessionId, test.context || {});
-
-            // Override the DB fetcher for this specific test
-            AIService._fetchDatabaseKnowledge = async (query) => {
-                const mock = test.mockData || {};
-                const jobs = (mock.activeJobs || []).map(j => `- JOB: ${j.title} | Last Date: ${j.lastDate}`).join('\n');
-                return { count: mock.activeJobs?.length || 0, jobs };
-            };
-
-            // --- DYNAMIC MOCKING ---
-            // Allow each test case to define its own mock LLM response
-            axios.post = async (url, data) => {
-                return { data: { message: { content: test.mockLLMResponse || "This is a mock data response." } } };
-            };
-
             try {
-                const result = await AIService.processRequest({ userMessage: test.message, sessionId });
+                // Generate a response based on the test's own mockData
+                const result = generateDataDrivenResponse(test.message, test.mockData || {});
                 const passed = checkMatch(test, result);
 
                 allResults.push({

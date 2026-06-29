@@ -1,30 +1,42 @@
 [
   {
     "id": "perf_crash_001",
-    "description": "Should not crash on empty user message",
     "message": "",
     "maxMs": 500,
-    "expected": { "noCrash": true }
+    "expected": {
+      "noCrash": true
+    }
   },
   {
     "id": "perf_crash_002",
-    "description": "Should not crash on very long user message (2000 chars)",
-    "message": "a".repeat(2000),
-    "maxMs": 1000,
-    "expected": { "noCrash": true }
+    "message": "   ",
+    "maxMs": 500,
+    "expected": {
+      "noCrash": true
+    }
   },
   {
     "id": "perf_crash_003",
-    "description": "Should not crash on message with only special characters",
-    "message": "!@#$%^&*()_+|}{[]:?><,./;'",
+    "message": "😀😀😀",
     "maxMs": 500,
-    "expected": { "noCrash": true }
+    "expected": {
+      "noCrash": true
+    }
   },
   {
     "id": "perf_crash_004",
-    "description": "Should not crash on message with emojis",
-    "message": "job hai kya 🤔💼",
+    "message": "<script>alert(1)</script>",
     "maxMs": 500,
-    "expected": { "noCrash": true }
+    "expected": {
+      "noCrash": true
+    }
+  },
+  {
+    "id": "perf_crash_005",
+    "message": "SELECT * FROM jobs WHERE 1=1",
+    "maxMs": 500,
+    "expected": {
+      "noCrash": true
+    }
   }
 ]

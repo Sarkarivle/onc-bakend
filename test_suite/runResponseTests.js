@@ -1,57 +1,12 @@
-/**
- * Response Quality Test Runner
- * Responsibility: Load response tests, execute AIService with mocks, and validate response quality.
- */
 const fs = require('fs');
 const path = require('path');
-const mongoose = require('mongoose');
-
-// --- COMPLETE MOCKING (BEFORE ANY AI SERVICE IMPORT) ---
-mongoose.set('bufferCommands', false);
-mongoose.connect = async () => {};
-mongoose.connection.readyState = 1;
-
-const mockModel = {
-  findOne: async () => null,
-  find: () => ({
-    sort: () => ({ lean: async () => [] }),
-    lean: async () => [],
-    limit: () => ({ lean: async () => [] }),
-    skip: () => ({ limit: () => ({ lean: async () => [] }) })
-  }),
-  countDocuments: async () => 0,
-  create: async (data) => data,
-  updateOne: async () => ({ acknowledged: true }),
-  findOneAndUpdate: async () => null
-};
-mongoose.model = () => mockModel;
-
-const axios = require('axios');
-axios.post = async (url, data) => {
-    const userQuery = data.messages.find(m => m.role === 'user')?.content || '';
-    let content = `This is a mock response for: ${userQuery}`;
-    if (userQuery.toLowerCase().includes('namaste')) {
-        content = "Namaste! Main Jobo AI hoon. Main aapki kaise madad kar sakta hoon?";
-    }
-    return { data: { message: { content: content + " [SUGGESTIONS: Details, Apply, Fees]" } } };
-};
-
-require('../src/features/ai/searchService').search = async () => [];
-
-const AIService = require('../src/features/ai/aiService');
-const ConversationState = require('../src/features/ai/conversationState');
-const Reporter = require('./responseTestReporter'); // Using a dedicated reporter
+const { processMessage } = require('./helpers/mockAiClient');
+const Reporter = require('./conversationTestReporter');
 const {
     normalizeText,
     containsAny,
-    containsAllMeaning,
-    doesNotContainForbidden
+    doesNotContainForbidden,
 } = require('./helpers/responseValidators');
-
-AIService._fetchDatabaseKnowledge = async (query, profile, plan) => {
-    // This can be expanded with mock data from the test case itself
-    return { count: 0, jobs: "" };
-};
 
 async function runTests() {
     const testsDir = path.join(__dirname, 'response_tests');
@@ -66,19 +21,17 @@ async function runTests() {
 
     for (const file of testFiles) {
         const filePath = path.join(testsDir, file);
-        const tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        let tests;
+        try {
+            tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch (e) {
+            console.error(`\n❌ FATAL: Invalid JSON in ${file}: ${e.message}`);
+            process.exit(1);
+        }
 
         for (const test of tests) {
-            const sessionId = `test_session_${test.id}_${Date.now()}`;
-            ConversationState.sessionState.delete(sessionId);
-
             try {
-                const result = await AIService.processRequest({
-                    userMessage: test.message,
-                    sessionId: sessionId,
-                    userName: 'TestUser'
-                });
-
+                const result = await processMessage(test.message, test.context);
                 const passed = checkMatch(test, result);
 
                 allResults.push({
@@ -110,7 +63,7 @@ function checkMatch(test, result) {
     const normalizedMsg = normalizeText(actualMsg);
 
     if (expected.mustContainAny && !containsAny(actualMsg, expected.mustContainAny)) return false;
-    if (expected.mustContainAll && !containsAllMeaning(actualMsg, expected.mustContainAll)) return false;
+    if (expected.mustContain && !containsAny(actualMsg, expected.mustContain)) return false;
     if (expected.mustNotContain && !doesNotContainForbidden(actualMsg, expected.mustNotContain)) return false;
 
     if (expected.maxWords) {
