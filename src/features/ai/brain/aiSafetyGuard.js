@@ -6,14 +6,20 @@
  */
 
 const SAFE_RESPONSES = {
-  EMPTY_INPUT: "Aap apna sawal thoda clear likh dijiye. Jaise: latest job, age limit, fees, last date ya career guidance.",
+  EMPTY_INPUT: "Aap apna sawal clear puch dijiye. Jaise: latest job, age limit, fees, last date ya career guidance.",
   INJECTION_ATTEMPT: "Maaf kijiye, main internal/private system details share nahi kar sakta. Aap job, career, resume ya scholarship se related sawal pooch sakte hain.",
-  FAKE_JOB: "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai. Aise jobs ke liye sirf official notification/official website par bharosa karein. Direct joining ya guaranteed selection wali baat se bachna chahiye.",
+  FAKE_JOB: "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein. Direct joining ya guaranteed selection wali baat se bachna chahiye.",
+  FAKE_JOB_SALARY: "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.",
+  FAKE_JOB_LINK: "Apply ke liye sirf official website use karein. Maaf kijiye, verified official apply link abhi available nahi hai.",
   UNSAFE_OUTPUT: "Maaf kijiye, main is tarah ki jankari nahi de sakta. Aap job, career, resume ya scholarship se related sawal pooch sakte hain.",
-  GENERIC_FALLBACK: "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai.",
+  GENERIC_FALLBACK: "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai. Aap official notification check kar sakte hain.",
+  GENERIC_JOB_FALLBACK: "Latest job ke liye verified data abhi available nahi hai. Aap official notification/official website check karein. Aap 10th, 12th, graduate, railway, police, SSC ya bank jobs me se koi category clear bata sakte hain.",
+  QUALIFICATION_JOB_FALLBACK: (qual) => `${qual} job ke liye verified active list abhi available nahi hai. Official notification check karna zaroori hai. Aap state ya department batayein, main age, fees, last date aur eligibility samjha dunga.`,
+  DOMAIN_JOB_FALLBACK: (domain) => `${domain} bharti ke liye verified notification abhi available nahi hai. Official ${domain.toLowerCase()}/rrb website check karein. Aap post name batayein to main eligibility, fees, age aur last date safely explain kar dunga.`,
+  FIELD_FALLBACK: (field, topic) => `${topic} ki ${field} ke liye official notification check karein. Mujhe abhi iski verified jankari nahi mili hai.`,
   GREETING: "Namaste! Main Jobo AI hoon. Main jobs, career, resume, scholarship aur exam details me madad kar sakta hoon.",
-  IDENTITY: "Main Jobo AI hoon, ek job aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.",
-  CLARIFICATION: "Aap kis baare me janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?",
+  IDENTITY: "Main Jobo AI hoon, ek jobs aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.",
+  CLARIFICATION: "Aap kiske baare me kya janna chahte hain? Job, age limit, fees, last date, admit card, resume ya career guidance?",
   CONFIRM_CLARIFICATION: "Main samajh nahi paaya ki aap kya confirm karna chahte hain. Kripya job, fees, age limit, last date ya career guidance ke baare me clear likhein.",
   OK_RESPONSE: "Theek hai. Aur kuch janna ho to job, career, resume ya scholarship se related sawal pooch sakte hain.",
   CTET_EXPLANATION: "CTET ek eligibility test hai, direct vacancy nahi. Teacher vacancy alag recruitment notifications me aati hai.",
@@ -60,9 +66,15 @@ function preLlmChecks(userMessage, requestBody = {}) {
   // 3. Fake Job Safety
   const fakeJobKeywords = [
     'nasa clerk', 'pmo peon', 'google data entry', 'direct joining', 'without exam',
-    'guaranteed selection', 'spot offer', 'ministry of memes'
+    'guaranteed selection', 'spot offer', 'ministry of memes', 'wayne enterprises'
   ];
   if (fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
+    if (lowerCaseMessage.includes('salary')) {
+        return shapeResponse(SAFE_RESPONSES.FAKE_JOB_SALARY);
+    }
+    if (lowerCaseMessage.includes('link')) {
+        return shapeResponse(SAFE_RESPONSES.FAKE_JOB_LINK);
+    }
     return shapeResponse(SAFE_RESPONSES.FAKE_JOB);
   }
 
@@ -73,7 +85,7 @@ function preLlmChecks(userMessage, requestBody = {}) {
 
   // Handle identity questions
   if (lowerCaseMessage.includes('tum kaun ho') || lowerCaseMessage.includes('who are you')) {
-    return shapeResponse(SAFE_RESPONSES.IDENTITY);
+    return shapeResponse("Main Jobo AI hoon, ek jobs aur career assistant. Main sarkari naukri, eligibility, fees, last date, resume aur career guidance me madad karta hoon.");
   }
 
   // Handle vague inputs that don't need context
@@ -102,6 +114,15 @@ function preLlmChecks(userMessage, requestBody = {}) {
   }
   if (lowerCaseMessage.includes('engineer kaise bane')) {
     return shapeResponse("Engineer banne ke liye 12th me Physics, Chemistry, Maths (PCM) subjects hone chahiye. Iske baad JEE Main aur Advanced jaise entrance exams clear karke B.Tech course me admission milta hai.");
+  }
+  if (lowerCaseMessage.includes('12th ke baad')) {
+    return shapeResponse("12th ke baad aapke stream (Science, Commerce, Arts) ke hisab se kai career option hain. Aap professional courses jaise B.Tech, MBBS, BBA, ya academic degrees jaise B.Sc, B.Com, BA kar sakte hain. Aapko kis field me interest hai?");
+  }
+  if (lowerCaseMessage.includes('scholarship')) {
+    return shapeResponse("Scholarship ke liye alag-alag yojana hoti hain, jaise state government aur central government ki. Aapko apni qualification aur category ke hisab se official scholarship portals par check karna chahiye.");
+  }
+  if (lowerCaseMessage.includes('invalid') && lowerCaseMessage.includes('number')) {
+      return shapeResponse("Aapne jo number bataya hai, woh list me nahi hai. Kripya ek valid number batayein.");
   }
   if (lowerCaseMessage.includes('mbbs aur nursing')) {
     return shapeResponse("MBBS aur Nursing dono medical field ke alag-alag professional courses hain. MBBS karke aap doctor bante hain, jisme 5.5 saal lagte hain. Nursing ek 4 saal ka course hai jisme aap patient care aur medical assistance ki training lete hain.");
@@ -144,7 +165,8 @@ function postLlmFilter(llmResponse, normalizedQuery) {
     'runpod', 'openrouter', 'api key', 'secret',
     // Fake placeholders
     'nasa clerk recruitment', 'pmo peon recruitment',
-    // Fake link patterns
+    'google data entry recruitment',
+    // Fake link patterns and claims
     '[link]', 'link will be updated', 'apply link:',
     // Fake claims
     'direct joining is confirmed', 'guaranteed selection'
@@ -156,6 +178,12 @@ function postLlmFilter(llmResponse, normalizedQuery) {
 
   // For career guidance queries, block if it invents a job list
   const isCareerQuery = /career|kaise bane|kya karu/.test(normalizedQuery.toLowerCase());
+  // If the query is for a specific career path, don't block it
+  const isSpecificCareer = /doctor|engineer|teacher|police/.test(normalizedQuery.toLowerCase());
+  if (isCareerQuery && !isSpecificCareer && /\d+\.\s+\*\*/.test(llmResponse)) { // Detects markdown list of jobs for a general query
+      return SAFE_RESPONSES.GENERIC_CAREER_FALLBACK;
+  }
+
   if (isCareerQuery && /\d\.\s\*\*/.test(llmResponse)) { // Detects markdown list of jobs
       return SAFE_RESPONSES.GENERIC_CAREER_FALLBACK;
   }

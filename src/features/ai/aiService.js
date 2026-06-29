@@ -243,8 +243,21 @@ class AIService {
 
             // Fallback for failed strict validation
             if ((!validation.passed || hasHallucinatedJob) && isDataMissing && (['GOVT_JOB', 'CAREER', 'SCHOLARSHIP'].includes(plan.intent))) {
-                finalContent = ResponseCleaner.getFactualFallback();
-                finalContent = postLlmFilter(finalContent, rawInput); // Filter the fallback too
+                // Phase 6-C: Use semantic fallbacks instead of generic one
+                const qualMatch = rawInput.match(/(10th|12th|graduate|graduation)/i);
+                const domainMatch = rawInput.match(/(railway|police|ssc|bank|teacher|bihar daroga)/i);
+
+                if (qualMatch) {
+                    finalContent = SAFE_RESPONSES.QUALIFICATION_JOB_FALLBACK(qualMatch[0]);
+                } else if (domainMatch) {
+                    finalContent = SAFE_RESPONSES.DOMAIN_JOB_FALLBACK(domainMatch[0]);
+                } else if (plan.intent === 'GOVT_JOB') {
+                    finalContent = SAFE_RESPONSES.GENERIC_JOB_FALLBACK;
+                } else {
+                    finalContent = ResponseCleaner.getFactualFallback();
+                }
+
+                finalContent = postLlmFilter(finalContent, rawInput);
             } else if (!validation.passed && validationInput.isPureGreeting) {
                 finalContent = ResponseCleaner.getGreetingFallback();
             }
