@@ -11,6 +11,18 @@ mongoose.connect(mongoURI)
 
 // 2. SERVER START
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Modular Server active on port ${PORT}`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log('----------------------------------------------');
+    console.log(`🚀 SERVER RUNNING ON PORT: ${PORT}`);
+    console.log(`🔗 ACCESS LOCALLY: http://localhost:${PORT}`);
+    console.log(`🔗 ACCESS VIA IP: http://72.61.170.181:${PORT}`);
+    console.log('----------------------------------------------');
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Error: Port ${PORT} is already in use.`);
+    } else {
+        console.error('❌ Server Error:', err);
+    }
 });
