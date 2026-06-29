@@ -224,7 +224,7 @@ class FollowUpResolver {
     static _resolveNumericReference(q, state, base) {
         const match = q.match(/(\d+)\s*(no|number|th|st|rd|nd|wala|item|job|position|vaale|wali|waali)/i) ||
                       q.match(/^(first|second|third|fourth|chouthi|fifth|sixth|seventh|eighth|ninth|tenth)\s*(wala|item|job|position)?$/i) ||
-                      q.match(/^(job\s+)?(number\s+)?(\d+)$/i) ||
+                      q.match(/^(job\s+)?(number\s+)?(\d+)\s*(job|wali|wala)?$/i) ||
                       q.match(/(upar|niche|pichhli|last|first)\s*(wali|waali|wala|vaale|job|no)/i);
 
         if (!match) return base;

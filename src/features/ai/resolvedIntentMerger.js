@@ -24,6 +24,9 @@ class ResolvedIntentMerger {
         const llmPrimary = llmIntent?.primaryIntent || null;
         const followUpPrimary = followUp?.intent || null;
 
+        const isClarificationFollowUp = /\b(sahi se batao|achhe se batao|acche se batao|detail me batao|dobara batao|clear batao|samjha ke batao|properly batao|thoda aur samjhao)\b/i.test(normalizedMessage);
+        const isNumericFollowUp = followUp?.followUpType === 'DETAILS' && followUp.entities?.itemIndex;
+
         // Merger Priority Implementation
         let primary;
         const isCareerLock =
@@ -41,12 +44,14 @@ class ResolvedIntentMerger {
 
         if (ruleResult?.isPureGreeting) {
             primary = 'GREETING';
-        } else if (strongIntent?.primaryIntent === 'FIELD_DETAILS' && strongIntent.isFollowUp) {
+        } else if (isClarificationFollowUp && hasContext) {
+            primary = 'FIELD_DETAILS';
+        } else if (isNumericFollowUp && hasContext) {
             primary = 'FIELD_DETAILS';
         } else if (followUpPrimary && followUpPrimary.startsWith('MORE_')) {
             primary = followUpPrimary;
         } else if (strongIntent) {
-            primary = strongIntent.primaryIntent;        
+            primary = strongIntent.primaryIntent;
         } else if (isCareerLock) {
             primary = 'CAREER_GUIDANCE';
         } else if (followUpPrimary && followUpPrimary !== 'FIELD_DETAILS' && followUpPrimary !== 'PROFILE_INFO') {
@@ -101,8 +106,13 @@ class ResolvedIntentMerger {
         const usePreviousContext = Boolean(followUp?.usePreviousContext || (isFollowUp && hasContext));
 
         if (strongIntent && strongIntent.primaryIntent === 'CAREER_GUIDANCE') isFollowUp = false;
-        if (isCareerLock) isFollowUp = false;
-        if (primary === 'FIELD_DETAILS') isFollowUp = true;
+        if (isCareerLock && !isClarificationFollowUp) isFollowUp = false;
+
+        if (isClarificationFollowUp && hasContext) {
+            isFollowUp = true;
+        } else if (primary === 'FIELD_DETAILS' && hasContext) {
+            isFollowUp = true;
+        }
         if (primary === 'APPLICATION_HELP' && hasContext) isFollowUp = true;
 
         const communicationAct = this._communicationAct(primary, ruleResult, followUp, isFollowUp);

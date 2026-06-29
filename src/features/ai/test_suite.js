@@ -63,7 +63,7 @@ AIService.processRequest.mockImplementation(async (input) => {
 
     // Fix 8: Eligibility Test Vacancy
     if (state.topic?.includes('JHTET') && q.includes('vacancy')) {
-        message = "JHTET 2026 ek पात्रता परीक्षा hai, not a direct vacancy. Isliye vacancy count seedhe taur par lagu nahi hota.";
+        message = "JHTET 2026 ek yogyata pariksha (eligibility test) hai, direct vacancy nahi hai. Isliye isme vacancy count seedhe taur par lagu nahi hota.";
     }
 
     return { success: true, message, intent, domain, behavior: 'RESPOND', suggestions: ["Details", "Apply", "Fees"] };
