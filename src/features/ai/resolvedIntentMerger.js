@@ -153,26 +153,6 @@ class ResolvedIntentMerger {
         // FINAL OVERRIDE BLOCK
         // ==================================================
 
-        // B) CAREER_GUIDANCE domain normalization
-        if (finalIntent.resolvedIntent === 'CAREER_GUIDANCE' || finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
-            finalIntent.domain = "CAREER";
-            finalIntent.domainIntent = "CAREER";
-            finalIntent.task = "GUIDANCE";
-        }
-
-        // C) Explicit health job override
-        const healthTerms = /\b(nursing|nurse|anm|gnm|health worker|asha)\b/i;
-        const jobTerms = /\b(job|jobs|vacancy|recruitment|bharti|opening|listing|in bihar|in up|in delhi|in madhya pradesh|in rajasthan)\b/i;
-
-        if (healthTerms.test(normalizedMessage) && jobTerms.test(normalizedMessage)) {
-            finalIntent.communicationAct = "QUESTION";
-            finalIntent.domain = "HEALTH_JOB";
-            finalIntent.task = "LATEST";
-            finalIntent.resolvedIntent = "JOB_QUERY";
-            finalIntent.primaryIntent = "JOB_QUERY";
-            finalIntent.isFollowUp = false;
-        }
-
         // A) Follow-up clarification override (Runs last to have final say)
         if (isClarificationFollowUp && hasContext) {
             finalIntent.communicationAct = "FOLLOW_UP";
@@ -183,13 +163,6 @@ class ResolvedIntentMerger {
             finalIntent.primaryIntent = "FIELD_DETAILS";
             finalIntent.isFollowUp = true;
             finalIntent.isPureGreeting = false;
-        }
-
-        // Ensure final domain for CAREER_GUIDANCE is correct after all overrides
-        if (finalIntent.primaryIntent === 'CAREER_GUIDANCE') {
-            finalIntent.domain = 'CAREER';
-            finalIntent.domainIntent = 'CAREER';
-            finalIntent.graphDomain = 'CAREER';
         }
 
 
