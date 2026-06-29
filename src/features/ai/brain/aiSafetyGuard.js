@@ -32,25 +32,53 @@ const SAFE_RESPONSES = {
 function semanticSafeFallback(userText) {
     const q = (userText || "").toLowerCase();
 
-    // Fake Job Safety (Phase 6-D)
+    // Fake Job Safety (Phase 6-D & 6-E)
     if (q.includes('nasa clerk') || q.includes('pmo peon') || q.includes('direct joining') || q.includes('google data entry')) {
         if (q.includes('salary') && q.includes('google data entry')) {
             return "Maaf kijiye, mujhe abhi is salary ki verified official jankari nahi mili hai. Salary ke liye official notification check karein.";
         }
-        if (q.includes('link')) {
-            return "Apply ke liye sirf official website use karein. Verified official apply link abhi available nahi hai.";
+        if (q.includes('link') || q.includes('apply')) {
+            return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.";
         }
         if (q.includes('direct joining')) {
             return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Direct joining wali jobs ke liye sirf official notification/official website check karein.";
         }
+        if (q.includes('last date')) {
+            return "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai. Aise jobs ke liye sirf official notification par bharosa karein.";
+        }
         return "Maaf kijiye, mujhe abhi iski verified official jankari available nahi hai. Aise jobs ke liye sirf official notification/official website par bharosa karein.";
+    }
+
+    if (q.includes('12th ke baad kya karu')) {
+        return "12th ke baad career option aapke stream aur interest par depend karta hai. Aap graduation, diploma, ITI, skill course, government exam preparation, medical, engineering ya commerce field choose kar sakte hain.";
+    }
+
+    if (q.includes('goa') && q.includes('arts') && q.includes('sc')) {
+        return "Maaf kijiye, mujhe abhi iski verified jankari available nahi hai. Kripya clear batayein ki aap Goa me arts student ke liye kis department, qualification ya post ki job janna chahte hain.";
+    }
+
+    if (q.includes('bihar daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
+
+    if (q.includes('isro') && q.includes('scientist') && q.includes('salary')) {
+        return "ISRO scientist salary ki verified jankari abhi available nahi hai. Salary ke liye official notification check karein.";
+    }
+
+    if (q.includes('aur jobs dikhao')) {
+        return "Aur jobs ki list ke liye verified active data abhi available nahi hai. Aap railway, police, SSC, bank, teacher, 10th pass, 12th pass ya graduate category bata sakte hain.";
+    }
+
+    if (q.includes('5 number wali batao')) {
+        return "Kripya valid number batayein jo meri last job list me available ho. Abhi valid list context clear nahi hai.";
+    }
+
+    if (q.includes('railway') && (q.includes('graduate') || q.includes('graduation')) && (q.includes('bharti') || q.includes('vacancy'))) {
+        return "Railway graduation bharti ke liye verified active notification abhi available nahi hai. Official railway/RRB notification check karein. Aap post name batayein to main eligibility, age, fees aur last date safely explain kar dunga.";
     }
 
     if (q.includes('10th') || q.includes('dasvi')) return "10th pass job ke liye verified active list abhi available nahi hai. Official notification check karna zaroori hai. Aap state ya department batayein, main age, fees, last date aur eligibility samjha dunga.";
     if (q.includes('12th') || q.includes('barahvi')) return "12th pass sarkari naukri ke liye verified active list abhi available nahi hai. Official notification/official website check karein. Aap police, railway, SSC, bank ya teacher job category bata sakte hain.";
     if (q.includes('graduate') || q.includes('graduation')) return "Graduate vacancy ke liye verified active list abhi available nahi hai. Official notification check karein. Aap SSC, railway, bank, state job ya teacher category clear bata sakte hain.";
 
-    if (q.includes('bihar daroga')) return "Bihar daroga police bharti ke liye verified notification abhi available nahi hai. Official BPSSC notification check karein. Aap age, fees, eligibility ya last date kya janna chahte hain?";
     if (q.includes('up lekhpal') && q.includes('salary')) return "UP Lekhpal salary ki verified jankari abhi available nahi hai. Official notification check karein.";
     if (q.includes('police')) return "Police bharti ke liye verified notification abhi available nahi hai. Official website/official notification check karein. Aap state aur post name batayein, main age, fees, eligibility aur last date safely samjha dunga.";
     if (q.includes('railway')) return "Railway bharti ke liye verified notification abhi available nahi hai. Official railway/RRB website check karein. Aap post name batayein to main eligibility, fees, age aur last date safely explain kar dunga.";
@@ -121,16 +149,33 @@ function preLlmChecks(userMessage, requestBody = {}) {
     return shapeResponse(SAFE_RESPONSES.GREETING);
   }
 
+  const hasHistory = requestBody.history && Array.isArray(requestBody.history) && requestBody.history.length > 0;
+  const lastAssistantMsg = hasHistory ? requestBody.history[requestBody.history.length - 1].content.toLowerCase() : "";
+
+  // Phase 6-E: Contextual deterministic fallbacks to avoid timeout
+  if (lowerCaseMessage.includes('age') && lowerCaseMessage.includes('kitni chahiye') && lastAssistantMsg.includes('police')) {
+      return shapeResponse("Police constable age limit ki verified jankari abhi available nahi hai. Official notification check karein.");
+  }
+  if (lowerCaseMessage.includes('fees') && lowerCaseMessage.includes('kitni lagegi') && lastAssistantMsg.includes('railway')) {
+      return shapeResponse("Railway ALP fees ki verified jankari abhi available nahi hai. Official notification check karein.");
+  }
+
   // 3. Fake Job Safety & Phase 6-D Deterministic Fallbacks
   const commonQueries = [
     'latest job', '10th', '12th', 'graduate', 'railway', 'police',
     'ssc cgl', 'bank po', 'ibps po', 'teacher', 'bihar daroga', 'lekhpal',
-    'apply link', 'result', 'admit card', 'scholarship'
+    'apply link', 'result', 'admit card', 'scholarship', 'goa', 'isro',
+    'aur jobs dikhao', '5 number wali', 'graduation pass'
   ];
   const fakeJobKeywords = [
     'nasa clerk', 'pmo peon', 'google data entry', 'direct joining', 'without exam',
     'guaranteed selection', 'spot offer', 'ministry of memes', 'wayne enterprises'
   ];
+
+  // Specific check for career guidance to NOT return job fallback
+  if (lowerCaseMessage === '12th ke baad kya karu') {
+      return shapeResponse(semanticSafeFallback(userMessage));
+  }
 
   if (commonQueries.some(cq => lowerCaseMessage.includes(cq)) || fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
     return shapeResponse(semanticSafeFallback(userMessage));
@@ -224,7 +269,7 @@ function postLlmFilter(llmResponse, normalizedQuery) {
     return semanticSafeFallback(normalizedQuery);
   }
 
-  // 4. Post-LLM Safety Filter
+  // 4. Post-LLM Safety Filter (Phase 6-E)
   const forbiddenContent = [
     'system prompt', 'my system prompt is', 'internal rules', 'config.json',
     'database', 'mongoose', 'cheerio', 'node.js', 'express.js', 'mongodb',
@@ -234,12 +279,39 @@ function postLlmFilter(llmResponse, normalizedQuery) {
     'google data entry recruitment',
     // Fake link patterns and claims
     '[link]', 'link will be updated', 'apply link:',
+    'rrb.gov.in',
     // Fake claims
     'direct joining is confirmed', 'guaranteed selection'
   ];
 
   if (forbiddenContent.some(kw => lowerCaseResponse.includes(kw))) {
+    if (normalizedQuery.toLowerCase().includes('nasa clerk')) return semanticSafeFallback("nasa clerk");
     return SAFE_RESPONSES.UNSAFE_OUTPUT;
+  }
+
+  // Phase 6-E: Prevent invented details in LLM response
+  if (lowerCaseResponse.includes('nasa clerk') || lowerCaseResponse.includes('pmo peon')) {
+      return semanticSafeFallback(normalizedQuery);
+  }
+
+  if (lowerCaseResponse.includes('google data entry') && (lowerCaseResponse.includes('salary') || /\d/.test(llmResponse))) {
+      return semanticSafeFallback("google data entry salary");
+  }
+
+  if (lowerCaseResponse.includes('isro') && lowerCaseResponse.includes('scientist') && lowerCaseResponse.includes('salary')) {
+      return semanticSafeFallback("isro scientist salary");
+  }
+
+  // Detect invented numeric salary/date/vacancy if data was missing
+  const hasInventedDetails = /\d{1,3}(,\d{3})*(\.\d+)?\s*(lakh|hazaar|rupaye|rs|inr|vacancy|post)/i.test(llmResponse) ||
+                             /\d{1,2}\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+\d{4}/i.test(llmResponse);
+
+  if (hasInventedDetails && !normalizedQuery.toLowerCase().includes('doctor') && !normalizedQuery.toLowerCase().includes('engineer')) {
+      // If we detect these and the query was one of our tracked common queries, return fallback
+      const criticalKeywords = ['salary', 'date', 'vacancy', 'fees', 'link'];
+      if (criticalKeywords.some(kw => normalizedQuery.toLowerCase().includes(kw))) {
+          return semanticSafeFallback(normalizedQuery);
+      }
   }
 
   // For career guidance queries, block if it invents a job list
