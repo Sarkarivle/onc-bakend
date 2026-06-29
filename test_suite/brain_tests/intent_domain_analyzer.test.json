@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ida_001",
+    "description": "Should detect JOB_QUERY intent and police domain",
+    "query": "up police me job hai?",
+    "expected": { "primaryIntent": "JOB_QUERY", "detectedDomain": "police" }
+  },
+  {
+    "id": "ida_002",
+    "description": "Should detect CAREER_GUIDANCE intent",
+    "query": "12th ke baad kya karu",
+    "expected": { "primaryIntent": "CAREER_GUIDANCE", "detectedDomain": null }
+  },
+  {
+    "id": "ida_003",
+    "description": "Should detect RESULT_ADMIT_CARD intent",
+    "query": "ssc cgl ka result kab aayega",
+    "expected": { "primaryIntent": "RESULT_ADMIT_CARD", "detectedDomain": "ssc" }
+  },
+  {
+    "id": "ida_004",
+    "description": "Should detect RESUME intent",
+    "query": "resume banane me help chahiye",
+    "expected": { "primaryIntent": "RESUME", "detectedDomain": null }
+  },
+  {
+    "id": "ida_005",
+    "description": "Should detect GREETING intent",
+    "query": "namaste bhai",
+    "expected": { "primaryIntent": "GREETING" }
+  }
+]

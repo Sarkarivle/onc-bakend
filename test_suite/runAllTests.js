@@ -10,7 +10,8 @@ const suites = [
   ['Response Tests', 'test:responses'],
   ['Safety Tests', 'test:safety'],
   ['Data Tests', 'test:data'],
-  ['Performance Tests', 'test:performance']
+  ['Performance Tests', 'test:performance'],
+  ['Brain Tests', 'test:brain']
 ];
 
 const packageJsonPath = path.join(projectRoot, 'package.json');

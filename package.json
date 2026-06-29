@@ -12,7 +12,8 @@
     "test:safety": "node test_suite/runSafetyTests.js",
     "test:data": "node test_suite/runDataTests.js",
     "test:performance": "node test_suite/runPerformanceTests.js",
-    "test:all": "node test_suite/runAllTests.js"
+    "test:all": "node test_suite/runAllTests.js",
+    "test:brain": "node test_suite/runBrainTests.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

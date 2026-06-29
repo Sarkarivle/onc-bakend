@@ -1,0 +1,41 @@
+[
+  {
+    "id": "conf_001",
+    "description": "Should have high confidence for a clear query",
+    "analysis": {
+      "normalized": {
+        "detectedTypos": []
+      },
+      "intentDomain": {
+        "confidence": 0.95
+      },
+      "resolvedContext": {
+        "needsClarification": false
+      }
+    },
+    "expected": {
+      "minScore": 90
+    },
+    "userMessage": "up police job age"
+  },
+  {
+    "id": "conf_002",
+    "description": "Should have low confidence for a vague query with typos",
+    "analysis": {
+      "normalized": {
+        "detectedTypos": [
+          "sallery"
+        ]
+      },
+      "intentDomain": {
+        "confidence": 0.7
+      },
+      "resolvedContext": {
+        "needsClarification": true
+      }
+    },
+    "expected": {
+      "maxScore": 70
+    }
+  }
+]
