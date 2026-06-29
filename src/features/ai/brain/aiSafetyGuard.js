@@ -187,7 +187,6 @@ function preLlmChecks(userMessage, requestBody = {}) {
   }
 
   // Handle vague inputs that don't need context
-  const hasHistory = requestBody.history && Array.isArray(requestBody.history) && requestBody.history.length > 0;
   if (/^(batao|aur batao)$/i.test(lowerCaseMessage) && !hasHistory) {
     return shapeResponse(SAFE_RESPONSES.CLARIFICATION);
   }
