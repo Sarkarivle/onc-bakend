@@ -155,7 +155,7 @@ class AIService {
 
             // Add strict constraint if no live data is available
             if (plan.behavior !== 'CLARIFY' && !knowledgeContext.jobs && !knowledgeContext.web && plan.intent !== 'GENERAL') {
-                systemInstruction += "\n\nCRITICAL: No verified job data found in [DATABASE] or [SEARCH]. You MUST NOT mention any specific jobs, dates, or vacancies. Simply state that you don't have verified info right now.";
+                systemInstruction += "\n\nCRITICAL: No specific job records found in Database. You MUST NOT invent specific dates or vacancy counts. However, you can give general career guidance or explain the general process related to the user's query. If the user asks for 'latest' or 'active' jobs, politely explain that you don't see any active ones right now and suggest they check official websites like SSC or Railway boards.";
             }
 
             // Specific follow-up prompt injection

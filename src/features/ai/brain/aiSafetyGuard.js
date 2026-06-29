@@ -115,7 +115,7 @@ function semanticSafeFallback(userText) {
     if (q.includes('scholarship')) return "Scholarship yojana ke form ki verified dates abhi available nahi hain. Official scholarship portal/official notification check karein.";
     if (q.includes('latest job')) return "Latest job ke liye verified active list abhi available nahi hai. Aap official notification/official website check karein. Aap 10th pass, 12th pass, graduate, railway, police, SSC ya bank job category clear bata sakte hain.";
 
-    return "Maaf kijiye, mujhe abhi iski verified jankari available nahi hai. Kripya clear batayein ki aap job, age limit, fees, last date, resume ya career guidance me kya janna chahte hain.";
+    return "Bhai, is baare mein abhi mere paas koi verified update nahi hai. Aap kiske baare mein janna chahte hain? (Naukri, Fees, Age limit ya Form kaise bharna hai?)";
 }
 
 /**
@@ -176,32 +176,13 @@ function preLlmChecks(userMessage, requestBody = {}) {
       return shapeResponse("Police constable ki details ke liye verified list context abhi clear nahi hai. Kripya valid number ya job list dobara batayein.");
   }
 
-  // 3. Fake Job Safety & Phase 6-D Deterministic Fallbacks
-  const isNasaClerk = lowerCaseMessage.includes('nasa') && lowerCaseMessage.includes('clerk');
-  const isGoogleSalary = lowerCaseMessage.includes('google') && lowerCaseMessage.includes('data') && lowerCaseMessage.includes('entry') && lowerCaseMessage.includes('salary');
-  const isBiharDaroga = lowerCaseMessage.includes('bihar') && lowerCaseMessage.includes('daroga');
-
-  if (isNasaClerk || isGoogleSalary || isBiharDaroga) {
-      return shapeResponse(semanticSafeFallback(userMessage));
-  }
-
-  const commonQueries = [
-    'latest job', '10th', '12th', 'graduate', 'railway', 'police',
-    'ssc cgl', 'bank po', 'ibps po', 'teacher', 'lekhpal',
-    'apply link', 'result', 'admit card', 'scholarship', 'goa', 'isro',
-    'aur jobs dikhao', '5 number wali', 'graduation pass'
-  ];
+  // 3. Fake Job Safety (Deterministic Fallbacks)
   const fakeJobKeywords = [
     'nasa clerk', 'pmo peon', 'google data entry', 'direct joining', 'without exam',
     'guaranteed selection', 'spot offer', 'ministry of memes', 'wayne enterprises'
   ];
 
-  // Specific check for career guidance to NOT return job fallback
-  if (lowerCaseMessage === '12th ke baad kya karu') {
-      return shapeResponse(semanticSafeFallback(userMessage));
-  }
-
-  if (commonQueries.some(cq => lowerCaseMessage.includes(cq)) || fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
+  if (fakeJobKeywords.some(kw => lowerCaseMessage.includes(kw))) {
     return shapeResponse(semanticSafeFallback(userMessage));
   }
 
