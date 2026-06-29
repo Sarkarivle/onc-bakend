@@ -10,29 +10,13 @@ const axios = require('axios');
 const AIService = require('../src/features/ai/aiService');
 const ConversationState = require('../src/features/ai/conversationState');
 const Reporter = require('./conversationTestReporter');
-const { isSafeNoDataResponse, isEligibilityTestResponse, doesNotContainForbidden } = require('./helpers/responseValidators');
+const { isSafeNoDataResponse, isEligibilityTestResponse, doesNotContainForbidden, containsAny } = require('./helpers/responseValidators');
 
 // --- MOCK INFRASTRUCTURE ---
 const mockModel = { findOne: async () => null, find: () => ({ sort: () => ({ lean: () => Promise.resolve([]) }) }), countDocuments: async () => 0, create: async (data) => data };
 mongoose.model = (name) => mockModel;
 mongoose.connect = async () => {};
 require('../src/features/ai/searchService').search = async () => [];
-
-axios.post = async (url, data) => {
-    const systemPrompt = data.messages.find(m => m.role === 'system')?.content || '';
-    let content = `This is a mock response based on the provided context.`;
-
-    if (systemPrompt.includes('JHTET') && systemPrompt.includes('vacancy')) {
-        content = "JHTET ek eligibility test hai, direct vacancy nahi hai.";
-    } else if (systemPrompt.includes('Old Railway Group D 2022')) {
-        content = "Purani job Old Railway Group D 2022 ab active nahi hai.";
-    } else if (systemPrompt.includes('No verified job data found')) {
-        content = "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai.";
-    } else if (systemPrompt.includes('Active Job 2026')) {
-        content = "Here are the details for Active Job 2026.";
-    }
-    return { data: { message: { content } } };
-};
 
 async function runTests() {
     const testsDir = path.join(__dirname, 'data_tests');
@@ -58,6 +42,12 @@ async function runTests() {
                 const mock = test.mockData || {};
                 const jobs = (mock.activeJobs || []).map(j => `- JOB: ${j.title} | Last Date: ${j.lastDate}`).join('\n');
                 return { count: mock.activeJobs?.length || 0, jobs };
+            };
+
+            // --- DYNAMIC MOCKING ---
+            // Allow each test case to define its own mock LLM response
+            axios.post = async (url, data) => {
+                return { data: { message: { content: test.mockLLMResponse || "This is a mock data response." } } };
             };
 
             try {
@@ -90,6 +80,7 @@ function checkMatch(test, result) {
     const expected = test.expected;
     const actualMsg = result.message || "";
 
+    if (expected.mustContain && !containsAny(actualMsg, expected.mustContain)) return false;
     if (expected.mustNotContain && !doesNotContainForbidden(actualMsg, expected.mustNotContain)) return false;
     if (expected.safeNoData && !isSafeNoDataResponse(actualMsg)) return false;
     if (expected.isEligibilityTestResponse && !isEligibilityTestResponse(actualMsg)) return false;

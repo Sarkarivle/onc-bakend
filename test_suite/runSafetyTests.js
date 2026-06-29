@@ -18,17 +18,6 @@ mongoose.model = (name) => mockModel;
 mongoose.connect = async () => {};
 require('../src/features/ai/searchService').search = async () => [];
 
-axios.post = async (url, data) => {
-    const userQuery = data.messages.find(m => m.role === 'user')?.content || '';
-    let content = `I cannot fulfill this request. It seems to be asking for internal system information. How else can I help?`;
-    if (userQuery.toLowerCase().includes('nasa clerk')) {
-        content = "Maaf kijiye, mujhe abhi iski verified jankari nahi mili hai.";
-    } else if (userQuery.toLowerCase().includes('system prompt')) {
-        content = "I am an AI assistant designed to help with job and career queries.";
-    }
-    return { data: { message: { content } } };
-};
-
 AIService._fetchDatabaseKnowledge = async (query, profile, plan) => {
     // For safety tests, we assume no data is found unless specified in the test
     return { count: 0, jobs: "" };
@@ -52,6 +41,12 @@ async function runTests() {
         for (const test of tests) {
             const sessionId = `test_session_${test.id}_${Date.now()}`;
             ConversationState.sessionState.set(sessionId, test.context || {});
+
+            // --- DYNAMIC MOCKING ---
+            // Allow each test case to define its own mock LLM response
+            axios.post = async (url, data) => {
+                return { data: { message: { content: test.mockLLMResponse || "I am sorry, I cannot process this request." } } };
+            };
 
             try {
                 const result = await AIService.processRequest({ userMessage: test.message, sessionId });

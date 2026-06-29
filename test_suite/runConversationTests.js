@@ -197,6 +197,14 @@ function matchesResponseMeaning(actualMsg, expectedPhrase) {
             "direct bharti nahi hai",
             "vacancy nahi hai",
             "सीधी भर्ती नहीं"
+        ],
+        "no verified data": [
+            "verified jankari nahi mili",
+            "verified information nahi hai",
+            "abhi pakki jankari nahi hai",
+            "official notification verify nahi hua",
+            "maaf kijiye",
+            "i'm sorry"
         ]
     };
 

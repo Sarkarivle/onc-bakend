@@ -43,38 +43,77 @@ async function runTests() {
         const tests = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
         for (const test of tests) {
-            let passed = false;
-            let actual = {};
-            const startTime = Date.now();
+            if (test.type === 'bulk') {
+                // Handle bulk tests
+                let passed = false;
+                let actual = {};
+                const initialListeners = process.listenerCount('unhandledRejection');
+                const startTime = Date.now();
 
-            try {
-                const result = await AIService.processRequest({ userMessage: test.message, sessionId: `perf_${test.id}` });
-                const latency = Date.now() - startTime;
-
-                actual = { latency: `${latency}ms`, noCrash: true };
-
-                if (test.expected.noCrash && result.success) {
-                    if (test.maxMs) {
-                        passed = latency <= test.maxMs;
-                        if (!passed) actual.error = `Latency ${latency}ms exceeded limit of ${test.maxMs}ms.`;
-                    } else {
-                        passed = true;
+                try {
+                    const promises = [];
+                    for (let i = 0; i < test.count; i++) {
+                        const query = test.queries[i % test.queries.length];
+                        promises.push(AIService.processRequest({ userMessage: query, sessionId: `perf_bulk_${test.id}_${i}` }));
                     }
-                }
-            } catch (err) {
-                actual = { latency: `${Date.now() - startTime}ms`, noCrash: false, error: err.message };
-                passed = false;
-            }
+                    await Promise.all(promises);
+                    const latency = Date.now() - startTime;
+                    const finalListeners = process.listenerCount('unhandledRejection');
 
-            allResults.push({
-                id: test.id,
-                description: test.description || `Performance check for "${test.message}"`,
-                message: test.message,
-                expected: test.expected,
-                actual,
-                passed
-            });
-            process.stdout.write(passed ? '\x1b[32m.\x1b[0m' : '\x1b[31mF\x1b[0m');
+                    actual = { latency: `${latency}ms`, noCrash: true, listenerChange: finalListeners - initialListeners };
+                    passed = latency <= test.maxMs;
+                    if (!passed) actual.error = `Bulk latency ${latency}ms exceeded limit of ${test.maxMs}ms.`;
+
+                    if (test.expected.noMemoryLeak) {
+                        if (finalListeners > initialListeners) {
+                            passed = false;
+                            actual.error = (actual.error || "") + ` Potential listener leak detected (+${finalListeners - initialListeners}).`;
+                        }
+                    }
+
+                } catch (err) {
+                    actual = { latency: `${Date.now() - startTime}ms`, noCrash: false, error: err.message };
+                    passed = false;
+                }
+
+                allResults.push({ id: test.id, description: test.description, passed, actual, expected: test.expected });
+                process.stdout.write(passed ? '\x1b[32m.\x1b[0m' : '\x1b[31mF\x1b[0m');
+
+            } else {
+                // Handle single tests
+                let passed = false;
+                let actual = {};
+                const startTime = Date.now();
+
+                try {
+                    const result = await AIService.processRequest({ userMessage: test.message, sessionId: `perf_${test.id}` });
+                    const latency = Date.now() - startTime;
+
+                    actual = { latency: `${latency}ms`, noCrash: true };
+
+                    if (test.expected.noCrash && result.success) {
+                        if (test.maxMs) {
+                            passed = latency <= test.maxMs;
+                            if (!passed) actual.error = `Latency ${latency}ms exceeded limit of ${test.maxMs}ms.`;
+                        } else {
+                            passed = true;
+                        }
+                    }
+                } catch (err) {
+                    actual = { latency: `${Date.now() - startTime}ms`, noCrash: false, error: err.message };
+                    passed = false;
+                }
+
+                allResults.push({
+                    id: test.id,
+                    description: test.description || `Performance check for "${test.message}"`,
+                    message: test.message,
+                    expected: test.expected,
+                    actual,
+                    passed
+                });
+                process.stdout.write(passed ? '\x1b[32m.\x1b[0m' : '\x1b[31mF\x1b[0m');
+            }
         }
     }
 

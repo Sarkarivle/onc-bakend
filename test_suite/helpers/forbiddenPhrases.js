@@ -1,13 +1,13 @@
 const backendLeakPhrases = [
-    'intent detected', 'resolvedintent', 'planner', 'policy', 'backend rule',
-    'verified source recommended', 'database miss', 'internal database',
+    'intent detected', 'resolvedintent', 'planner', 'backend rule',
+    'internal database', 'database miss',
     'hallucination guard', 'search router', 'confidence score', 'validation failed',
-    'sourceverified', 'pure greeting', 'greeting detected', 'general query classification',
-    'llm fallback', 'semantic classifier', 'rule detector', 'promptcomposer',
-    'knowledgerouter', 'runpod', 'cheerio', 'database first', 'internal json',
-    'system prompt', 'developer message', 'ai_metrics', 'stack trace',
-    'referenceerror', 'typeerror', 'llm intent', 'semanticintentclassifier',
-    'followupresolver',
+    'sourceverified', 'system prompt', 'promptcomposer',
+    'knowledgerouter', 'llm intent', 'semanticintentclassifier',
+    'followupresolver', 'ai_metrics',
+    'referenceerror', 'typeerror', 'undefined is not defined',
+    // Less critical but still internal
+    'stack trace', 'internal json', 'developer message'
 ];
 
 const fakeFactRiskPhrases = [

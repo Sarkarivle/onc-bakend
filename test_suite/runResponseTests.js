@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const AIService = require('../src/features/ai/aiService');
 const ConversationState = require('../src/features/ai/conversationState');
-const Reporter = require('./conversationTestReporter'); // Reusing the detailed reporter
+const Reporter = require('./responseTestReporter'); // Using a dedicated reporter
 const {
     normalizeText,
     containsAny,
