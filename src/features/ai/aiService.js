@@ -78,7 +78,7 @@ class AIService {
             const routes = KnowledgeRouter.route(plan, rewrittenQuery);
 
             // --- PHASE 7: Data Collection ---
-            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile) };
+            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem };
             if (routes.isFactualQuery || plan.behavior === 'PROCESS_INPUT' || plan.intent === 'GOVT_JOB') {
                 if (routes.selectedSources.includes('DATABASE')) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
 
@@ -91,7 +91,7 @@ class AIService {
                 }
 
                 let [dbResult, webData] = await Promise.all([
-                    this._fetchDatabaseKnowledge(searchQuery, profile),
+                    this._fetchDatabaseKnowledge(searchQuery, profile, plan),
                     routes.selectedSources.includes('SEARCH') ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
 
@@ -278,10 +278,15 @@ class AIService {
         return new RunpodProvider({ baseUrl: (setting?.value || constants.DEFAULT_RUNPOD_URL).replace(/\/$/, '') + '/api/chat', model: constants.AI_MODEL_NAME });
     }
 
-    static async _fetchDatabaseKnowledge(query, profile) {
+    static async _fetchDatabaseKnowledge(query, profile, plan) {
         const q = query.toLowerCase();
         // Skip filtering for generic "latest" or "top" queries
         const isGeneric = q.includes('top') || q.includes('latest') || q.includes('active') || q.includes('job') || q.includes('vacancy') || q.includes('bharti') || q.includes('data') || q.includes('database');
+
+        if (plan.referencedItem) {
+            return { count: 1, jobs: `- JOB: ${plan.referencedItem}` };
+        }
+
         const keywords = q.split(/\s+/).filter(w => w.length > 2 && !['jobs', 'bharti', 'vacancy', 'list', 'kaunsi', 'batayein', 'dikhao', 'karein', 'kijiye', 'bare', 'mein', 'data', 'database'].includes(w));
 
         const now = new Date();

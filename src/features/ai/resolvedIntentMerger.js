@@ -104,6 +104,10 @@ class ResolvedIntentMerger {
         if (primary === 'APPLICATION_HELP' && hasContext) isFollowUp = true;
 
         const communicationAct = this._communicationAct(primary, ruleResult, followUp, isFollowUp);
+        // Override for strong follow-up phrases
+        if (strongIntent?.primaryIntent === 'FIELD_DETAILS' && strongIntent.isFollowUp) {
+            isFollowUp = true;
+        }
         const isPureGreeting = (ruleResult?.isPureGreeting || primary === 'GREETING') && !this._hasDomainSignal(ruleResult, strongIntent, semanticPrimary, primary);
 
         const needClarification = Boolean(followUp?.needClarification || llmIntent?.needClarification || this._needsClarification(primary, confidence, context, isFollowUp));
@@ -112,7 +116,7 @@ class ResolvedIntentMerger {
         return {
             originalMessage,
             normalizedMessage,
-            resolvedQuery: followUp?.resolvedQuery || originalMessage,
+            resolvedQuery: followUp?.resolvedQuery || strongIntent?.resolvedQuery || originalMessage,
             communicationAct,
             communicationActs: this._communicationActs(ruleResult, communicationAct, isFollowUp),
             domain: graphDomain,
@@ -122,7 +126,7 @@ class ResolvedIntentMerger {
             domainIntent: domain,
             resolvedIntent: primary,
             isFollowUp,
-            usePreviousContext,
+            usePreviousContext: usePreviousContext || (isFollowUp && hasContext),
             followUpType: followUp?.followUpType || 'UNKNOWN',
             isPureGreeting,
             confidence,
@@ -195,6 +199,7 @@ class ResolvedIntentMerger {
         if (data.semanticIntent?.domainIntent) return data.semanticIntent.domainIntent;
         if (data.llmIntent?.domainIntent) return data.llmIntent.domainIntent;
 
+        if (primary === 'CAREER_GUIDANCE') return 'CAREER';
         const metaDomain = IntentExampleRegistry.getMetadata(primary).domainIntent;
         if (metaDomain && metaDomain !== 'GENERAL') return metaDomain;
 
@@ -221,7 +226,7 @@ class ResolvedIntentMerger {
     }
 
     static _communicationAct(primary, ruleResult = {}, followUp = {}, isFollowUp = false) {
-        if (isFollowUp) return 'FOLLOW_UP';
+        if (isFollowUp || followUp.isFollowUp) return 'FOLLOW_UP';
         if (primary === 'GREETING') return 'GREETING';
         if (primary === 'CONFIRMATION') return 'CONFIRMATION';
         if (primary === 'NEGATION') return 'NEGATION';

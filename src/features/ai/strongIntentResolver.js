@@ -11,14 +11,13 @@ class StrongIntentResolver {
         const hasGreeting = acts.has('GREET') || /^(hi|hello|namaste|namaskar|hey|hii|ram ram)\b/.test(q);
 
         // Early return for contextual follow-up phrases to prevent misclassification as CAREER_GUIDANCE.
-        const followUpPhrases = /\b(sahi se batao|achhe se batao|acche se batao|detail me batao|clear batao|batao na|dobara batao|samjha ke batao)\b/i;
+        const followUpPhrases = /\b(sahi se batao|achhe se batao|acche se batao|detail me batao|dobara batao|clear batao|samjha ke batao|properly batao|thoda aur samjhao)\b/i;
 
         // The regex `\b` ensures it matches whole words/phrases.
         // The `i` flag makes it case-insensitive.
         if (followUpPhrases.test(q)) {
             // This is a follow-up ONLY if context exists. The merger will check `isFollowUp`.
             // By returning this, we prevent the CAREER_GUIDANCE rule below from firing incorrectly.
-            // If no context, it will correctly fall back to GENERAL_QUERY.
             return {
                 primaryIntent: 'FIELD_DETAILS',
                 isFollowUp: true, // Signal that this *can* be a follow-up
@@ -64,7 +63,7 @@ class StrongIntentResolver {
                 domainIntent: 'CAREER',
                 domain: 'CAREER',
                 task: 'GUIDANCE',
-                regex: /\b(career|future|guidance|path|direction|aim|goal|career option|kya karu|kya kare|kya karein|ke baad|baad kya|career advice|best options|roadmap|scope|future scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|freelancing|high paying|students|exam taiyari|job kaise payein\b)\b/
+                regex: /\b(doctor ban|mbbs|nursing|medical career|career|future|guidance|path|direction|aim|goal|career option|kya karu|kya kare|kya karein|ke baad|baad kya|career advice|best options|roadmap|scope|future scope|skill development|computer course|course for jobs|taiyari|tayyari|preparation|tips|freelancing|high paying|students|exam taiyari|job kaise payein\b)\b/
             },
             {
                 primaryIntent: 'APPLICATION_HELP',
