@@ -70,6 +70,29 @@ class RetrievalEngine {
      * Matches Phase 3: No manual keywords, uses AI-refined query.
      */
     static async _semanticTextSearch(query, profile) {
+        const normalizedQuery = String(query || '').toLowerCase();
+
+        // Generic list requests such as "new job ki list do" or
+        // "koi bhi job hai kya" should not be treated as exact title searches.
+        // For these, the safest DB behavior is to show latest active jobs.
+        if (this._isGenericJobListQuery(normalizedQuery)) {
+            const now = new Date();
+            const criteria = {
+                isActive: true,
+                $or: [
+                    { lastDate: { $gte: now } },
+                    { lastDate: null },
+                    { lastDate: { $exists: false } }
+                ]
+            };
+
+            if (profile.qualification) {
+                criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
+            }
+
+            return await Job.find(criteria).sort({ createdAt: -1 }).limit(10);
+        }
+
         // We use the refined query as a whole for regex matching across title/org/content
         const searchRegex = new RegExp(query.split(' ').filter(w => w.length > 3).join('|'), 'i');
 
@@ -88,6 +111,12 @@ class RetrievalEngine {
         }
 
         return await Job.find(criteria).sort({ createdAt: -1 }).limit(10);
+    }
+
+    static _isGenericJobListQuery(query) {
+        const asksForJobs = /\b(job|jobs|naukri|vacancy|vacancies|bharti|recruitment)\b/i.test(query);
+        const asksForList = /\b(new|latest|fresh|recent|active|list|dikhao|do|batao|koi bhi|any)\b/i.test(query);
+        return asksForJobs && asksForList;
     }
 
     static _mergeResults(vec, text) {

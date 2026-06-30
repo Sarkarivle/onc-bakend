@@ -25,7 +25,12 @@ class AgenticPlanner {
             tools: ["DATABASE"],
             mode: "JOB_SEARCH",
             priorityModules: ["CORE", "GOVT_JOB"],
-            behavior: "RESPOND"
+            behavior: "RESPOND",
+            // If the neural planner is unavailable, keep the old safe behavior:
+            // job searches should still hit the database instead of skipping retrieval.
+            needsDatabase: true,
+            needsWebSearch: false,
+            needsProfile: false
         };
 
         return {

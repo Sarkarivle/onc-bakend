@@ -134,6 +134,14 @@ class AIOrchestrator {
                             metrics.searchUsed = true;
                         }
                     }
+
+                    // Deterministic fallback: factual job searches should try web search
+                    // when the database and agentic pivot still produce no usable data.
+                    // This keeps the assistant helpful without inventing job records.
+                    if ((!dbResult || !dbResult.jobs) && !webData) {
+                        webData = await this._fetchWebKnowledge(rewrittenQuery);
+                        metrics.searchUsed = Boolean(webData);
+                    }
                 }
 
                 if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
@@ -267,7 +275,13 @@ class AIOrchestrator {
             ]);
 
             const resolvedIntent = await IntentEngine.classify(rawInput, state, profile);
-            const intentObj = RuleDetector.detect(rawInput);
+            // The neural intent engine is the source of truth in this architecture.
+            // Keep the old state shape without depending on the removed RuleDetector.
+            const intentObj = {
+                acts: [resolvedIntent.communicationAct || resolvedIntent.discourse || 'QUESTION'],
+                domains: [resolvedIntent.domain || resolvedIntent.domainIntent || 'GENERAL'],
+                intents: [resolvedIntent.primaryIntent || 'GENERAL_QUERY']
+            };
 
             if (resolvedIntent.entities && Object.keys(resolvedIntent.entities).length > 0) {
                 await UserProfile.syncToDb(userName, resolvedIntent.entities);
@@ -287,6 +301,15 @@ class AIOrchestrator {
                     plan.needsDatabase ? RetrievalEngine.searchJobs(searchQuery, profile, plan) : null,
                     plan.needsWebSearch ? this._fetchWebKnowledge(searchQuery) : null
                 ]);
+
+                // Streaming uses the same factual safety policy as non-streaming:
+                // if DB has no job data, try verified web search before falling back.
+                const dataIsMissing = (!dbResult || !dbResult.jobs) && !webData;
+                const isFactualNeed = ['JOB_SEARCH', 'JOB_DETAILS'].includes(plan.mode);
+                if (dataIsMissing && isFactualNeed) {
+                    webData = await this._fetchWebKnowledge(searchQuery);
+                }
+
                 if (dbResult && dbResult.jobs) knowledgeContext.jobs = dbResult.jobs;
                 if (webData) knowledgeContext.web = webData;
             }
