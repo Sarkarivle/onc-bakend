@@ -125,12 +125,27 @@ class LLMProvider {
             // Fix Mistral backslash escaping
             raw = raw.replace(/\\_/g, '_').replace(/\\"/g, '"');
 
-            // Deep JSON Extraction: Find the innermost JSON object
-            const startIdx = raw.indexOf('{');
-            const endIdx = raw.lastIndexOf('}');
-            if (startIdx !== -1 && endIdx !== -1) {
-                raw = raw.substring(startIdx, endIdx + 1);
+            // Deep JSON Extraction: Ensure it starts with {
+            if (!raw.startsWith('{')) {
+                const firstBrace = raw.indexOf('{');
+                if (firstBrace !== -1) {
+                    raw = raw.substring(firstBrace);
+                } else {
+                    raw = '{' + raw;
+                }
             }
+
+            // Ensure it ends with }
+            if (!raw.endsWith('}')) {
+                const lastBrace = raw.lastIndexOf('}');
+                if (lastBrace !== -1) {
+                    raw = raw.substring(0, lastBrace + 1);
+                } else {
+                    raw = raw + '}';
+                }
+            }
+
+            console.log(`[LLM_RAW_LOGIC] 🛰️ Response: ${raw.substring(0, 100)}...`);
 
             let parsed;
             try {
