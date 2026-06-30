@@ -1,30 +1,32 @@
 /**
- * Prompt for LLM Intent Analysis
- * Filename matches the logic file: detectors/llmDetector.js
+ * Prompt for LLM Intent Analysis (Purely Neural Instructions)
  */
 module.exports = (query, context) => `
-Task: Neural Intent Analysis for Jobo AI.
+Task: Deep Semantic Intent Analysis for Jobo AI.
 User Query: "${query}"
 
-[CONTEXT]:
-- Last Topic: "${context.topic || 'None'}"
+[CONVERSATION CONTEXT]:
+- Active Topic: "${context.topic || 'General'}"
 - User Profile: ${JSON.stringify(context.profile || {})}
-- Turn Count: ${context.turnCount || 0}
+- Conversation Stage: Turn ${context.turnCount || 0}
 
-Analyze the query and return ONLY a JSON object with these fields:
-1. "primaryIntent": (e.g., JOB_SEARCH, FIELD_CHECK, CAREER_ADVICE, STATUS_CHECK, GREETING, PROFILE_UPDATE)
-2. "subIntent": (e.g., FEES, AGE_LIMIT, SYLLABUS, APPLY_LINK, ADMIT_CARD, NAME_CHANGE, QUALIFICATION_UPDATE)
-3. "domain": (e.g., POLICE, RAILWAY, BANK, TEACHING, DEFENCE, MEDICAL, SCHOLARSHIP, GENERAL)
-4. "discourse": "NEW_TOPIC" or "FOLLOW_UP"
-5. "entities": { "job": string, "location": string, "qualification": string, "category": string, "name": string }
-6. "suggestions": ["Chip Text 1", "Chip Text 2", "Chip Text 3"] (Contextual follow-up options for the user)
-7. "reasoning": "Short explanation of why you chose this intent"
-8. "confidence": 0.0 to 1.0
+Analysis Requirements:
+1. "primaryIntent": Identify the core purpose (GREETING, JOB_SEARCH, FIELD_CHECK, CAREER_ADVICE, STATUS_CHECK, PROFILE_UPDATE).
+2. "subIntent": Identify specific details requested (FEES, AGE_LIMIT, SYLLABUS, APPLY_LINK, ADMIT_CARD, NAME_CHANGE).
+3. "domain": Categorize the industry (POLICE, RAILWAY, BANK, TEACHING, DEFENCE, MEDICAL, SCHOLARSHIP, GENERAL).
+4. "discourse": Determine if this is a "NEW_TOPIC" or a "FOLLOW_UP" based on conversation history.
+5. "entities": Extract key parameters like { "job", "location", "qualification", "category", "name" }.
+6. "suggestions": Generate 3 most relevant follow-up actions for the user.
+7. "reasoning": Explain the semantic logic behind your classification.
+8. "confidence": Score your certainty from 0.0 to 1.0.
 
-Rules:
-- If user asks "fees" for a previous job, discourse is FOLLOW_UP.
-- If user mentions a new job, discourse is NEW_TOPIC.
-- If user introduces themselves or gives personal info, use PROFILE_UPDATE.
-- Be Hinglish aware. "bharti" means job, "paisa" means fees/salary.
+Deep Intelligence Guidelines:
+- SEMANTIC UNDERSTANDING: Do not look for specific words. Analyze the underlying meaning and intent of the user.
+- HINGLISH NUANCE: Be deeply aware of Hinglish syntax, common typos, and regional slang. Interpret them as a native speaker would.
+- CONTEXTUAL CONTINUITY: Use the turn count and active topic to resolve ambiguous or short queries (e.g., if the user previously asked about a job and now says "fees", link it to that job).
+- BEHAVIORAL MAPPING:
+    - If the meaning is a greeting or an inquiry about your well-being, use GREETING.
+    - If the user provides personal info or introduces themselves, use PROFILE_UPDATE.
+    - If the user is looking for employment or vacancies, use JOB_SEARCH.
 
-Return ONLY JSON. No preamble.`;
+Return ONLY a clean JSON object. No preamble, no postscript.`;

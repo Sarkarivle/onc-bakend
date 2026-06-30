@@ -37,7 +37,7 @@ class IntentEngine {
             refinedQuery, // Pass this along so RAG knows exactly what to search
             isFollowUp: analysis.discourse === 'FOLLOW_UP',
             usePreviousContext: analysis.discourse === 'FOLLOW_UP',
-            primaryIntent: this._mapToLegacyIntents(analysis.primaryIntent, analysis.subIntent)
+            primaryIntent: analysis.primaryIntent === 'GREETING' ? 'GREETING' : this._mapToLegacyIntents(analysis.primaryIntent, analysis.subIntent)
         };
     }
 

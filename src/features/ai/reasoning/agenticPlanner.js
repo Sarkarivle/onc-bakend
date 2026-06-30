@@ -6,6 +6,18 @@ const buildPrompt = require('./prompts/plannerPrompt');
 
 class AgenticPlanner {
     static async generatePlan(refinedQuery, resolvedIntent, context = {}) {
+        // Emergency mapping for Greetings to avoid search
+        if (resolvedIntent.primaryIntent === 'GREETING') {
+            return {
+                tools: [],
+                mode: "GENERAL_HELP",
+                priorityModules: ["CORE", "PERSONALITY"],
+                behavior: "GREET",
+                needsDatabase: false,
+                needsWebSearch: false
+            };
+        }
+
         const prompt = buildPrompt(refinedQuery, resolvedIntent, context);
         const plan = await LLMProvider.generate(prompt);
 

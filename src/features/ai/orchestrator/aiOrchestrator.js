@@ -148,6 +148,10 @@ class AIOrchestrator {
             const promptMeta = { currentDate: indiaDateStr, currentYear, sessionId, behavior: plan.behavior, turnCount: state.turnCount || 0, plan };
             let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
 
+            if (plan.behavior === 'GREET' || resolvedIntent.primaryIntent === 'GREETING') {
+                systemInstruction += "\n\nCRITICAL: The user is greeting you or asking how you are. Respond warmly in Hinglish and ask how you can help with their career or jobs.";
+            }
+
             if (plan.behavior === 'CLARIFY') {
                 systemInstruction += "\n\nCRITICAL: The user's query is too short or ambiguous. Do not guess. Politely ask them to explain their question in detail.";
             }
