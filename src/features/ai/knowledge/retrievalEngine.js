@@ -114,9 +114,23 @@ class RetrievalEngine {
     }
 
     static _isGenericJobListQuery(query) {
-        const asksForJobs = /\b(job|jobs|naukri|vacancy|vacancies|bharti|recruitment)\b/i.test(query);
-        const asksForList = /\b(new|latest|fresh|recent|active|list|dikhao|do|batao|koi bhi|any)\b/i.test(query);
-        return asksForJobs && asksForList;
+        const normalized = String(query || '').toLowerCase();
+
+        // Semantic check: Does the user want a list of any/latest jobs without specific filters?
+        const genericKeywords = [
+            'job', 'naukri', 'vacancy', 'vacancies', 'bharti', 'recruitment',
+            'list', 'dikhao', 'batao', 'do', 'latest', 'new', 'top', 'trending',
+            'koi', 'sabse', 'accha', 'kaun', 'acchi', 'badhiya', 'fresh', 'abhi'
+        ];
+
+        const words = normalized.split(/\s+/);
+        const hasJobKeyword = /\b(job|naukri|vacancy|vacancies|bharti|recruitment)\b/i.test(normalized);
+        const hasListKeyword = /\b(list|dikhao|batao|do|latest|new|top|trending|koi|acchi|badhiya|kaun|show|any)\b/i.test(normalized);
+
+        if (hasJobKeyword && hasListKeyword) return true;
+        if (words.length <= 4 && hasJobKeyword) return true;
+
+        return false;
     }
 
     static _mergeResults(vec, text) {

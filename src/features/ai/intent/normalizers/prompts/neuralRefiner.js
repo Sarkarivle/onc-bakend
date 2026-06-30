@@ -12,9 +12,13 @@ Task: User Query Refinement (Hinglish/English).
 [USER QUERY]: "${query}"
 
 Instructions:
-1. Fix typos (e.g., "nkri" -> "naukri", "bihr" -> "bihar").
+1. Fix typos (e.g., "nkri" -> "naukri", "bihr" -> "bihar", "gratuate" -> "graduate").
 2. If query is short/incomplete (e.g., "fees?", "apply?"), use [CONTEXT] to complete it.
-3. If context is empty and query is incomplete, expand it into a general request (e.g., "job" -> "Show me latest jobs").
-4. If query is already clear, just return it.
+3. SHORT & AMBIGUOUS QUERIES:
+   - If a query is very short and generic (e.g., "naukri", "job", "fees", "exam") and there is NO [CONTEXT], do NOT expand it into a full request.
+   - Instead, keep it as is or slightly normalize it (e.g., "job" -> "jobs").
+   - This allows the system to identify that the user needs to provide more details.
+4. Always prioritize clarity over literal translation.
+5. If the user provides a qualification or location, ensure it's preserved in the refined query.
 
 Output ONLY the refined text. No preamble.`;

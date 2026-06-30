@@ -97,7 +97,7 @@ class EliteFormatter {
 
     static _addPersonalizedClosing(text, profile, intent) {
         if (!profile || !profile.qualification) return text;
-        if (!['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS'].includes(intent)) return text;
+        if (!['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'DISCOVERY'].includes(intent)) return text;
 
         // Add a friendly closing if not present
         if (!text.includes('Best of luck') && !text.includes('shubhkamnayein')) {

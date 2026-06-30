@@ -523,7 +523,7 @@ class AIOrchestrator {
     static _safeNoDataResponse(query = "") {
         const q = String(query).toLowerCase();
         if (q.includes('job') || q.includes('naukri') || q.includes('bharti') || q.includes('vacancy')) {
-            return "Abhi mere verified database/search me active job record nahi mil raha. Main bina official source ke vacancy, last date, fees ya link nahi bataunga. Aap category bata sakte hain: railway, police, SSC, bank, teacher, 10th pass, 12th pass ya graduate.";
+            return "Maaf kijiye bhai, abhi mere verified database mein isse related koi active job update nahi mil raha hai. Main galat jankari nahi dena chahta. Aap official websites check kar sakte hain ya fir kisi specific category (Jaise: Railway, Police, SSC) ke baare mein puch sakte hain.";
         }
 
         return semanticSafeFallback(query);

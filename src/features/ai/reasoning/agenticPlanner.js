@@ -14,7 +14,8 @@ class AgenticPlanner {
                 priorityModules: ["CORE", "PERSONALITY"],
                 behavior: "GREET",
                 needsDatabase: false,
-                needsWebSearch: false
+                needsWebSearch: false,
+                emotionalTone: resolvedIntent.tone || "POLITE"
             };
         }
 
@@ -26,7 +27,8 @@ class AgenticPlanner {
                 behavior: "RESPOND",
                 needsDatabase: false,
                 needsWebSearch: false,
-                needsProfile: false
+                needsProfile: false,
+                emotionalTone: resolvedIntent.tone || "CASUAL"
             };
         }
 
@@ -71,18 +73,20 @@ class AgenticPlanner {
 
     static _fallbackPlan(resolvedIntent = {}) {
         const intent = resolvedIntent.primaryIntent || 'GENERAL_QUERY';
+        const tone = resolvedIntent.tone || 'POLITE';
 
         // Planner timeouts should not turn normal chat into job search. Only
         // factual job-like intents should touch retrieval in the fallback path.
-        if (['JOB_QUERY', 'FIELD_DETAILS', 'RESULT_ADMIT_CARD', 'APPLICATION_HELP'].includes(intent)) {
+        if (['JOB_QUERY', 'JOB_SEARCH', 'DISCOVERY', 'FIELD_DETAILS', 'RESULT_ADMIT_CARD', 'APPLICATION_HELP'].includes(intent)) {
             return {
                 tools: ["DATABASE"],
-                mode: intent === 'JOB_QUERY' ? "JOB_SEARCH" : "JOB_DETAILS",
+                mode: (intent === 'JOB_QUERY' || intent === 'JOB_SEARCH' || intent === 'DISCOVERY') ? "JOB_SEARCH" : "JOB_DETAILS",
                 priorityModules: ["CORE", "GOVT_JOB"],
                 behavior: "RESPOND",
                 needsDatabase: true,
                 needsWebSearch: false,
-                needsProfile: false
+                needsProfile: false,
+                emotionalTone: tone
             };
         }
 
@@ -94,7 +98,8 @@ class AgenticPlanner {
                 behavior: "RESPOND",
                 needsDatabase: false,
                 needsWebSearch: false,
-                needsProfile: true
+                needsProfile: true,
+                emotionalTone: tone
             };
         }
 
@@ -106,7 +111,8 @@ class AgenticPlanner {
                 behavior: "RESPOND",
                 needsDatabase: false,
                 needsWebSearch: false,
-                needsProfile: false
+                needsProfile: false,
+                emotionalTone: tone
             };
         }
 
@@ -117,7 +123,8 @@ class AgenticPlanner {
             behavior: "RESPOND",
             needsDatabase: false,
             needsWebSearch: false,
-            needsProfile: false
+            needsProfile: false,
+            emotionalTone: tone
         };
     }
 }

@@ -11,9 +11,18 @@ class SuggestionEngine {
 
         if (!plan) return [];
         const intent = plan.intent || plan.mode || "";
+        const behavior = plan.behavior || "";
         const topic = context?.state?.topic || context?.topic || "";
         const hasJobs = context?.jobs && context.jobs.length > 0;
         const suggestions = [];
+
+        // Emergency suggestions for ambiguous/short queries
+        if (behavior === 'CLARIFY') {
+            suggestions.push(`Latest top 5 jobs dikhao`);
+            suggestions.push(`SSC GD ki details`);
+            suggestions.push(`Career help chahiye`);
+            return suggestions;
+        }
 
         if (hasJobs || topic !== "GENERAL") {
             if (intent === 'GOVT_JOB' || intent === 'JOB_QUERY') {
