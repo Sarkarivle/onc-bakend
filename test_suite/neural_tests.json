@@ -1,0 +1,61 @@
+[
+  {
+    "id": "neural_001",
+    "query": "kaise ho jobo bhai",
+    "expected": {
+      "intent": "GREETING",
+      "mode": "GENERAL_HELP",
+      "behavior": "GREET"
+    }
+  },
+  {
+    "id": "neural_002",
+    "query": "mujhe yeh batao m kitne sal ka hu",
+    "expected": {
+      "intent": "PROFILE_INQUIRY",
+      "mode": "PROFILE_CHECK",
+      "behavior": "RESPOND"
+    }
+  },
+  {
+    "id": "neural_003",
+    "query": "behan ko sarkari naukri milegi ya nahi",
+    "expected": {
+      "intent": "JOB_SEARCH",
+      "mode": "JOB_SEARCH"
+    }
+  },
+  {
+    "id": "neural_004",
+    "query": "top 5 jobs batao",
+    "expected": {
+      "intent": "DISCOVERY",
+      "mode": "JOB_SEARCH"
+    }
+  },
+  {
+    "id": "neural_005",
+    "query": "fees?",
+    "context": { "currentTopic": "SSC GD" },
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "mode": "JOB_DETAILS"
+    }
+  },
+  {
+    "id": "neural_006",
+    "query": "naukri",
+    "expected": {
+      "behavior": "CLARIFY"
+    }
+  },
+  {
+    "id": "neural_007",
+    "query": "UP Police me General category ke liye maximum age limit kya hai?",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "mode": "JOB_DETAILS",
+      "tone": "CURIOUS"
+    }
+  }
+]

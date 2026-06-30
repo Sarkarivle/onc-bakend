@@ -22,7 +22,6 @@ const SessionState = require('../context/sessionState');
 const UserProfile = require('../context/userProfile');
 const MemoryManager = require('../context/memoryManager');
 const QueryRewriter = require('../intent/normalizers/queryRewriter');
-const ResponsePlanner = require('../reasoning/responsePlanner');
 const AgenticPlanner = require('../reasoning/agenticPlanner');
 const KnowledgeRouter = require('../reasoning/knowledgeRouter');
 const PromptComposer = require('../generation/promptComposer');
