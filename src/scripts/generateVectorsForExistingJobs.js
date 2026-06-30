@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Job = require('../features/jobs/jobModel');
-const EmbeddingService = require('../features/ai/embeddingService');
+const VectorService = require('../features/ai/knowledge/vectorService');
 const Settings = require('../features/settings/settingsModel');
 
 // Manual connection for script
@@ -24,8 +24,8 @@ async function run() {
             const job = jobs[i];
             console.log(`[${i+1}/${jobs.length}] Generating vector for: ${job.title}`);
 
-            const textToEmbed = EmbeddingService.createJobText(job);
-            const vector = await EmbeddingService.generate(textToEmbed);
+            const textToEmbed = VectorService.createJobText(job);
+            const vector = await VectorService.generate(textToEmbed);
 
             if (vector) {
                 job.searchVector = vector;

@@ -26,7 +26,7 @@ axios.post = async () => ({
 });
 
 // 2. Load the Intent Engine
-const SemanticIntentClassifier = require('../src/features/ai/semanticIntentClassifier');
+const IntentEngine = require('../src/features/ai/intent/intentEngine');
 const Reporter = require('./intentTestReporter');
 
 async function runTests() {
@@ -46,7 +46,7 @@ async function runTests() {
         for (const test of tests) {
             try {
                 // Call the actual intent engine
-                const actual = await SemanticIntentClassifier.classify(
+                const actual = await IntentEngine.classify(
                     test.message,
                     test.context || {},
                     test.userProfile || {}

@@ -1,6 +1,8 @@
 const AIService = require('./aiService');
-const SemanticIntentClassifier = require('./semanticIntentClassifier');
-const ConversationState = require('./conversationState');
+const IntentEngine = require('../../src/features/ai/intent/intentEngine');
+const SessionState = require('../../src/features/ai/context/sessionState');
+const SemanticIntentClassifier = IntentEngine;
+const ConversationState = SessionState;
 
 /**
  * Jobo AI - Enterprise Test Suite

@@ -1,4 +1,5 @@
-const AIService = require('./aiService');
+const AIOrchestrator = require('./orchestrator/aiOrchestrator');
+const AIService = AIOrchestrator; // Mapping for compatibility
 const SemanticIntentClassifier = require('./semanticIntentClassifier');
 const ConversationState = require('./conversationState');
 

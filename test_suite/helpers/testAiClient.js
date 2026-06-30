@@ -1,5 +1,5 @@
-const SemanticIntentClassifier = require('../../src/features/ai/semanticIntentClassifier');
-const ConversationState = require('../../src/features/ai/conversationState');
+const IntentEngine = require('../../src/features/ai/intent/intentEngine');
+const SessionState = require('../../src/features/ai/context/sessionState');
 
 /**
  * A mocked AI client for running deterministic tests without hitting a live LLM.
@@ -8,19 +8,19 @@ const ConversationState = require('../../src/features/ai/conversationState');
 class TestAiClient {
     static async process(userMessage, { context = {}, profile = {}, mockData = {} }) {
         const sessionId = context.sessionId || `test-session-${Date.now()}`;
-        const state = await ConversationState.get(sessionId); // Uses in-memory state for now
+        const state = await SessionState.get(sessionId); // Uses in-memory state for now
 
         // Update state with provided context for multi-turn tests
         Object.assign(state, context);
 
-        const resolvedIntent = await SemanticIntentClassifier.classify(userMessage, state, profile);
+        const resolvedIntent = await IntentEngine.classify(userMessage, state, profile);
 
         // This is where the mock response generation logic goes.
         // It should be intelligent enough to pass the tests.
         const mockResponse = this._generateMockResponse(userMessage, resolvedIntent, state, mockData);
 
         // Update state for next turn
-        await ConversationState.update(sessionId, {
+        await SessionState.update(sessionId, {
             ...state,
             lastAssistantIntent: resolvedIntent.primaryIntent,
             topic: resolvedIntent.domain,

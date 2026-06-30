@@ -1,29 +1,21 @@
 const fs = require('fs');
 const path = require('path');
-const brain = require('../src/features/ai/brain');
+
+// Modular Mappings for Brain Tests
+const LangNormalizer = require('../src/features/ai/intent/normalizers/langNormalizer');
+const RuleDetector = require('../src/features/ai/intent/detectors/ruleDetector');
+const ResponsePlanner = require('../src/features/ai/reasoning/responsePlanner');
+const Validator = require('../src/features/ai/quality/validator');
+const ConfidenceScorer = require('../src/features/ai/intent/scorers/confidenceScorer');
 
 const TEST_DIR = path.join(__dirname, 'brain_tests');
 
-function getMessage(test) {
-  const v = test.userMessage ?? test.message ?? test.query ?? test.input ?? '';
-  return typeof v === 'string' ? v : JSON.stringify(v);
-}
-
-function getExpected(test) {
-  return test.expected || test.expect || {};
-}
-
 function pickModule(fileName) {
-  if (fileName.includes('semantic_query_interpreter')) return brain.semanticQueryInterpreter;
-  if (fileName.includes('semantic_retrieval_planner')) return brain.semanticRetrievalPlanner;
-  if (fileName.includes('query_normalizer')) return brain.queryNormalizer;
-  if (fileName.includes('intent_domain_analyzer')) return brain.intentDomainAnalyzer;
-  if (fileName.includes('entity_extractor')) return brain.entityExtractor;
-  if (fileName.includes('context_resolver')) return brain.contextResolver;
-  if (fileName.includes('retrieval_planner')) return brain.retrievalPlanner;
-  if (fileName.includes('guardrail_validator')) return brain.guardrailValidator;
-  if (fileName.includes('confidence_scorer')) return brain.confidenceScorer;
-  if (fileName.includes('response_planner')) return brain.responsePlanner;
+  if (fileName.includes('query_normalizer')) return LangNormalizer;
+  if (fileName.includes('intent_domain_analyzer')) return RuleDetector;
+  if (fileName.includes('response_planner')) return ResponsePlanner;
+  if (fileName.includes('guardrail_validator')) return Validator;
+  if (fileName.includes('confidence_scorer')) return ConfidenceScorer;
   return null;
 }
 

@@ -11,6 +11,15 @@ const stateSchema = new mongoose.Schema({
     lastAssistantIntent: { type: String },
     pendingAction: { type: String },
     lastShownJobs: [String],
+    insights: {
+        qualification: String,
+        location: String,
+        category: String,
+        interests: [String],
+        age: Number,
+        dob: String
+    },
+    summary: { type: String, default: "" },
     history: [{
         user: String,
         assistant: String,

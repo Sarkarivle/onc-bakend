@@ -5,7 +5,7 @@ const jobPrompts = require('./jobPrompts');
 const matchPrompts = require('./matchPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const EmbeddingService = require('../ai/embeddingService');
+const VectorService = require('../ai/knowledge/vectorService');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -193,8 +193,8 @@ const importJob = async (req, res) => {
 
     // --- PHASE: Semantic Search Integration ---
     try {
-        const textToEmbed = EmbeddingService.createJobText(jobObject);
-        const vector = await EmbeddingService.generate(textToEmbed);
+        const textToEmbed = VectorService.createJobText(jobObject);
+        const vector = await VectorService.generate(textToEmbed);
         if (vector) jobObject.searchVector = vector;
     } catch (vErr) {
         console.error("⚠️ Failed to generate job vector:", vErr.message);
