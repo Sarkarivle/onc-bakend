@@ -1,21 +1,20 @@
 /**
- * Strict Planning for Mistral
+ * Upgraded Planning for Mistral (Preserves Old Logic)
  */
 module.exports = (query, intent, context) => `
-Task: Respond Strategy.
-Input: "${query}"
-Intent: ${intent.primaryIntent}
+Task: Choose response strategy for Jobo AI.
+Input Query: "${query}"
+Detected Intent: ${intent.primaryIntent}
 
-STRATEGY RULES:
-1. If Query is ONLY 1 word (e.g. "naukri", "fees", "jobs"): behavior MUST be "CLARIFY".
-2. If Intent is GREETING: mode MUST be "GENERAL_HELP", behavior MUST be "GREET".
-3. If Intent is PROFILE_INQUIRY: mode MUST be "PROFILE_CHECK", behavior MUST be "RESPOND".
-4. If Intent is FIELD_CHECK: mode MUST be "JOB_DETAILS", behavior MUST be "RESPOND".
-   (Exception: if it is only 1 word like "fees?", behavior is still "CLARIFY")
+MANDATORY STRATEGY RULES:
+1. ONE-WORD RULE: If Query is only 1-2 words (e.g. "naukri", "fees", "jobs") and does not mention a specific job or location, behavior MUST be "CLARIFY".
+2. FIELD CHECK RULE: If Intent is "FIELD_CHECK" (user asking for fees, age limit, syllabus), mode MUST be "JOB_DETAILS".
+3. GREETING RULE: If Intent is "GREETING", mode MUST be "GENERAL_HELP" and behavior MUST be "GREET".
+4. PROFILE RULE: If Intent is "PROFILE_INQUIRY", mode MUST be "PROFILE_CHECK" and behavior MUST be "RESPOND".
 
 Return ONLY JSON:
 {
-  "thought": "brief explanation",
+  "thought": "Brief explanation of rule applied",
   "mode": "JOB_SEARCH",
   "behavior": "RESPOND",
   "tools": ["DATABASE"]

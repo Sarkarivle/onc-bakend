@@ -1,22 +1,21 @@
 /**
- * Robust Intent Detection for Mistral
+ * Upgraded Intent Detection for Mistral
  */
 module.exports = (query, context) => `
 Task: Categorize the user query.
 Query: "${query}"
 
-Categories & Examples:
-- GREETING: "hi", "kaise ho", "jobo bhai", "hello".
-- PROFILE_INQUIRY: User asking about THEIR data ("main kitne saal ka hu", "mera status").
+Categories:
+- GREETING: "hi", "kaise ho", "jobo bhai".
+- PROFILE_INQUIRY: User asking about THEIR data ("main kitne saal ka hu").
 - JOB_SEARCH: Seeking specific vacancies ("naukri", "SSC vacancy").
-- FIELD_CHECK: General rules of a job ("fees", "age limit").
+- FIELD_CHECK: General rules of a job ("fees", "age limit", "syllabus").
 - DISCOVERY: Seeking lists of jobs ("top 5 jobs", "latest jobs").
 
-Strict Logic:
+LOGIC UPGRADE:
 - "kaise ho jobo bhai" is ALWAYS GREETING.
-- "main kitne saal ka hu" is ALWAYS PROFILE_INQUIRY.
-- "fees" is ALWAYS FIELD_CHECK.
-- If the query is a QUESTION (ends in ? or asks "kya hai", "kitna hai"), TONE must be "CURIOUS".
+- If the query asks "kya hai", "kitna hai", "fees", or "age limit", Tone MUST be "CURIOUS".
+- Even if it's a statement about a job rule, categorize as FIELD_CHECK.
 
 Return ONLY JSON:
 {
