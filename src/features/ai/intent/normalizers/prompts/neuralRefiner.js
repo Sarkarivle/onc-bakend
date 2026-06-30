@@ -1,17 +1,19 @@
 /**
- * Prompt for NeuralRefiner Task (Base Model Optimized)
+ * Refined Prompt for Mistral Neural Refiner
  */
 module.exports = (query, context) => `
-Task: Refine and clarify the user's query for a job assistant.
-Instructions:
-1. Fix typos (e.g., "nkri" -> "naukri").
-2. Complete fragmented queries using context (Topic: "${context.topic || 'None'}").
-3. DO NOT answer the query. Just return the perfected version.
-4. If it's a simple greeting, keep it as is.
+Task: Refine the user query for a job assistant.
+Context Topic: "${context.topic || 'None'}"
 
-Return ONLY this JSON format:
+Instructions:
+1. Keep the language same as user (Hindi/English/Hinglish).
+2. Fix typos.
+3. If query is "fees?" and context is "SSC", refine to "SSC ki fees kya hai?".
+4. If query is already clear, return it as is.
+
+Return ONLY this JSON:
 {
-  "refinedQuery": "The corrected and completed query"
+  "refinedQuery": "The perfected query"
 }
 
 User Query: "${query}"
