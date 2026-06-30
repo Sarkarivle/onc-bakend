@@ -23,7 +23,8 @@ class LLMProvider {
     static async getBaseUrl() {
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         let url = setting?.value || constants.DEFAULT_RUNPOD_URL;
-        return url.replace(/\/api\/chat\/?$/, '').replace(/\/$/, '');
+        // Clean URL to handle both proxy and local IP formats
+        return url.replace(/\/api\/(chat|generate)\/?$/, '').replace(/\/$/, '');
     }
 
     /**
@@ -31,7 +32,10 @@ class LLMProvider {
      */
     async chat(messages, options = {}) {
         try {
-            const response = await axios.post(this.baseUrl, {
+            // Ensure URL ends in /api/chat for Chat API
+            const targetUrl = this.baseUrl.endsWith('/api/chat') ? this.baseUrl : `${this.baseUrl.replace(/\/$/, '')}/api/chat`;
+
+            const response = await axios.post(targetUrl, {
                 model: this.model,
                 messages: messages,
                 stream: false,
@@ -99,7 +103,11 @@ class LLMProvider {
     static async generate(prompt, options = {}) {
         try {
             const baseUrl = await this.getBaseUrl();
-            const response = await axios.post(`${baseUrl}/api/generate`, {
+            const targetUrl = `${baseUrl}/api/generate`;
+
+            console.log(`[LLM_DEBUG] Calling: ${targetUrl} | Model: ${constants.AI_MODEL_NAME}`);
+
+            const response = await axios.post(targetUrl, {
                 model: constants.AI_MODEL_NAME,
                 prompt: `System: You are an expert logic engine. Return ONLY valid JSON.\n\nUser: ${prompt}`,
                 stream: false,

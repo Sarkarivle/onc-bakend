@@ -12,7 +12,10 @@ class PromptComposer {
 
         const isPureGreeting = behavior === 'GREET';
 
-        let allKeys = ['CORE', 'PERSONALITY', 'REASONING', 'MEMORY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...priorityModules];
+        // Fix: Ensure priorityModules is always an array to avoid "not iterable" error
+        const modules = Array.isArray(priorityModules) ? priorityModules : [];
+
+        let allKeys = ['CORE', 'PERSONALITY', 'REASONING', 'MEMORY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...modules];
         if (isPureGreeting) {
             allKeys = ['CORE', 'PERSONALITY', 'MEMORY', 'LANGUAGE', 'OUTPUT'];
         }

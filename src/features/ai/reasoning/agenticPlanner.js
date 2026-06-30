@@ -9,13 +9,21 @@ class AgenticPlanner {
         const prompt = buildPrompt(refinedQuery, resolvedIntent, context);
         const plan = await LLMProvider.generate(prompt);
 
-        if (!plan) return { tools: ["DATABASE"], mode: "JOB_SEARCH" }; // Safe fallback
+        if (!plan) return {
+            tools: ["DATABASE"],
+            mode: "JOB_SEARCH",
+            priorityModules: ["CORE", "GOVT_JOB"],
+            behavior: "RESPOND"
+        };
 
         return {
             ...plan,
-            needsDatabase: plan.tools?.includes('DATABASE'),
-            needsWebSearch: plan.tools?.includes('WEB_SEARCH'),
-            needsProfile: plan.tools?.includes('USER_PROFILE')
+            tools: plan.tools || ["DATABASE"],
+            priorityModules: plan.priorityModules || ["CORE", "GOVT_JOB"],
+            behavior: plan.behavior || "RESPOND",
+            needsDatabase: (plan.tools || []).includes('DATABASE'),
+            needsWebSearch: (plan.tools || []).includes('WEB_SEARCH'),
+            needsProfile: (plan.tools || []).includes('USER_PROFILE')
         };
     }
 
