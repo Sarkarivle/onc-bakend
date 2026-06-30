@@ -465,8 +465,14 @@ class AIOrchestrator {
     }
 
     static _isSimpleGreeting(message = "") {
-        const clean = String(message).toLowerCase().replace(/[?.!]/g, '').trim();
-        return /^(hi|hello|hey|hii|hiii|namaste|namaskar|ram ram|kaise ho|kya haal hai|hello jobo|hi jobo|hey jobo)$/.test(clean);
+        const clean = String(message).toLowerCase().replace(/[?.!]/g, '').replace(/\s+/g, ' ').trim();
+        // More robust greeting detection: checks for core greeting words alone or with "bhai/jobo/aap"
+        const coreGreetings = ['hi', 'hello', 'hey', 'namaste', 'namaskar', 'ram ram', 'kaise ho', 'kya haal hai', 'halo', 'hii'];
+        const isCoreMatch = coreGreetings.some(g => clean === g || clean.startsWith(g + ' ') || clean.endsWith(' ' + g));
+        const isJoboMention = clean.includes('jobo') || clean.includes('bhai') || clean.includes('aap');
+
+        // Match simple greetings like "hi jobo", "kaise ho bhai", "namaste aap kaise ho"
+        return isCoreMatch && clean.split(' ').length <= 4;
     }
 
     static _getDirectConversationResponse(message = "") {

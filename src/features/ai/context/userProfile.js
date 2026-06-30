@@ -65,6 +65,16 @@ class UserProfile {
 
         const updateData = {};
 
+        // Normalize qualification to match Flutter App Dropdown values
+        if (profileUpdates.qualification) {
+            let q = String(profileUpdates.qualification).toLowerCase();
+            if (q.includes('12')) profileUpdates.qualification = '12th Pass';
+            else if (q.includes('10')) profileUpdates.qualification = '10th Pass';
+            else if (q.includes('grad')) profileUpdates.qualification = 'Graduate';
+            else if (q.includes('post grad')) profileUpdates.qualification = 'Post Graduate';
+            else if (q.includes('iti') || q.includes('diploma')) profileUpdates.qualification = 'ITI/Diploma';
+        }
+
         // Only sync from AI if the field is currently empty in the database.
         // This preserves the "Source of Truth" as requested.
         if (profileUpdates.qualification && !existing?.education) updateData.education = profileUpdates.qualification;

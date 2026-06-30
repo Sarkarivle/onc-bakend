@@ -13,7 +13,7 @@ Task: User Query Refinement (Hinglish/English).
 
 Instructions:
 1. Fix typos (e.g., "nkri" -> "naukri", "bihr" -> "bihar", "gratuate" -> "graduate").
-2. If query is short/incomplete (e.g., "fees?", "apply?"), use [CONTEXT] to complete it.
+2. GREETING PROTECTION: If the query is a greeting (e.g., "hi", "kaise ho", "namaste", "hey jobo"), do NOT expand it using context. Return it as is.
 3. SHORT & AMBIGUOUS QUERIES:
    - If a query is very short and generic (e.g., "naukri", "job", "fees", "exam") and there is NO [CONTEXT], do NOT expand it into a full request.
    - Instead, keep it as is or slightly normalize it (e.g., "job" -> "jobs").

@@ -11,7 +11,8 @@ User Query: "${query}"
 - Conversation Stage: Turn ${context.turnCount || 0}
 
 Analysis Requirements:
-1. "primaryIntent": Identify the core purpose (GREETING, SMALL_TALK, JOB_SEARCH, FIELD_CHECK, CAREER_ADVICE, STATUS_CHECK, PROFILE_UPDATE, DISCOVERY).
+1. "primaryIntent": Identify the core purpose (GREETING, SMALL_TALK, JOB_SEARCH, FIELD_CHECK, CAREER_ADVICE, STATUS_CHECK, PROFILE_UPDATE, PROFILE_INQUIRY, DISCOVERY).
+    - Use PROFILE_INQUIRY if the user asks about their own data, age, qualification, or status (e.g., "meri age kya hai", "main kitne saal ka hoon", "meri qualification kya hai").
     - Use DISCOVERY if user wants to see "top", "trending", "featured", or "new" things without specific filters.
 2. "subIntent": Identify specific details requested (FEES, AGE_LIMIT, SYLLABUS, APPLY_LINK, ADMIT_CARD, NAME_CHANGE, TRENDING).
 3. "domain": Categorize the industry (POLICE, RAILWAY, BANK, TEACHING, DEFENCE, MEDICAL, SCHOLARSHIP, GENERAL).
