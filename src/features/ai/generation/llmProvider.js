@@ -1,7 +1,6 @@
 /**
  * LLMProvider Module (Master Engine)
- * Responsibility: Centralized connection to your Runpod GPU (Llama-3-8B/70B).
- * Supports both static utility calls and instance-based orchestration.
+ * Responsibility: Centralized connection to your Runpod GPU.
  */
 const axios = require('axios');
 const Settings = require('../../settings/settingsModel');
@@ -10,7 +9,8 @@ const constants = require('../../../config/constants');
 class LLMProvider {
     constructor(config = {}) {
         this.baseUrl = config.baseUrl || "";
-        this.model = config.model || constants.AI_MODEL_NAME;
+        // Default to personality model for chat/conversations
+        this.model = config.model || constants.AI_PERSONALITY_MODEL;
 
         if (this.baseUrl) {
             console.log(`[AI_CONFIG] 🚀 Using Model: ${this.model} | URL: ${this.baseUrl}`);
@@ -23,7 +23,6 @@ class LLMProvider {
     static async getBaseUrl() {
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         let url = setting?.value || constants.DEFAULT_RUNPOD_URL;
-        // Clean URL to handle both proxy and local IP formats
         return url.replace(/\/api\/(chat|generate)\/?$/, '').replace(/\/$/, '');
     }
 
@@ -32,14 +31,14 @@ class LLMProvider {
      */
     async chat(messages, options = {}) {
         try {
-            // Ensure URL ends in /api/chat for Chat API
-            const targetUrl = this.baseUrl.endsWith('/api/chat') ? this.baseUrl : `${this.baseUrl.replace(/\/$/, '')}/api/chat`;
+            const baseUrl = this.baseUrl || await LLMProvider.getBaseUrl();
+            const targetUrl = `${baseUrl}/api/chat`;
 
             const response = await axios.post(targetUrl, {
                 model: this.model,
                 messages: messages,
                 stream: false,
-                options: { temperature: options.temperature || 0.5 }
+                options: { temperature: options.temperature || 0.7 }
             }, { timeout: options.timeout || 30000 });
 
             return {
@@ -57,11 +56,14 @@ class LLMProvider {
      */
     async chatStream(messages, onChunk, options = {}) {
         try {
-            const response = await axios.post(this.baseUrl, {
+            const baseUrl = this.baseUrl || await LLMProvider.getBaseUrl();
+            const targetUrl = `${baseUrl}/api/chat`;
+
+            const response = await axios.post(targetUrl, {
                 model: this.model,
                 messages: messages,
                 stream: true,
-                options: { temperature: options.temperature || 0.5 }
+                options: { temperature: options.temperature || 0.7 }
             }, {
                 timeout: options.timeout || 60000,
                 responseType: 'stream'
@@ -72,7 +74,7 @@ class LLMProvider {
                 response.data.on('data', (chunk) => {
                     buffer += chunk.toString();
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); // Keep partial line in buffer
+                    buffer = lines.pop();
 
                     for (const line of lines) {
                         if (!line.trim()) continue;
@@ -82,9 +84,7 @@ class LLMProvider {
                                 onChunk(json.message.content);
                             }
                             if (json.done) resolve();
-                        } catch (e) {
-                            // Ignore parse errors for partial chunks
-                        }
+                        } catch (e) {}
                     }
                 });
                 response.data.on('error', (err) => reject(err));
@@ -98,58 +98,50 @@ class LLMProvider {
 
     /**
      * Static internal thinking & analysis (JSON Mode)
-     * Kept for backward compatibility with detectors and refiners.
+     * Always uses the LOGIC model for accuracy.
      */
     static async generate(prompt, options = {}) {
         try {
             const baseUrl = await this.getBaseUrl();
             const targetUrl = `${baseUrl}/api/generate`;
 
+            // Logic model for structured tasks
+            const model = constants.AI_LOGIC_MODEL;
+            console.log(`[LLM_LOGIC] 🧠 Calling Logic Model: ${model}`);
+
             const response = await axios.post(targetUrl, {
-                model: constants.AI_MODEL_NAME,
-                prompt: prompt,
+                model: model,
+                prompt: `[INST] Task: Output ONLY valid JSON.\n${prompt} [/INST]\n{`,
                 stream: false,
                 options: {
-                    temperature: 0.0,
-                    stop: ["\n", "###"]
+                    temperature: 0.1,
+                    top_p: 0.9,
+                    stop: ["[/INST]", "###"]
                 }
             }, { timeout: options.timeout || 30000 });
 
             let raw = response.data.response.trim();
+            console.log(`[LLM_RAW_LOGIC] 🛰️ Response: ${raw.substring(0, 50)}...`);
+            if (!raw.startsWith('{')) raw = '{' + raw;
 
-            // 1. If it's already a JSON-like string, try to parse it
-            if (raw.startsWith('{')) {
-                try { return JSON.parse(raw); } catch (e) {}
+            // Aggressive JSON Extraction
+            const startIdx = raw.indexOf('{');
+            const endIdx = raw.lastIndexOf('}');
+
+            if (startIdx !== -1 && endIdx !== -1) {
+                const cleaned = raw.substring(startIdx, endIdx + 1)
+                    .replace(/\\n/g, ' ')
+                    .replace(/\n/g, ' ')
+                    .replace(/,\s*([}\]])/g, '$1');
+
+                try {
+                    return JSON.parse(cleaned);
+                } catch (pErr) {
+                    const aggressive = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
+                    try { return JSON.parse(aggressive); } catch (e) {}
+                }
             }
-
-            // 2. RESILIENT EXTRACTION: Look for keywords in the model's "yapping"
-            const intents = ["GREETING", "JOB_SEARCH", "FIELD_CHECK", "CAREER_ADVICE", "PROFILE_INQUIRY", "DISCOVERY"];
-            const modes = ["JOB_SEARCH", "JOB_DETAILS", "CAREER_GUIDANCE", "GENERAL_HELP", "PROFILE_CHECK"];
-            const behaviors = ["RESPOND", "CLARIFY", "GREET"];
-
-            // Check if this was an Intent Detection task
-            if (prompt.includes('primaryIntent')) {
-                const foundIntent = intents.find(i => raw.toUpperCase().includes(i));
-                return { primaryIntent: foundIntent || "GENERAL_QUERY", tone: "POLITE" };
-            }
-
-            // Check if this was a Planner task
-            if (prompt.includes('Plan for job assistant')) {
-                const foundMode = modes.find(m => raw.toUpperCase().includes(m));
-                const foundBehavior = behaviors.find(b => raw.toUpperCase().includes(b));
-                return {
-                    mode: foundMode || "GENERAL_HELP",
-                    behavior: foundBehavior || "RESPOND",
-                    tools: ["DATABASE"]
-                };
-            }
-
-            // Default for Refiner: Clean it from conversational fillers
-            let cleaned = raw.replace(/^["']|["']$/g, '')
-                             .replace(/^(User|Assistant|Refined Query|Instruction): /i, '');
-
-            return { refinedQuery: cleaned || prompt.match(/"([^"]+)"/)?.[1] || "naukri" };
-
+            return null;
         } catch (error) {
             console.error("❌ Runpod Generate Error:", error.message);
             return null;
@@ -157,14 +149,10 @@ class LLMProvider {
     }
 
     /**
-     * Static chat fallback
+     * Static chat helper - uses Personality model
      */
     static async chat(messages, options = {}) {
-        const baseUrl = await this.getBaseUrl();
-        const instance = new LLMProvider({
-            baseUrl: `${baseUrl}/api/chat`,
-            model: constants.AI_MODEL_NAME
-        });
+        const instance = new LLMProvider({ model: constants.AI_PERSONALITY_MODEL });
         return instance.chat(messages, options);
     }
 }
