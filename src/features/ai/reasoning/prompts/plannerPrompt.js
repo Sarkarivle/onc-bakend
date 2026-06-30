@@ -1,20 +1,33 @@
 /**
- * Upgraded Planning for Mistral (Preserves Old Logic)
+ * Scalable Few-Shot Planning for Mistral
  */
 module.exports = (query, intent, context) => `
-Task: Choose response strategy for Jobo AI.
+Task: Strategic Planning for Jobo AI.
+Context: { "currentTopic": "${context.topic || 'None'}" }
+
+Examples:
+1. Input: "kaise ho", Intent: GREETING, Context: None
+   Output: { "thought": "Simple greeting", "mode": "GENERAL_HELP", "behavior": "GREET", "tools": [] }
+
+2. Input: "naukri", Intent: JOB_SEARCH, Context: None
+   Output: { "thought": "Short query without context needs clarification", "mode": "JOB_SEARCH", "behavior": "CLARIFY", "tools": ["DATABASE"] }
+
+3. Input: "fees?", Intent: FIELD_CHECK, Context: "SSC GD"
+   Output: { "thought": "Short query WITH context is a follow-up", "mode": "JOB_DETAILS", "behavior": "RESPOND", "tools": ["DATABASE"] }
+
+4. Input: "UP Police age limit", Intent: FIELD_CHECK, Context: None
+   Output: { "thought": "Specific job detail request", "mode": "JOB_DETAILS", "behavior": "RESPOND", "tools": ["DATABASE"] }
+
+5. Input: "main kitne saal ka hu", Intent: PROFILE_INQUIRY, Context: None
+   Output: { "thought": "User asking about their own profile", "mode": "PROFILE_CHECK", "behavior": "RESPOND", "tools": ["USER_PROFILE"] }
+
+Current Task:
 Input Query: "${query}"
-Detected Intent: ${intent.primaryIntent}
+Intent: ${intent.primaryIntent}
+Return ONLY JSON.
 
-MANDATORY STRATEGY RULES:
-1. ONE-WORD RULE: If Query is only 1-2 words (e.g. "naukri", "fees", "jobs") and does not mention a specific job or location, behavior MUST be "CLARIFY".
-2. FIELD CHECK RULE: If Intent is "FIELD_CHECK" (user asking for fees, age limit, syllabus), mode MUST be "JOB_DETAILS".
-3. GREETING RULE: If Intent is "GREETING", mode MUST be "GENERAL_HELP" and behavior MUST be "GREET".
-4. PROFILE RULE: If Intent is "PROFILE_INQUIRY", mode MUST be "PROFILE_CHECK" and behavior MUST be "RESPOND".
-
-Return ONLY JSON:
 {
-  "thought": "Brief explanation of rule applied",
+  "thought": "brief explanation",
   "mode": "JOB_SEARCH",
   "behavior": "RESPOND",
   "tools": ["DATABASE"]

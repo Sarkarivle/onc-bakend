@@ -1,18 +1,21 @@
 /**
- * Strict Minimalist Prompt for NeuralRefiner
+ * Scalable Few-Shot Neural Refiner
  */
 module.exports = (query, context) => `
-Task: Clean and fix typos in user query.
-Rules:
-1. KEEP IT HINDI/HINGLISH. "jobo" is a name, NOT "job".
-2. USE SPACES ONLY. NEVER use underscores (_) between words.
-3. DO NOT add new information.
-4. DO NOT change greetings into job questions.
+Task: Fix typos and clean user query. Keep the original language.
+
+Examples:
+1. Input: "kaise ho jobo bhai" -> { "refinedQuery": "kaise ho jobo bhai" }
+2. Input: "nkri" -> { "refinedQuery": "naukri" }
+3. Input: "m kitne sal ka hu" -> { "refinedQuery": "main kitne saal ka hoon" }
+4. Input: "fees?" (Topic: SSC GD) -> { "refinedQuery": "SSC GD ki fees kitni hai?" }
+
+Current Task:
+User Query: "${query}"
+Context Topic: "${context.topic || 'None'}"
 
 Return ONLY JSON:
 {
-  "refinedQuery": "the cleaned query text"
+  "refinedQuery": "the cleaned query"
 }
-
-User Query: "${query}"
 `;
