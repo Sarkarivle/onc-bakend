@@ -142,30 +142,16 @@ class LLMProvider {
 
                 return parsed;
             } catch (pErr) {
-                const aggressive = raw.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
+                // Aggressive cleaning for Mistral-style JSON issues
+                const cleaned = raw.replace(/\\n/g, ' ')
+                                   .replace(/\n/g, ' ')
+                                   .replace(/,\s*([}\]])/g, '$1')
+                                   .replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
                 try {
-                    let aParsed = JSON.parse(aggressive);
+                    let aParsed = JSON.parse(cleaned);
                     if (aParsed.response) aParsed = aParsed.response;
                     return aParsed;
                 } catch (e) {}
-            }
-
-            // Aggressive JSON Extraction
-            const startIdx = raw.indexOf('{');
-            const endIdx = raw.lastIndexOf('}');
-
-            if (startIdx !== -1 && endIdx !== -1) {
-                const cleaned = raw.substring(startIdx, endIdx + 1)
-                    .replace(/\\n/g, ' ')
-                    .replace(/\n/g, ' ')
-                    .replace(/,\s*([}\]])/g, '$1');
-
-                try {
-                    return JSON.parse(cleaned);
-                } catch (pErr) {
-                    const aggressive = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
-                    try { return JSON.parse(aggressive); } catch (e) {}
-                }
             }
             return null;
         } catch (error) {
