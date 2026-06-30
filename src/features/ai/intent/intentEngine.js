@@ -17,7 +17,7 @@ class IntentEngine {
         console.log(`🧠 Query Evolution: "${query}" -> "${refinedQuery}"`);
 
         // 2. NEURAL INTENT DETECTION: Use the "Perfected" query
-        const analysis = await LLMDetector.classify(refinedQuery, {
+        let analysis = await LLMDetector.classify(refinedQuery, {
             topic: state.currentTopic || state.topic,
             profile,
             turnCount: state.turnCount
@@ -32,11 +32,24 @@ class IntentEngine {
             };
         }
 
+        // Handle case where LLM returns a string instead of JSON object
+        if (typeof analysis === 'string') {
+            console.log(`[INTENT_RECOVERY] LLM returned string, attempting to wrap: "${analysis}"`);
+            analysis = {
+                primaryIntent: analysis.toUpperCase().includes('GREETING') ? 'GREETING' :
+                               analysis.toUpperCase().includes('JOB_SEARCH') ? 'JOB_SEARCH' :
+                               analysis.toUpperCase().includes('FIELD') ? 'FIELD_CHECK' : 'GENERAL_QUERY',
+                reasoning: 'Recovered from string response'
+            };
+        }
+
         // Safety: Ensure primaryIntent is a string and handle object returns from some LLM versions
-        let primary = analysis.primaryIntent;
+        let primary = analysis.primaryIntent || analysis.intent;
         if (typeof primary === 'object' && primary !== null) {
             primary = primary.name || primary.intent || 'GENERAL_QUERY';
         }
+
+        if (!primary) primary = 'GENERAL_QUERY';
 
         return {
             ...analysis,

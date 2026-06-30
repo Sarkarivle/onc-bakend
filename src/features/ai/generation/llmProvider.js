@@ -105,28 +105,23 @@ class LLMProvider {
             const baseUrl = await this.getBaseUrl();
             const targetUrl = `${baseUrl}/api/generate`;
 
-            console.log(`[LLM_DEBUG] Calling: ${targetUrl} | Model: ${constants.AI_MODEL_NAME}`);
-
             const response = await axios.post(targetUrl, {
                 model: constants.AI_MODEL_NAME,
-                prompt: `### System:
-You are a high-precision logic engine. Your task is to analyze the input and provide a structured JSON response.
-CRITICAL: You must return ONLY the JSON object. Do not include any conversational text, explanations, or formatting other than the JSON itself.
-
-### User Query:
-${prompt}
-
-### JSON Response:
-`,
+                prompt: `[INST] You are a high-precision JSON logic engine. Output ONLY valid JSON.
+Task: ${prompt}
+[/INST]
+{`,
                 stream: false,
                 options: {
                     temperature: options.temperature || 0.1,
                     top_p: 0.9,
-                    stop: ["###", "User:"]
+                    stop: ["[/INST]", "User:", "###"]
                 }
             }, { timeout: options.timeout || 30000 });
 
-            const raw = response.data.response;
+            let raw = response.data.response;
+            // Since we pre-filled '{' in the prompt to force JSON, we add it back to the result
+            if (raw && !raw.trim().startsWith('{')) raw = '{' + raw;
 
             // Aggressive JSON Extraction
             const startIdx = raw.indexOf('{');
@@ -134,14 +129,13 @@ ${prompt}
 
             if (startIdx !== -1 && endIdx !== -1) {
                 const cleaned = raw.substring(startIdx, endIdx + 1)
-                    .replace(/\\n/g, ' ') // Remove escaped newlines
-                    .replace(/\n/g, ' ') // Remove literal newlines
-                    .replace(/,\s*([}\]])/g, '$1'); // Fix trailing commas
+                    .replace(/\\n/g, ' ')
+                    .replace(/\n/g, ' ')
+                    .replace(/,\s*([}\]])/g, '$1');
 
                 try {
                     return JSON.parse(cleaned);
                 } catch (pErr) {
-                    console.warn("⚠️ JSON Parse Retry Failed, attempting aggressive fix.");
                     const aggressive = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
                     try { return JSON.parse(aggressive); } catch (e) { }
                 }
