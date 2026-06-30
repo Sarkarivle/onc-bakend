@@ -121,15 +121,33 @@ class LLMProvider {
             }, { timeout: options.timeout || 30000 });
 
             let raw = response.data.response.trim();
-            console.log(`[LLM_RAW_LOGIC] 🛰️ Response: ${raw.substring(0, 100)}...`);
 
-            // Clean escaped underscores and other common Mistral quirks
+            // Fix Mistral backslash escaping
             raw = raw.replace(/\\_/g, '_').replace(/\\"/g, '"');
 
-            if (!raw.startsWith('{')) {
-                const firstBrace = raw.indexOf('{');
-                if (firstBrace !== -1) raw = raw.substring(firstBrace);
-                else raw = '{' + raw;
+            // Deep JSON Extraction: Find the innermost JSON object
+            const startIdx = raw.indexOf('{');
+            const endIdx = raw.lastIndexOf('}');
+            if (startIdx !== -1 && endIdx !== -1) {
+                raw = raw.substring(startIdx, endIdx + 1);
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+                // Unwrapping: If model put it inside "response" or "assistant"
+                if (parsed.response) parsed = parsed.response;
+                if (parsed.assistant) parsed = parsed.assistant;
+                if (parsed.message) parsed = parsed.message;
+
+                return parsed;
+            } catch (pErr) {
+                const aggressive = raw.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
+                try {
+                    let aParsed = JSON.parse(aggressive);
+                    if (aParsed.response) aParsed = aParsed.response;
+                    return aParsed;
+                } catch (e) {}
             }
 
             // Aggressive JSON Extraction
