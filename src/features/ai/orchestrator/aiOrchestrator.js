@@ -43,6 +43,7 @@ const Metrics = require('../utils/metrics');
 const SearchReranker = require('../knowledge/searchReranker');
 const VectorService = require('../knowledge/vectorService');
 const RetrievalEngine = require('../knowledge/retrievalEngine');
+const StateModel = require('../memory/stateModel');
 
 class AIOrchestrator {
     static async processRequest(input) {
@@ -60,6 +61,12 @@ class AIOrchestrator {
         const directConversation = this._getDirectConversationResponse(userMessage);
         if (directConversation) {
             return { ...shapeResponse(directConversation.message, { suggestions: directConversation.suggestions }), requestId };
+        }
+
+        const profileCorrection = this._getProfileCorrectionResponse(userMessage);
+        if (profileCorrection) {
+            await this._clearDeniedQualificationFromState(input.sessionId, userMessage);
+            return { ...shapeResponse(profileCorrection.message, { suggestions: profileCorrection.suggestions }), requestId };
         }
 
         // PHASE 1 Evolution: Neural Gateway Check (Replaces keywords)
@@ -98,11 +105,17 @@ class AIOrchestrator {
                 ...state,
                 lastAssistantResponse: state.aiResponse || ""
             }, profile);
+            const deniedQualification = this._getDeniedQualification(rawInput);
 
             if (resolvedIntent.entities && Object.keys(resolvedIntent.entities).length > 0) {
-                await UserProfile.syncToDb(userName, resolvedIntent.entities);
+                const safeEntities = { ...resolvedIntent.entities };
+                if (deniedQualification && safeEntities.qualification) {
+                    delete safeEntities.qualification;
+                }
+
+                await UserProfile.syncToDb(userName, safeEntities);
                 if (resolvedIntent.entities.name) profile.name = resolvedIntent.entities.name;
-                if (resolvedIntent.entities.qualification) profile.qualification = resolvedIntent.entities.qualification;
+                if (safeEntities.qualification) profile.qualification = safeEntities.qualification;
                 if (resolvedIntent.entities.location) profile.state = resolvedIntent.entities.location;
             }
 
@@ -287,6 +300,14 @@ class AIOrchestrator {
             return;
         }
 
+        const profileCorrection = this._getProfileCorrectionResponse(userMessage);
+        if (profileCorrection) {
+            await this._clearDeniedQualificationFromState(input.sessionId, userMessage);
+            onChunk(profileCorrection.message);
+            onChunk(`\n\n[METADATA]${JSON.stringify({ success: true, requestId, isFullResponse: true, suggestions: profileCorrection.suggestions })}`);
+            return;
+        }
+
         const gateway = await SmartGateway.validate(userMessage);
         if (gateway.status === 'GREET') {
             onChunk(SAFE_RESPONSES.GREETING);
@@ -305,6 +326,7 @@ class AIOrchestrator {
             ]);
 
             const resolvedIntent = await IntentEngine.classify(rawInput, state, profile);
+            const deniedQualification = this._getDeniedQualification(rawInput);
             // The neural intent engine is the source of truth in this architecture.
             // Keep the old state shape without depending on the removed RuleDetector.
             const intentObj = {
@@ -314,7 +336,11 @@ class AIOrchestrator {
             };
 
             if (resolvedIntent.entities && Object.keys(resolvedIntent.entities).length > 0) {
-                await UserProfile.syncToDb(userName, resolvedIntent.entities);
+                const safeEntities = { ...resolvedIntent.entities };
+                if (deniedQualification && safeEntities.qualification) {
+                    delete safeEntities.qualification;
+                }
+                await UserProfile.syncToDb(userName, safeEntities);
             }
 
             // PHASE 4 Evolution: Agentic Planning for Streaming
@@ -466,6 +492,17 @@ class AIOrchestrator {
         return null;
     }
 
+    static _getProfileCorrectionResponse(message = "") {
+        const denied = this._getDeniedQualification(message);
+        if (!denied) return null;
+
+        const label = denied === '12th' ? '12th pass' : denied === '10th' ? '10th pass' : 'graduate';
+        return {
+            message: `Samajh gaya bhai, aap ${label} nahi ho. Main is purani baat ko answer me use nahi karunga. Aap apni current qualification bata do, main uske hisaab se jobs/career options suggest kar dunga.`,
+            suggestions: ["Graduate jobs", "Qualification update", "Latest jobs"]
+        };
+    }
+
     static _isFactualJobMode(plan = {}) {
         return ['JOB_SEARCH', 'JOB_DETAILS', 'MORE_RESULTS', 'RESULT'].includes(plan.mode);
     }
@@ -497,6 +534,37 @@ class AIOrchestrator {
         if (profile.dob) merged.dob = profile.dob;
 
         return merged;
+    }
+
+    static _getDeniedQualification(message = "") {
+        const clean = String(message).toLowerCase().replace(/[?.!]/g, '').replace(/\s+/g, ' ').trim();
+        const denial = /\b(nahi|nhi|nahin|not)\b/;
+
+        if (/\b(12th|12वीं|barahvi|intermediate)\b/i.test(clean) && denial.test(clean)) return '12th';
+        if (/\b(10th|10वीं|dasvi|high school)\b/i.test(clean) && denial.test(clean)) return '10th';
+        if (/\b(graduate|graduation|bachelor|degree|bsc|bcom|ba)\b/i.test(clean) && denial.test(clean)) return 'graduate';
+
+        return null;
+    }
+
+    static async _clearDeniedQualificationFromState(sessionId, message = "") {
+        const denied = this._getDeniedQualification(message);
+        if (!sessionId || !denied) return;
+
+        try {
+            const state = await SessionState.get(sessionId);
+            const insights = { ...(state.insights || {}) };
+            if (String(insights.qualification || '').toLowerCase().includes(denied)) {
+                delete insights.qualification;
+                await StateModel.findOneAndUpdate(
+                    { sessionId },
+                    { insights, updatedAt: Date.now() },
+                    { new: true }
+                );
+            }
+        } catch (error) {
+            console.warn('Profile correction memory cleanup failed:', error.message);
+        }
     }
 
     static _sanitizeHistory(history = [], profile = {}) {

@@ -21,7 +21,7 @@ class EliteFormatter {
         formatted = this._highlightDatesAndLinks(formatted);
         formatted = this._stripFluff(formatted);
         formatted = this._removeConflictingQualificationClaims(formatted, meta.userProfile);
-        formatted = this._addPersonalizedClosing(formatted, meta.userProfile);
+        formatted = this._addPersonalizedClosing(formatted, meta.userProfile, intent);
 
         return formatted.trim();
     }
@@ -95,8 +95,9 @@ class EliteFormatter {
         return cleaned;
     }
 
-    static _addPersonalizedClosing(text, profile) {
+    static _addPersonalizedClosing(text, profile, intent) {
         if (!profile || !profile.qualification) return text;
+        if (!['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS'].includes(intent)) return text;
 
         // Add a friendly closing if not present
         if (!text.includes('Best of luck') && !text.includes('shubhkamnayein')) {
@@ -117,7 +118,7 @@ class EliteFormatter {
         // claims like "aap 12th pass ho" that may have come from old chat state.
         return text
             .split('\n')
-            .filter(line => !/\baap\s+(12th|12वीं|barahvi|intermediate)\s+pass\s+ho\b/i.test(line))
+            .filter(line => !/\baap\s+(12th|12वीं|barahvi|intermediate)\s*(pass)?\s*(ho|hai|hain)?\b/i.test(line))
             .join('\n')
             .replace(/\n{3,}/g, '\n\n')
             .trim();
