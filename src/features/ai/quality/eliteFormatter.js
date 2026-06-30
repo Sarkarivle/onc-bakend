@@ -20,6 +20,7 @@ class EliteFormatter {
         // 2. Common Enhancements
         formatted = this._highlightDatesAndLinks(formatted);
         formatted = this._stripFluff(formatted);
+        formatted = this._removeConflictingQualificationClaims(formatted, meta.userProfile);
         formatted = this._addPersonalizedClosing(formatted, meta.userProfile);
 
         return formatted.trim();
@@ -103,6 +104,23 @@ class EliteFormatter {
             return text + closing;
         }
         return text;
+    }
+
+    static _removeConflictingQualificationClaims(text, profile) {
+        if (!profile || !profile.qualification) return text;
+
+        const qualification = String(profile.qualification).toLowerCase();
+        const profileIs12th = /\b12th\b|\b12वीं\b|\bbarahvi\b|\bintermediate\b/i.test(qualification);
+        if (profileIs12th) return text;
+
+        // If the current profile says Graduate/B.Tech/etc., remove stale memory
+        // claims like "aap 12th pass ho" that may have come from old chat state.
+        return text
+            .split('\n')
+            .filter(line => !/\baap\s+(12th|12वीं|barahvi|intermediate)\s+pass\s+ho\b/i.test(line))
+            .join('\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
     }
 }
 

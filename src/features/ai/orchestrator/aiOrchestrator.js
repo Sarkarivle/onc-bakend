@@ -185,10 +185,11 @@ class AIOrchestrator {
             ProgressEmitter.emit(sessionId, 'LLM_THINKING');
             const llm = await this._getLLMProvider();
             metrics.provider = llm.provider;
+            const safeHistory = this._sanitizeHistory(history, profile);
 
             let aiResponse = await llm.chat([
                 { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. Only discuss jobs active in ${currentYear} or later.` },
-                ...(history || []),
+                ...safeHistory,
                 { role: 'user', content: rewrittenQuery }
             ]);
 
@@ -202,7 +203,7 @@ class AIOrchestrator {
                 ProgressEmitter.emit(sessionId, `CHALLENGE_MODE_REPAIR`);
                 const repairResponse = await llm.chat([
                     { role: 'system', content: systemInstruction },
-                    ...(history || []),
+                    ...safeHistory,
                     { role: 'user', content: rewrittenQuery },
                     { role: 'assistant', content: llmContent },
                     { role: 'system', content: `[CRITIQUE]: ${audit.repairInstruction}\nFix the issues mentioned and provide the final corrected response.` }
@@ -236,6 +237,7 @@ class AIOrchestrator {
 
             // PHASE 6: Extract Memory Insights (Fire & Forget for speed, or await for consistency)
             const memoryUpdate = await MemoryManager.extractInsights(rawInput, processed.message, state.insights);
+            const updatedInsights = this._mergeInsightsWithProfile(memoryUpdate.updatedInsights, profile);
 
             await SessionState.update(sessionId, {
                 query: rawInput,
@@ -244,7 +246,7 @@ class AIOrchestrator {
                 plan,
                 knowledgeContext,
                 userName,
-                insights: memoryUpdate.updatedInsights,
+                insights: updatedInsights,
                 turnSummary: memoryUpdate.turnSummary
             });
 
@@ -350,11 +352,12 @@ class AIOrchestrator {
             let systemInstruction = await PromptComposer.build(plan.priorityModules, profile, knowledgeContext, promptMeta);
 
             const llm = await this._getLLMProvider();
+            const safeHistory = this._sanitizeHistory(history, profile);
 
             let fullContent = "";
             await llm.chatStream([
                 { role: 'system', content: systemInstruction + `\n\nCRITICAL: Today is ${indiaDateStr}. Only discuss jobs active in ${currentYear} or later.` },
-                ...(history || []),
+                ...safeHistory,
                 { role: 'user', content: searchQuery }
             ], (chunk) => {
                 // Do not stream unvalidated factual answers. The UI appends chunks,
@@ -481,6 +484,39 @@ class AIOrchestrator {
         }
 
         return semanticSafeFallback(query);
+    }
+
+    static _mergeInsightsWithProfile(insights = {}, profile = {}) {
+        const merged = { ...(insights || {}) };
+
+        // Current user profile is authoritative over conversational memory.
+        // Memory may fill missing fields, but cannot downgrade Graduate to 12th.
+        if (profile.qualification) merged.qualification = profile.qualification;
+        if (profile.state) merged.location = profile.state;
+        if (profile.category) merged.category = profile.category;
+        if (profile.dob) merged.dob = profile.dob;
+
+        return merged;
+    }
+
+    static _sanitizeHistory(history = [], profile = {}) {
+        if (!Array.isArray(history) || !profile.qualification) return history || [];
+
+        const qualification = String(profile.qualification).toLowerCase();
+        const profileIs12th = /\b12th\b|\b12वीं\b|\bbarahvi\b|\bintermediate\b/i.test(qualification);
+        if (profileIs12th) return history;
+
+        return history.map(item => {
+            if (item?.role !== 'assistant' || typeof item.content !== 'string') return item;
+
+            const content = item.content
+                .split('\n')
+                .filter(line => !/\baap\s+(12th|12वीं|barahvi|intermediate)\s+pass\s+ho\b/i.test(line))
+                .join('\n')
+                .trim();
+
+            return { ...item, content };
+        });
     }
 
     static _finalProcess(content, confidence, meta = {}) {

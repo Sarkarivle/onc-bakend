@@ -9,6 +9,7 @@ class PromptComposer {
     static async build(priorityModules, userData, liveData, meta) {
         const { currentDate, currentYear, sessionId, turnCount, behavior, plan } = meta;
         const cleanUser = this._sanitizeData(userData);
+        cleanUser.insights = this._sanitizeInsights(cleanUser.insights, cleanUser);
 
         const isPureGreeting = behavior === 'GREET';
 
@@ -103,6 +104,33 @@ class PromptComposer {
             }
         }
         return sanitized;
+    }
+
+    static _sanitizeInsights(insights, user) {
+        if (!insights) return insights;
+
+        const normalizedQualification = String(user.qualification || '').toLowerCase();
+        const cleanInsights = typeof insights === 'object' ? { ...insights } : insights;
+
+        // Structured profile is authoritative. Memory can fill blanks, but must
+        // not contradict the current profile selected by the user.
+        if (typeof cleanInsights === 'object' && user.qualification && cleanInsights.qualification) {
+            const memoryQualification = String(cleanInsights.qualification).toLowerCase();
+            if (memoryQualification && memoryQualification !== normalizedQualification) {
+                delete cleanInsights.qualification;
+            }
+            return cleanInsights;
+        }
+
+        if (typeof cleanInsights === 'string' && user.qualification) {
+            const hasStale12th = /\b12th\b|\b12वीं\b|\bbarahvi\b|\bintermediate\b/i.test(cleanInsights);
+            const userIsNot12th = !/\b12th\b|\b12वीं\b|\bbarahvi\b|\bintermediate\b/i.test(normalizedQualification);
+            if (hasStale12th && userIsNot12th) {
+                return cleanInsights.replace(/[^.。\n]*(12th|12वीं|barahvi|intermediate)[^.。\n]*(\.|।)?/gi, '').trim();
+            }
+        }
+
+        return cleanInsights;
     }
 }
 

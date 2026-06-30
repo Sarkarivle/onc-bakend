@@ -13,10 +13,12 @@ User: "${userMsg}"
 Assistant: "${aiMsg}"
 
 Instructions:
-1. Identify any NEW facts mentioned by the user (Qualification, Location, Category, DOB, Age, specific Interests).
-2. If a fact was already known but the user changed it, update it.
-3. Merge new facts with [CURRENT MEMORY].
-4. Provide a very short 1-sentence summary of the conversation so far to keep context fresh.
+1. Identify any NEW facts explicitly mentioned by the USER only (Qualification, Location, Category, DOB, Age, specific Interests).
+2. Never extract profile facts from the assistant response. The assistant may be wrong.
+3. If the user denies a fact (example: "main 12th pass nahi hu"), remove that fact from memory instead of storing it.
+4. If a fact was already known but the user changed it, update it.
+5. Merge new facts with [CURRENT MEMORY].
+6. Provide a very short 1-sentence summary of the conversation so far to keep context fresh.
 
 Return ONLY this JSON format:
 {
