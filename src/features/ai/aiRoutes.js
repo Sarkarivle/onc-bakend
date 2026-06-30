@@ -117,7 +117,7 @@ router.post('/ask-stream', async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
 
     try {
-        await AIOrchestrator.processRequestStream(req.body, (chunk) => {
+        await AIOrchestrator.processRequest(req.body, (chunk) => {
             res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
         });
         res.write('data: [DONE]\n\n');
