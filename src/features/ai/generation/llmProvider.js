@@ -107,15 +107,17 @@ class LLMProvider {
 
             const response = await axios.post(targetUrl, {
                 model: constants.AI_MODEL_NAME,
-                prompt: `[INST] You are a high-precision JSON logic engine. Output ONLY valid JSON.
+                prompt: `### Instruction:
+You are an expert system that output ONLY valid JSON.
 Task: ${prompt}
-[/INST]
+
+### Response:
 {`,
                 stream: false,
                 options: {
                     temperature: options.temperature || 0.1,
                     top_p: 0.9,
-                    stop: ["[/INST]", "User:", "###"]
+                    stop: ["###", "Instruction:", "Response:"]
                 }
             }, { timeout: options.timeout || 30000 });
 
