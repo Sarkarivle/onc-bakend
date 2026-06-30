@@ -2,20 +2,22 @@
  * Robust Intent Detection for Mistral
  */
 module.exports = (query, context) => `
-Task: Categorize user query.
+Task: Categorize the user query.
 Query: "${query}"
 
-Categories & Tone:
-- GREETING: "hi", "namaste". Tone: "POLITE"
-- PROFILE_INQUIRY: "meri age kya hai". Tone: "CURIOUS"
-- JOB_SEARCH: "naukri", "vacancy". Tone: "CURIOUS"
-- FIELD_CHECK: "fees", "age limit". Tone: "CURIOUS"
-- DISCOVERY: "top jobs". Tone: "CURIOUS"
+Categories & Examples:
+- GREETING: "hi", "kaise ho", "jobo bhai", "hello".
+- PROFILE_INQUIRY: User asking about THEIR data ("main kitne saal ka hu", "mera status").
+- JOB_SEARCH: Seeking specific vacancies ("naukri", "SSC vacancy").
+- FIELD_CHECK: General rules of a job ("fees", "age limit").
+- DISCOVERY: Seeking lists of jobs ("top 5 jobs", "latest jobs").
 
-IMPORTANT:
-- If user is asking a question ("kya hai", "kitna hai"), Tone MUST be "CURIOUS".
-- Return ONLY JSON. Do not wrap in "response" key.
+Strict Logic:
+- "kaise ho jobo bhai" is ALWAYS GREETING.
+- "main kitne saal ka hu" is ALWAYS PROFILE_INQUIRY.
+- "fees" is ALWAYS FIELD_CHECK.
 
+Return ONLY JSON:
 {
   "primaryIntent": "CATEGORY_NAME",
   "reasoning": "brief",
