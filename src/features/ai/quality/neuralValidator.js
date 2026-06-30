@@ -12,7 +12,7 @@ class NeuralValidator {
     static async validate(query, draft, context = {}) {
         try {
             const prompt = buildPrompt(query, draft, context);
-            const result = await LLMProvider.generate(prompt, { timeout: 8000 });
+            const result = await LLMProvider.generate(prompt, { timeout: 15000 });
 
             if (!result || typeof result !== 'object') {
                 return { passed: true, score: 100, issues: [] };

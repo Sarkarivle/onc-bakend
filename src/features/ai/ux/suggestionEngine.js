@@ -4,10 +4,11 @@
  */
 class SuggestionEngine {
     static generate(plan, context, aiSuggestions = []) {
-        let suggestions = [...aiSuggestions];
-        const intent = plan.intent;
-        const topic = context.state?.topic || "";
-        const hasJobs = context.jobs && context.jobs.length > 0;
+        if (!plan) return aiSuggestions || [];
+        let suggestions = Array.isArray(aiSuggestions) ? [...aiSuggestions] : [];
+        const intent = plan.intent || plan.mode || "";
+        const topic = context?.state?.topic || context?.topic || "";
+        const hasJobs = context?.jobs && context.jobs.length > 0;
 
         if (hasJobs || topic !== "GENERAL") {
             if (intent === 'GOVT_JOB' || intent === 'JOB_QUERY') {

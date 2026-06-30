@@ -112,7 +112,7 @@ class LLMProvider {
                 prompt: `System: You are an expert logic engine. Return ONLY valid JSON.\n\nUser: ${prompt}`,
                 stream: false,
                 options: { temperature: options.temperature || 0.1 }
-            }, { timeout: options.timeout || 15000 });
+            }, { timeout: options.timeout || 30000 });
 
             const raw = response.data.response;
             const startIdx = raw.indexOf('{');

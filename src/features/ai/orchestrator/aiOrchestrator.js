@@ -106,7 +106,7 @@ class AIOrchestrator {
 
             const rewrittenQuery = resolvedIntent.refinedQuery || rawInput;
 
-            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem };
+            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem, topic: state.topic };
 
             if (plan.needsDatabase || plan.needsWebSearch) {
                 if (plan.needsDatabase) ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
@@ -189,7 +189,7 @@ class AIOrchestrator {
 
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
             const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, validation);
-            const processed = this._finalProcess(finalContent, confidence, { intent: plan.intent, query: rewrittenQuery, isPureGreeting: validationInput.isPureGreeting, userProfile: profile, plan, knowledgeContext });
+            const processed = this._finalProcess(finalContent, confidence, { intent: plan.intent || resolvedIntent.primaryIntent, query: rewrittenQuery, isPureGreeting: validationInput.isPureGreeting, userProfile: profile, plan, knowledgeContext });
 
             // PHASE 6: Extract Memory Insights (Fire & Forget for speed, or await for consistency)
             const memoryUpdate = await MemoryManager.extractInsights(rawInput, processed.message, state.insights);
@@ -264,7 +264,7 @@ class AIOrchestrator {
 
             const searchQuery = resolvedIntent.refinedQuery || rawInput;
 
-            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem };
+            let knowledgeContext = { jobs: "", web: "", profileStr: UserProfile.toContextString(profile), referencedItem: plan.referencedItem, topic: state.topic };
             if (plan.needsDatabase || plan.needsWebSearch) {
                 let [dbResult, webData] = await Promise.all([
                     plan.needsDatabase ? RetrievalEngine.searchJobs(searchQuery, profile, plan) : null,
@@ -295,9 +295,11 @@ class AIOrchestrator {
 
             const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, { passed: true });
             const processed = this._finalProcess(fullContent, confidence, {
-                intent: plan.intent,
+                intent: plan.intent || resolvedIntent.primaryIntent,
                 query: searchQuery,
-                userProfile: profile
+                userProfile: profile,
+                plan: plan,
+                knowledgeContext: knowledgeContext
             });
 
             await SessionState.update(sessionId, {
