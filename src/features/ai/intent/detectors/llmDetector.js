@@ -1,7 +1,7 @@
 /**
  * LLMDetector Module (Connected to Runpod Brain)
  */
-const LLMProvider = require('../../../generation/llmProvider');
+const LLMProvider = require('../../generation/llmProvider');
 const buildPrompt = require('./prompts/llmDetector');
 
 class LLMDetector {
