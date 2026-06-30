@@ -33,9 +33,15 @@ class AgenticPlanner {
         }
 
         const prompt = buildPrompt(refinedQuery, resolvedIntent, context);
-        const plan = await LLMProvider.generate(prompt);
+        const plan = await LLMProvider.generateLogic(prompt);
 
         if (!plan) return this._fallbackPlan(resolvedIntent);
+
+        // Upgrade: If career guidance is needed, force Reasoning Model
+        if (plan.mode === 'CAREER_GUIDANCE') {
+            plan.useReasoningModel = true;
+            plan.priorityModules.push("CAREER");
+        }
 
         return {
             ...plan,

@@ -61,10 +61,15 @@ class IntentEngine {
     }
 
     static _mapToLegacyIntents(primary, sub) {
-        if (primary === 'JOB_SEARCH') return 'JOB_SEARCH';
-        if (primary === 'FIELD_CHECK' || sub === 'FEES' || sub === 'AGE_LIMIT') return 'FIELD_DETAILS';
-        if (primary === 'CAREER_ADVICE') return 'CAREER_GUIDANCE';
-        if (primary === 'STATUS_CHECK') return 'RESULT_ADMIT_CARD';
+        const p = String(primary || '').toUpperCase();
+        const s = String(sub || '').toUpperCase();
+
+        if (p === 'JOB_SEARCH' || p === 'JOB_QUERY') return 'JOB_SEARCH';
+        if (p === 'FIELD_CHECK' || p === 'FIELD_DETAILS' || s === 'FEES' || s === 'AGE_LIMIT') return 'FIELD_DETAILS';
+        if (p === 'CAREER_ADVICE' || p === 'CAREER_GUIDANCE') return 'CAREER_GUIDANCE';
+        if (p === 'STATUS_CHECK' || p === 'RESULT_ADMIT_CARD') return 'RESULT_ADMIT_CARD';
+        if (p === 'PROFILE_INQUIRY' || p === 'PROFILE_INFO' || p === 'PROFILE_CHECK') return 'PROFILE_INQUIRY';
+
         return primary;
     }
 }

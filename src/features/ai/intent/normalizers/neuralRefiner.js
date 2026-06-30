@@ -7,9 +7,8 @@ const buildPrompt = require('./prompts/neuralRefiner');
 class NeuralRefiner {
     static async refine(rawQuery, context = {}) {
         const prompt = buildPrompt(rawQuery, context);
-        // Uses the central engine instead of direct axios
-        const result = await LLMProvider.generate(prompt);
-        return typeof result === 'string' ? result : (result?.refinedQuery || rawQuery);
+        const result = await LLMProvider.generateLogic(prompt);
+        return result?.refinedQuery || rawQuery;
     }
 }
 
