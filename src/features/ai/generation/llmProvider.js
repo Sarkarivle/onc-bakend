@@ -118,10 +118,12 @@ class LLMProvider {
             let raw = response.data.response;
 
             // If we are doing completion-style (refinedQuery: "), we need to rebuild the JSON
-            if (prompt.includes('Output JSON: { "')) {
-                // Find the first key we were expecting
-                const key = prompt.split('"').slice(-2, -1)[0];
-                raw = `{ "${key}": "${raw}`;
+            const completionMatch = prompt.match(/Output JSON: \{ "([^"]+)": "/);
+            if (completionMatch) {
+                const key = completionMatch[1];
+                if (!raw.trim().startsWith('{')) {
+                    raw = `{ "${key}": "${raw.trim()}`;
+                }
                 if (!raw.endsWith('"}')) raw += '"}';
                 if (!raw.endsWith('}')) raw += '}';
             }
