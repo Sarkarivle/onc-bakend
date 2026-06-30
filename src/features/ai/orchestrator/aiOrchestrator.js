@@ -9,6 +9,8 @@ const IntentEngine = require('../intent/intentEngine');
 const AgenticPlanner = require('../reasoning/agenticPlanner');
 const RetrievalEngine = require('../knowledge/retrievalEngine');
 const LLMProvider = require('../generation/llmProvider');
+const personalityPrompt = require('../generation/prompts/personality');
+const corePrompt = require('../generation/prompts/core');
 const ProgressEmitter = require('../ux/progressEmitter');
 const EliteFormatter = require('../quality/eliteFormatter');
 const SuggestionEngine = require('../ux/suggestionEngine');
@@ -44,8 +46,10 @@ class AIOrchestrator {
 
             // 4. PERSONALITY PHASE (Lora_v1)
             ProgressEmitter.emit(sessionId, 'GENERATING');
+            const systemContent = `${corePrompt}\n${personalityPrompt}\n\nCONTEXT DATA:\nKnowledge: ${knowledge}\nReasoning: ${reasoning}\nUser Profile: ${JSON.stringify(profile)}\nState: ${JSON.stringify(state)}`;
+
             const aiResponse = await LLMProvider.chat([
-                { role: 'system', content: `You are Jobo AI. Personality: Desi & Friendly. Context: ${knowledge} ${reasoning}` },
+                { role: 'system', content: systemContent },
                 { role: 'user', content: userMessage }
             ]);
             let finalContent = aiResponse.content;
@@ -103,8 +107,10 @@ class AIOrchestrator {
 
             // 4. PERSONALITY PHASE (Streaming)
             let fullContent = "";
+            const systemContent = `${corePrompt}\n${personalityPrompt}\n\nCONTEXT DATA:\nKnowledge: ${knowledge}\nReasoning: ${reasoning}\nUser Profile: ${JSON.stringify(profile)}\nState: ${JSON.stringify(state)}`;
+
             await LLMProvider.chatStream([
-                { role: 'system', content: `You are Jobo AI. Personality: Desi & Friendly. Context: ${knowledge} ${reasoning}` },
+                { role: 'system', content: systemContent },
                 { role: 'user', content: userMessage }
             ], (chunk) => {
                 fullContent += chunk;
