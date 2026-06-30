@@ -124,9 +124,13 @@ class LLMProvider {
             console.log(`[LLM_RAW_LOGIC] 🛰️ Response: ${raw.substring(0, 100)}...`);
 
             // Clean escaped underscores and other common Mistral quirks
-            raw = raw.replace(/\\_/g, '_');
+            raw = raw.replace(/\\_/g, '_').replace(/\\"/g, '"');
 
-            if (!raw.startsWith('{')) raw = '{' + raw;
+            if (!raw.startsWith('{')) {
+                const firstBrace = raw.indexOf('{');
+                if (firstBrace !== -1) raw = raw.substring(firstBrace);
+                else raw = '{' + raw;
+            }
 
             // Aggressive JSON Extraction
             const startIdx = raw.indexOf('{');

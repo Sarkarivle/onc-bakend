@@ -2,26 +2,26 @@
  * Robust Intent Detection for Mistral
  */
 module.exports = (query, context) => `
-Task: Detect intent.
+Task: Categorize the user query into exactly ONE category.
 Query: "${query}"
 
-Categories:
-- GREETING: "hi", "kaise ho", "hello".
-- PROFILE_INQUIRY: User asking about THEIR data ("main kitne saal ka hu", "mera status").
-- JOB_SEARCH: Searching for jobs ("naukri", "SSC vacancy").
-- FIELD_CHECK: Job rules ("fees", "age limit").
-- DISCOVERY: "top jobs", "trending".
+Categories & Examples:
+- GREETING: "hi", "kaise ho", "hello", "namaste".
+- PROFILE_INQUIRY: User asking about THEIR data ("main kitne saal ka hu", "mera status", "my age").
+- JOB_SEARCH: Seeking specific job vacancies ("SSC vacancy", "Police jobs").
+- FIELD_CHECK: General rules of a job ("fees", "age limit", "syllabus").
+- DISCOVERY: Seeking lists of best/latest jobs ("top 5 jobs", "trending jobs", "latest jobs").
 
-Instructions:
-- Choose EXACTLY ONE category. Do not return multiple categories separated by slashes.
-- "kaise ho" is GREETING.
-- "naukri" is JOB_SEARCH (but ambiguous).
-- "main kitne saal ka hu" is PROFILE_INQUIRY.
+Strict Mapping:
+- "kaise ho" -> GREETING
+- "top 5 jobs" -> DISCOVERY
+- "fees" -> FIELD_CHECK
+- "naukri" -> JOB_SEARCH
 
-Return ONLY JSON (No backslashes before underscores):
+Return ONLY JSON:
 {
-  "primaryIntent": "CATEGORY",
-  "reasoning": "why",
+  "primaryIntent": "CATEGORY_NAME",
+  "reasoning": "brief reason",
   "tone": "CURIOUS"
 }
 `;
