@@ -32,12 +32,18 @@ class IntentEngine {
             };
         }
 
+        // Safety: Ensure primaryIntent is a string and handle object returns from some LLM versions
+        let primary = analysis.primaryIntent;
+        if (typeof primary === 'object' && primary !== null) {
+            primary = primary.name || primary.intent || 'GENERAL_QUERY';
+        }
+
         return {
             ...analysis,
-            refinedQuery, // Pass this along so RAG knows exactly what to search
+            refinedQuery,
             isFollowUp: analysis.discourse === 'FOLLOW_UP',
             usePreviousContext: analysis.discourse === 'FOLLOW_UP',
-            primaryIntent: analysis.primaryIntent === 'GREETING' ? 'GREETING' : this._mapToLegacyIntents(analysis.primaryIntent, analysis.subIntent)
+            primaryIntent: primary === 'GREETING' ? 'GREETING' : this._mapToLegacyIntents(primary, analysis.subIntent)
         };
     }
 

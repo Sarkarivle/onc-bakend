@@ -75,8 +75,6 @@ class AgenticPlanner {
         const intent = resolvedIntent.primaryIntent || 'GENERAL_QUERY';
         const tone = resolvedIntent.tone || 'POLITE';
 
-        // Planner timeouts should not turn normal chat into job search. Only
-        // factual job-like intents should touch retrieval in the fallback path.
         if (['JOB_QUERY', 'JOB_SEARCH', 'DISCOVERY', 'FIELD_DETAILS', 'RESULT_ADMIT_CARD', 'APPLICATION_HELP'].includes(intent)) {
             return {
                 tools: ["DATABASE"],
@@ -86,6 +84,19 @@ class AgenticPlanner {
                 needsDatabase: true,
                 needsWebSearch: false,
                 needsProfile: false,
+                emotionalTone: tone
+            };
+        }
+
+        if (intent === 'PROFILE_INQUIRY') {
+            return {
+                tools: ["USER_PROFILE"],
+                mode: "PROFILE_CHECK",
+                priorityModules: ["CORE", "PERSONALITY"],
+                behavior: "RESPOND",
+                needsDatabase: false,
+                needsWebSearch: false,
+                needsProfile: true,
                 emotionalTone: tone
             };
         }

@@ -1,24 +1,24 @@
 /**
- * Prompt for NeuralRefiner Task
- * Filename matches the logic file: normalizers/neuralRefiner.js
+ * Prompt for NeuralRefiner Task (JSON Mode)
  */
 module.exports = (query, context) => `
-Task: User Query Refinement (Hinglish/English).
+Task: User Query Refinement.
+User Query: "${query}"
 
 [CONTEXT]:
-- Last Topic Discussed: "${context.topic || 'None'}"
+- Last Topic: "${context.topic || 'None'}"
 - Conversation Turn: ${context.turnCount || 0}
 
-[USER QUERY]: "${query}"
-
 Instructions:
-1. Fix typos (e.g., "nkri" -> "naukri", "bihr" -> "bihar", "gratuate" -> "graduate").
-2. GREETING PROTECTION: If the query is a greeting (e.g., "hi", "kaise ho", "namaste", "hey jobo"), do NOT expand it using context. Return it as is.
-3. SHORT & AMBIGUOUS QUERIES:
-   - If a query is very short and generic (e.g., "naukri", "job", "fees", "exam") and there is NO [CONTEXT], do NOT expand it into a full request.
-   - Instead, keep it as is or slightly normalize it (e.g., "job" -> "jobs").
-   - This allows the system to identify that the user needs to provide more details.
-4. Always prioritize clarity over literal translation.
-5. If the user provides a qualification or location, ensure it's preserved in the refined query.
+1. Fix typos (e.g., "nkri" -> "naukri").
+2. DO NOT add new information (like age, specific jobs, or names) unless they are in the User Query or Context.
+3. GREETING PROTECTION: If query is "hi", "kaise ho", etc., set "refinedQuery" to the original query.
+4. SHORT QUERIES: If query is 1-2 words (e.g., "naukri", "fees") and there is NO [CONTEXT], do NOT expand it.
+5. COMPLETE FOLLOW-UPS: If query is "fees?" and context is "SSC", set "refinedQuery" to "SSC ki fees kitni hai?".
 
-Output ONLY the refined text. No preamble.`;
+Return ONLY this JSON format:
+{
+  "refinedQuery": "The perfected query",
+  "isAmbiguous": true/false,
+  "reasoning": "Brief explanation"
+}`;

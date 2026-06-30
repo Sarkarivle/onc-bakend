@@ -115,13 +115,27 @@ class LLMProvider {
             }, { timeout: options.timeout || 30000 });
 
             const raw = response.data.response;
+
+            // Aggressive JSON Extraction
             const startIdx = raw.indexOf('{');
             const endIdx = raw.lastIndexOf('}');
 
-            if (startIdx === -1 || endIdx === -1) return raw.trim();
+            if (startIdx !== -1 && endIdx !== -1) {
+                const cleaned = raw.substring(startIdx, endIdx + 1)
+                    .replace(/\\n/g, ' ') // Remove escaped newlines
+                    .replace(/\n/g, ' ') // Remove literal newlines
+                    .replace(/,\s*([}\]])/g, '$1'); // Fix trailing commas
 
-            const cleaned = raw.substring(startIdx, endIdx + 1);
-            return JSON.parse(cleaned);
+                try {
+                    return JSON.parse(cleaned);
+                } catch (pErr) {
+                    console.warn("⚠️ JSON Parse Retry Failed, attempting aggressive fix.");
+                    const aggressive = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
+                    try { return JSON.parse(aggressive); } catch (e) { }
+                }
+            }
+
+            return raw.trim();
         } catch (error) {
             console.error("❌ Runpod Generate Error:", error.message);
             return null;
