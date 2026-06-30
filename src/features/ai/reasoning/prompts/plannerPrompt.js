@@ -1,21 +1,21 @@
 /**
- * Refined Prompt for Mistral Agentic Planning
+ * Strict Planning for Mistral
  */
 module.exports = (query, intent, context) => `
-Task: Strategic Planning for Jobo AI.
-Input Query: "${query}"
+Task: Respond Strategy.
+Input: "${query}"
 Intent: ${intent.primaryIntent}
 
 Rules:
-1. AMBIGUITY: If query is only 1 word (e.g., "naukri", "job", "fees") without any context, behavior MUST be "CLARIFY".
-2. PROFILE: If intent is "PROFILE_INQUIRY", mode MUST be "PROFILE_CHECK" and tool "USER_PROFILE".
-3. JOB: If asking for vacancies, mode is "JOB_SEARCH". If asking for fees/age, mode is "JOB_DETAILS".
+1. If Query is ONLY 1-2 words (e.g. "naukri", "fees", "age") and no context: behavior MUST be "CLARIFY".
+2. If Intent is PROFILE_INQUIRY: mode MUST be "PROFILE_CHECK", behavior "RESPOND", tool "USER_PROFILE".
+3. If Intent is GREETING: mode MUST be "GENERAL_HELP", behavior "GREET", no tools.
 
-Return ONLY this JSON format:
+Return ONLY JSON:
 {
-  "thought": "Strategy explanation",
+  "thought": "brief",
   "mode": "JOB_SEARCH/JOB_DETAILS/PROFILE_CHECK/GENERAL_HELP",
   "behavior": "RESPOND/CLARIFY/GREET",
-  "tools": ["DATABASE", "USER_PROFILE", "WEB_SEARCH"]
+  "tools": ["DATABASE", "USER_PROFILE"]
 }
 `;

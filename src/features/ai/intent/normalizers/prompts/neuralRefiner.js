@@ -1,19 +1,17 @@
 /**
- * Refined Prompt for Mistral Neural Refiner
+ * Strict Minimalist Prompt for NeuralRefiner
  */
 module.exports = (query, context) => `
-Task: Refine the user query for a job assistant.
-Context Topic: "${context.topic || 'None'}"
+Task: Clean and fix typos in user query.
+Rules:
+1. DO NOT add new information.
+2. DO NOT change greetings (like "hi", "kaise ho") into job questions.
+3. If query is 1 word, KEEP IT 1 word.
+4. Only fix spelling and grammar.
 
-Instructions:
-1. Keep the language same as user (Hindi/English/Hinglish).
-2. Fix typos.
-3. If query is "fees?" and context is "SSC", refine to "SSC ki fees kya hai?".
-4. If query is already clear, return it as is.
-
-Return ONLY this JSON:
+Return ONLY JSON:
 {
-  "refinedQuery": "The perfected query"
+  "refinedQuery": "the cleaned query"
 }
 
 User Query: "${query}"

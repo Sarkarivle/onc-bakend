@@ -1,25 +1,26 @@
 /**
- * Refined Prompt for Mistral Intent Analysis
+ * Robust Intent Detection for Mistral
  */
 module.exports = (query, context) => `
-Task: Identify intent for a job assistant.
-User Query: "${query}"
+Task: Detect intent.
+Query: "${query}"
 
 Categories:
-- GREETING: "hi", "hello", "kaise ho".
-- JOB_SEARCH: Asking for jobs (e.g., "UP Police jobs", "behen ko naukri").
-- FIELD_CHECK: Asking for rules/data of a job (e.g., "SSC fees", "age limit").
-- PROFILE_INQUIRY: User asking about THEIR OWN data (e.g., "main kitne saal ka hu", "mera naam kya hai"). Keywords: "main", "m", "mera", "hu".
-- DISCOVERY: "top 5 jobs", "trending jobs", "latest vacancy".
+- GREETING: "hi", "kaise ho", "hello".
+- PROFILE_INQUIRY: User asking about THEIR data ("main kitne saal ka hu", "mera status").
+- JOB_SEARCH: Searching for jobs ("naukri", "SSC vacancy").
+- FIELD_CHECK: Job rules ("fees", "age limit").
+- DISCOVERY: "top jobs", "trending".
 
-Tone Guide:
-- If user asks "Kya hai?", "Kitna hai?", "Kab hai?" -> Tone is "CURIOUS".
-- If user just greets -> Tone is "POLITE".
+Instructions:
+- "kaise ho" is GREETING.
+- "naukri" is JOB_SEARCH (but ambiguous).
+- "main kitne saal ka hu" is PROFILE_INQUIRY.
 
-Return ONLY this JSON format:
+Return ONLY JSON:
 {
   "primaryIntent": "CATEGORY",
-  "reasoning": "Brief explanation",
-  "tone": "CURIOUS/POLITE/CASUAL"
+  "reasoning": "why",
+  "tone": "CURIOUS/POLITE"
 }
 `;
