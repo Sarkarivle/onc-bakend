@@ -48,7 +48,7 @@ class IntentEngine {
     }
 
     static _mapToLegacyIntents(primary, sub) {
-        if (primary === 'JOB_SEARCH') return 'JOB_QUERY';
+        if (primary === 'JOB_SEARCH') return 'JOB_SEARCH';
         if (primary === 'FIELD_CHECK' || sub === 'FEES' || sub === 'AGE_LIMIT') return 'FIELD_DETAILS';
         if (primary === 'CAREER_ADVICE') return 'CAREER_GUIDANCE';
         if (primary === 'STATUS_CHECK') return 'RESULT_ADMIT_CARD';

@@ -109,9 +109,21 @@ class LLMProvider {
 
             const response = await axios.post(targetUrl, {
                 model: constants.AI_MODEL_NAME,
-                prompt: `System: You are an expert logic engine. Return ONLY valid JSON.\n\nUser: ${prompt}`,
+                prompt: `### System:
+You are a high-precision logic engine. Your task is to analyze the input and provide a structured JSON response.
+CRITICAL: You must return ONLY the JSON object. Do not include any conversational text, explanations, or formatting other than the JSON itself.
+
+### User Query:
+${prompt}
+
+### JSON Response:
+`,
                 stream: false,
-                options: { temperature: options.temperature || 0.1 }
+                options: {
+                    temperature: options.temperature || 0.1,
+                    top_p: 0.9,
+                    stop: ["###", "User:"]
+                }
             }, { timeout: options.timeout || 30000 });
 
             const raw = response.data.response;

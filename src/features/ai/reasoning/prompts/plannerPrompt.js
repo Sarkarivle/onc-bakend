@@ -13,7 +13,7 @@ Resolved Intent: ${JSON.stringify(intent)}
 Instructions:
 1. Analyze if the user wants specific data (Live Jobs), general advice, a simple greeting, or small-talk about Jobo itself.
 2. Select the necessary tools from this list: ["DATABASE", "WEB_SEARCH", "USER_PROFILE"].
-3. Decide the response mode: "JOB_SEARCH", "JOB_DETAILS", "CAREER_GUIDANCE", "GENERAL_HELP".
+3. Decide the response mode: "JOB_SEARCH", "JOB_DETAILS", "CAREER_GUIDANCE", "GENERAL_HELP", "PROFILE_CHECK".
 4. For SMALL_TALK / assistant identity / assistant location questions, choose no tools, mode "GENERAL_HELP", behavior "RESPOND".
 5. List which expert modules should be loaded: ["GOVT_JOB", "CAREER", "RESUME", "SCHOLARSHIP"].
 6. Identify the user's emotional tone from the Resolved Intent and incorporate it into the plan.
@@ -25,7 +25,7 @@ Return ONLY this JSON format:
   "tools": ["TOOL_1", "TOOL_2"],
   "mode": "MODE_NAME",
   "priorityModules": ["MODULE_1", "MODULE_2"],
-  "behavior": "RESPOND | CLARIFY | GREET",
+  "behavior": "RESPOND", // Choices: "RESPOND", "CLARIFY", "GREET"
   "emotionalTone": "The detected tone (e.g., URGENT, POLITE, ANGRY, etc.)"
 }
 

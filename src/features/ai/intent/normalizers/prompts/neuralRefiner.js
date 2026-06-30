@@ -16,9 +16,13 @@ Instructions:
 4. SHORT QUERIES: If query is 1-2 words (e.g., "naukri", "fees") and there is NO [CONTEXT], do NOT expand it.
 5. COMPLETE FOLLOW-UPS: If query is "fees?" and context is "SSC", set "refinedQuery" to "SSC ki fees kitni hai?".
 
-Return ONLY this JSON format:
+Return ONLY a valid JSON object.
+DO NOT include any text before or after the JSON.
+DO NOT include "Refined Query:" or "Reasoning:" as plain text labels outside the JSON.
+
+JSON Format:
 {
   "refinedQuery": "The perfected query",
-  "isAmbiguous": true/false,
+  "isAmbiguous": false,
   "reasoning": "Brief explanation"
 }`;

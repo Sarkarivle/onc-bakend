@@ -27,13 +27,11 @@ Analysis Requirements:
 Deep Intelligence Guidelines:
 - SEMANTIC OVER KEYWORDS: Focus on the "Goal". "Naukri?" -> JOB_SEARCH. "Meri age?" -> PROFILE_INQUIRY.
 - FIELD VS PROFILE: "UP Police age limit" is FIELD_CHECK. "Main 25 ka hoon, eligible hoon?" is JOB_SEARCH.
-- DISCOVERY: "Top jobs", "Trending jobs", "latest jobs" -> DISCOVERY.
+- DISCOVERY: "Top 5 jobs", "latest jobs", "Trending jobs", "latest vacancy". Use this for list-seeking queries without specific criteria.
+- JOB_SEARCH: "SSC GD jobs", "Police jobs in UP", "12th pass jobs". Use this when the user is searching for specific jobs.
+- FIELD_CHECK: "SSC GD fees", "UP Police age limit", "Syllabus for BANK".
+- PROFILE_INQUIRY: "Meri age kya hai?", "Mera naam kya hai?".
 - GREETING: "hi", "hello", "kaise ho".
-- SMALL_TALK: "aap kaun ho", "identity".
-- CONTEXTUAL CONTINUITY: Use the turn count and active topic to resolve ambiguous queries.
-- BEHAVIORAL MAPPING:
-    - GREETING: "hi", "hello", "kaise ho".
-    - SMALL_TALK: "aap kaun ho", "kaise kaam karte ho", "assistant identity".
-    - PROFILE_UPDATE: "mera naam X hai", "main 12th pass hoon".
 
-Return ONLY a clean JSON object. No preamble, no postscript.`;
+Return ONLY a clean JSON object. No preamble, no postscript.
+Ensure the "primaryIntent" exactly matches one of the labels provided.`;
