@@ -18,6 +18,18 @@ class AgenticPlanner {
             };
         }
 
+        if (resolvedIntent.primaryIntent === 'SMALL_TALK') {
+            return {
+                tools: [],
+                mode: "GENERAL_HELP",
+                priorityModules: ["CORE", "PERSONALITY"],
+                behavior: "RESPOND",
+                needsDatabase: false,
+                needsWebSearch: false,
+                needsProfile: false
+            };
+        }
+
         const prompt = buildPrompt(refinedQuery, resolvedIntent, context);
         const plan = await LLMProvider.generate(prompt);
 
@@ -83,6 +95,18 @@ class AgenticPlanner {
                 needsDatabase: false,
                 needsWebSearch: false,
                 needsProfile: true
+            };
+        }
+
+        if (intent === 'SMALL_TALK') {
+            return {
+                tools: [],
+                mode: "GENERAL_HELP",
+                priorityModules: ["CORE", "PERSONALITY"],
+                behavior: "RESPOND",
+                needsDatabase: false,
+                needsWebSearch: false,
+                needsProfile: false
             };
         }
 

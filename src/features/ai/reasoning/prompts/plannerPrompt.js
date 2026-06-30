@@ -11,10 +11,11 @@ Resolved Intent: ${JSON.stringify(intent)}
 - User Profile Summary: ${context.profileStr || 'Unknown'}
 
 Instructions:
-1. Analyze if the user wants specific data (Live Jobs), general advice, or a simple greeting.
+1. Analyze if the user wants specific data (Live Jobs), general advice, a simple greeting, or small-talk about Jobo itself.
 2. Select the necessary tools from this list: ["DATABASE", "WEB_SEARCH", "USER_PROFILE"].
 3. Decide the response mode: "JOB_SEARCH", "JOB_DETAILS", "CAREER_GUIDANCE", "GENERAL_HELP".
-4. List which expert modules should be loaded: ["GOVT_JOB", "CAREER", "RESUME", "SCHOLARSHIP"].
+4. For SMALL_TALK / assistant identity / assistant location questions, choose no tools, mode "GENERAL_HELP", behavior "RESPOND".
+5. List which expert modules should be loaded: ["GOVT_JOB", "CAREER", "RESUME", "SCHOLARSHIP"].
 
 Return ONLY this JSON format:
 {

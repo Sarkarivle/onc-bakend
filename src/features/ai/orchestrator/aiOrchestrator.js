@@ -57,6 +57,11 @@ class AIOrchestrator {
             return { ...shapeResponse(Cleaner.getGreetingFallback()), requestId };
         }
 
+        const directConversation = this._getDirectConversationResponse(userMessage);
+        if (directConversation) {
+            return { ...shapeResponse(directConversation.message, { suggestions: directConversation.suggestions }), requestId };
+        }
+
         // PHASE 1 Evolution: Neural Gateway Check (Replaces keywords)
         const gateway = await SmartGateway.validate(userMessage);
 
@@ -273,6 +278,13 @@ class AIOrchestrator {
             return;
         }
 
+        const directConversation = this._getDirectConversationResponse(userMessage);
+        if (directConversation) {
+            onChunk(directConversation.message);
+            onChunk(`\n\n[METADATA]${JSON.stringify({ success: true, requestId, isFullResponse: true, suggestions: directConversation.suggestions })}`);
+            return;
+        }
+
         const gateway = await SmartGateway.validate(userMessage);
         if (gateway.status === 'GREET') {
             onChunk(SAFE_RESPONSES.GREETING);
@@ -420,6 +432,35 @@ class AIOrchestrator {
     static _isSimpleGreeting(message = "") {
         const clean = String(message).toLowerCase().replace(/[?.!]/g, '').trim();
         return /^(hi|hello|hey|hii|hiii|namaste|namaskar|ram ram|kaise ho|kya haal hai|hello jobo|hi jobo|hey jobo)$/.test(clean);
+    }
+
+    static _getDirectConversationResponse(message = "") {
+        const clean = String(message).toLowerCase().replace(/[?.!]/g, '').replace(/\s+/g, ' ').trim();
+
+        // Personal questions about the assistant are conversational intent, not
+        // job/career intent. Answer them directly so the user feels heard.
+        if (/\b(kaha|kha|kidhar|where)\b.*\b(rahte|rehte|rehta|rhte|se|from|live)\b/.test(clean)) {
+            return {
+                message: "Main physical jagah par nahi rehta, bhai. Main cloud/server par chalne wala Jobo AI hoon, aur yahin app me aapki jobs, career aur forms me help karta hoon.",
+                suggestions: ["Latest jobs", "Career advice", "Resume help"]
+            };
+        }
+
+        if (/\b(tum|aap|ap|jobo)\b.*\b(kaun|kon|who)\b|\b(kaun ho|kon ho|who are you)\b/.test(clean)) {
+            return {
+                message: "Main Jobo AI hoon, aapka career dost. Main job details, eligibility, forms, resume aur career guidance me help karta hoon.",
+                suggestions: ["Latest jobs", "Eligibility check", "Career advice"]
+            };
+        }
+
+        if (/\b(tum|aap|ap|jobo)\b.*\b(kya karte|kya kar sakte|help|madad)\b/.test(clean)) {
+            return {
+                message: "Main aapko sarkari/private jobs samjhane, eligibility check karne, form steps batane, resume aur career planning me help kar sakta hoon.",
+                suggestions: ["Latest jobs", "Form kaise bhare", "Resume help"]
+            };
+        }
+
+        return null;
     }
 
     static _isFactualJobMode(plan = {}) {

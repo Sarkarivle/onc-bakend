@@ -11,7 +11,7 @@ User Query: "${query}"
 - Conversation Stage: Turn ${context.turnCount || 0}
 
 Analysis Requirements:
-1. "primaryIntent": Identify the core purpose (GREETING, JOB_SEARCH, FIELD_CHECK, CAREER_ADVICE, STATUS_CHECK, PROFILE_UPDATE).
+1. "primaryIntent": Identify the core purpose (GREETING, SMALL_TALK, JOB_SEARCH, FIELD_CHECK, CAREER_ADVICE, STATUS_CHECK, PROFILE_UPDATE).
 2. "subIntent": Identify specific details requested (FEES, AGE_LIMIT, SYLLABUS, APPLY_LINK, ADMIT_CARD, NAME_CHANGE).
 3. "domain": Categorize the industry (POLICE, RAILWAY, BANK, TEACHING, DEFENCE, MEDICAL, SCHOLARSHIP, GENERAL).
 4. "discourse": Determine if this is a "NEW_TOPIC" or a "FOLLOW_UP" based on conversation history.
@@ -26,6 +26,7 @@ Deep Intelligence Guidelines:
 - CONTEXTUAL CONTINUITY: Use the turn count and active topic to resolve ambiguous or short queries (e.g., if the user previously asked about a job and now says "fees", link it to that job).
 - BEHAVIORAL MAPPING:
     - If the meaning is a greeting or an inquiry about your well-being, use GREETING.
+    - If the user asks about Jobo itself (who are you, where do you live, what can you do), use SMALL_TALK. Do not map this to jobs or career advice.
     - If the user provides personal info or introduces themselves, use PROFILE_UPDATE.
     - If the user is looking for employment or vacancies, use JOB_SEARCH.
 
