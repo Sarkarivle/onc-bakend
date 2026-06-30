@@ -100,6 +100,9 @@ class AIOrchestrator {
             ]);
             ProgressEmitter.emit(sessionId, 'USER_PROFILE_LOADING');
 
+            // --- SYNC POINT: Ensure Profile (Source of Truth) overrides Memory (Insights) ---
+            state.insights = this._mergeInsightsWithProfile(state.insights, profile);
+
             ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
             const resolvedIntent = await IntentEngine.classify(rawInput, {
                 ...state,
@@ -324,6 +327,9 @@ class AIOrchestrator {
                 SessionState.get(sessionId),
                 UserProfile.get(userName, input)
             ]);
+
+            // --- SYNC POINT: Ensure Profile (Source of Truth) overrides Memory (Insights) ---
+            state.insights = this._mergeInsightsWithProfile(state.insights, profile);
 
             const resolvedIntent = await IntentEngine.classify(rawInput, state, profile);
             const deniedQualification = this._getDeniedQualification(rawInput);

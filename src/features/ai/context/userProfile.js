@@ -13,14 +13,15 @@ class UserProfile {
 
         return {
             name: userName || "User",
-            // Mobile clients send legacy user-prefixed fields. Treat request/profile
-            // data as the freshest source, then fall back to DB.
-            qualification: sessionData.userQualification || sessionData.qualification || dbUser?.education || null,
-            dob: sessionData.userDOB || sessionData.dob || dbUser?.dob || null,
-            state: sessionData.userLocation || sessionData.state || dbUser?.domicileState || null,
-            category: sessionData.userCategory || sessionData.category || dbUser?.category || null,
-            gender: sessionData.gender || dbUser?.gender || null,
-            city: sessionData.userLocation || sessionData.city || dbUser?.city || null,
+            // Priority 1: Auth DB (Source of Truth)
+            // Priority 2: Session Data (Current request)
+            // This ensures profile data is never overwritten by temporary memory guesses.
+            qualification: dbUser?.education || sessionData.userQualification || sessionData.qualification || null,
+            dob: dbUser?.dob || sessionData.userDOB || sessionData.dob || null,
+            state: dbUser?.domicileState || sessionData.userLocation || sessionData.state || null,
+            category: dbUser?.category || sessionData.userCategory || sessionData.category || null,
+            gender: dbUser?.gender || sessionData.gender || null,
+            city: dbUser?.city || sessionData.userLocation || sessionData.city || null,
             isNewUser: !dbUser,
             insights: dbUser ? `Previous user. Known qualification: ${dbUser.education || 'Unknown'}` : "New user."
         };
@@ -59,12 +60,18 @@ class UserProfile {
         const User = require('../../auth/userModel');
         if (!userName || userName === 'User' || !profileUpdates) return;
 
+        // Fetch current data to avoid overwriting authoritative profile with AI extraction guesses
+        const existing = await User.findOne({ name: userName }).select('education domicileState category dob gender').lean();
+
         const updateData = {};
-        if (profileUpdates.qualification) updateData.education = profileUpdates.qualification;
-        if (profileUpdates.state) updateData.domicileState = profileUpdates.state;
-        if (profileUpdates.category) updateData.category = profileUpdates.category;
-        if (profileUpdates.dob) updateData.dob = profileUpdates.dob;
-        if (profileUpdates.gender) updateData.gender = profileUpdates.gender;
+
+        // Only sync from AI if the field is currently empty in the database.
+        // This preserves the "Source of Truth" as requested.
+        if (profileUpdates.qualification && !existing?.education) updateData.education = profileUpdates.qualification;
+        if (profileUpdates.state && !existing?.domicileState) updateData.domicileState = profileUpdates.state;
+        if (profileUpdates.category && !existing?.category) updateData.category = profileUpdates.category;
+        if (profileUpdates.dob && !existing?.dob) updateData.dob = profileUpdates.dob;
+        if (profileUpdates.gender && !existing?.gender) updateData.gender = profileUpdates.gender;
 
         if (Object.keys(updateData).length === 0) return;
 
