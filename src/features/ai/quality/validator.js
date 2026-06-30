@@ -55,15 +55,19 @@ class Validator {
         if (jobModes.includes(plan?.mode)) {
             const hasData = (liveData.jobs && liveData.jobs.length > 0) || (liveData.web && liveData.web.length > 0);
 
+            // Hallucination Check for years
+            const futureYears = response.match(/202[6-9]|20[3-9]\d/g);
+            if (futureYears) {
+                issues.push(`Hallucination: Predicted future year "${futureYears[0]}" without evidence.`);
+                severity = "HIGH";
+            }
+
             if (!hasData) {
                 if (resLower.match(/(\d+\s*posts|vacancy|last date|salary|₹|link)/i)) {
                     issues.push("Hallucination: Invented job facts without verified source.");
                     severity = "HIGH";
                 }
-                if (!resLower.match(/(maaf kijiye|verified jankari|not found|nahi mili)/i)) {
-                    issues.push("Policy violation: Did not use factual fallback when data missing.");
-                    severity = "MEDIUM";
-                }
+                // Relaxed: As long as it doesn't invent facts, it's okay if it provides general guidance without the exact fallback phrase.
             } else {
                 const combinedData = ((liveData.jobs || "") + " " + (liveData.web || "")).toLowerCase();
                 const numbers = response.match(/\d{3,}/g) || [];

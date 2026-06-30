@@ -23,7 +23,7 @@ class SessionState {
     }
 
     static async update(sessionId, metadata) {
-        const { query, acts, domains, intents, aiResponse, plan, knowledgeContext, validation, resolvedIntent, userName, insights, turnSummary } = metadata;
+        const { query, resolvedIntent, aiResponse, plan, knowledgeContext, userName, insights, turnSummary } = metadata;
         const currentState = await this.get(sessionId);
 
         let pendingAction = resolvedIntent?.needClarification ? "WAITING_FOR_CLARIFICATION" : null;
@@ -34,8 +34,8 @@ class SessionState {
             jobMatches.forEach(m => lastShownJobs.push(m.replace(/\d\.\s+\*\*/, '').replace(/\*\*/, '').trim()));
         }
 
-        const resolvedDomain = resolvedIntent?.domainIntent || domains?.[0] || currentState.currentDomain;
-        const resolvedTopic = resolvedIntent?.referencedTopic || (resolvedDomain !== 'GENERAL' ? resolvedDomain : currentState.currentTopic);
+        const resolvedDomain = resolvedIntent?.domain || currentState.currentDomain;
+        const resolvedTopic = resolvedIntent?.job || resolvedIntent?.entities?.job || (resolvedDomain !== 'GENERAL' ? resolvedDomain : currentState.currentTopic);
 
         const updateData = {
             sessionId,
@@ -44,7 +44,7 @@ class SessionState {
             currentTopic: resolvedTopic || currentState.currentTopic,
             currentDomain: resolvedDomain || currentState.currentDomain,
             lastDomain: resolvedDomain !== 'GENERAL' && resolvedDomain !== 'NONE' ? resolvedDomain : currentState.lastDomain,
-            lastUserIntent: resolvedIntent?.primaryIntent || intents?.[0] || currentState.lastUserIntent,
+            lastUserIntent: resolvedIntent?.primaryIntent || currentState.lastUserIntent,
             lastAssistantIntent: plan?.behavior || "RESPOND",
             pendingAction: pendingAction,
             lastShownJobs: lastShownJobs.length > 0 ? lastShownJobs : currentState.lastShownJobs,

@@ -6,7 +6,7 @@ class Cleaner {
     static clean(text, meta = {}) {
         let cleanText = text;
 
-        cleanText = cleanText.replace(/<(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>[\s\S]*?<\/\1>/gi, '').trim();
+        cleanText = cleanText.replace(/<(HIDDEN_MATH|USER_MESSAGE|think|CALC)>[\s\S]*?<\/\1>/gi, '').trim();
         cleanText = cleanText.replace(/<(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>/gi, '').replace(/<\/(?:HIDDEN_MATH|USER_MESSAGE|think|CALC)>/gi, '');
 
         const blacklisted = [
@@ -24,6 +24,8 @@ class Cleaner {
             /pure greeting/gi, /detected intent/gi, /no domain found/gi, /isliye maine/gi,
             /maine system ki madad se/gi, /system ki madad se/gi,
             /category ki jobs/gi, /jobs me madad/gi, /career aur jobs/gi,
+            /bhai,\s*aage ki taiyari/gi, /bhai,\s*form bharte samay/gi, /bhai,\s*12th ke baad career/gi,
+            /abhi 2026 me vacancy aayi hain/gi,
             /\b(JOB_QUERY|MORE_JOBS|JOB_FEE_DETAILS|GOVERNMENT_JOBS|RAILWAY_JOB|BANK_JOB|POLICE_JOB|DEFENCE_JOB|TEACHING_JOB|HEALTH_JOB|CAREER_GUIDANCE|EXPLAIN_LAST_FAILURE|SHOW_FULL_DETAILS|DATABASE_FIRST|PROFILE_AND_LLM)\b/g,
             /career ka sapna[^.\n]*[.\n]?/gi,
             /aaj kal naukriyon[\s\S]*?open hain\??/gi,

@@ -17,7 +17,6 @@ const constants = require('../../../config/constants');
 const cheerio = require('cheerio');
 
 // Pipeline Modules (Updated Paths)
-const RuleDetector = require('../intent/detectors/ruleDetector');
 const IntentEngine = require('../intent/intentEngine');
 const SessionState = require('../context/sessionState');
 const UserProfile = require('../context/userProfile');
@@ -88,10 +87,12 @@ class AIOrchestrator {
                 ...state,
                 lastAssistantResponse: state.aiResponse || ""
             }, profile);
-            const intentObj = RuleDetector.detect(rawInput);
 
             if (resolvedIntent.entities && Object.keys(resolvedIntent.entities).length > 0) {
                 await UserProfile.syncToDb(userName, resolvedIntent.entities);
+                if (resolvedIntent.entities.name) profile.name = resolvedIntent.entities.name;
+                if (resolvedIntent.entities.qualification) profile.qualification = resolvedIntent.entities.qualification;
+                if (resolvedIntent.entities.location) profile.state = resolvedIntent.entities.location;
             }
 
             ProgressEmitter.emit(sessionId, 'PLANNING');
@@ -151,6 +152,13 @@ class AIOrchestrator {
                 systemInstruction += "\n\nCRITICAL: The user's query is too short or ambiguous. Do not guess. Politely ask them to explain their question in detail.";
             }
 
+            // Flexible fallback for missing data (Gemini Style: Only for factual intents)
+            const isFactualIntent = ['JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'APPLICATION_HELP', 'SCHOLARSHIP'].includes(plan.mode || plan.intent);
+            const dataIsMissing = !knowledgeContext.jobs && !knowledgeContext.web;
+            if (plan.behavior !== 'CLARIFY' && dataIsMissing && isFactualIntent) {
+                systemInstruction += "\n\nNOTE: No specific live records were found. Do not just say 'Maaf kijiye'. Instead, provide general guidance about the query, explain the typical eligibility or process, and advise the user to check official portals. Be helpful and conversational like a friend.";
+            }
+
             ProgressEmitter.emit(sessionId, 'LLM_THINKING');
             const llm = await this._getLLMProvider();
             metrics.provider = llm.provider;
@@ -189,16 +197,21 @@ class AIOrchestrator {
 
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
             const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, validation);
-            const processed = this._finalProcess(finalContent, confidence, { intent: plan.intent || resolvedIntent.primaryIntent, query: rewrittenQuery, isPureGreeting: validationInput.isPureGreeting, userProfile: profile, plan, knowledgeContext });
+            const processed = this._finalProcess(finalContent, confidence, {
+                intent: plan.intent || resolvedIntent.primaryIntent,
+                query: rewrittenQuery,
+                isPureGreeting: validationInput.isPureGreeting,
+                userProfile: profile,
+                plan,
+                knowledgeContext,
+                aiSuggestions: resolvedIntent.suggestions // Neural suggestions from LLM
+            });
 
             // PHASE 6: Extract Memory Insights (Fire & Forget for speed, or await for consistency)
             const memoryUpdate = await MemoryManager.extractInsights(rawInput, processed.message, state.insights);
 
             await SessionState.update(sessionId, {
                 query: rawInput,
-                acts: intentObj.acts,
-                domains: intentObj.domains,
-                intents: intentObj.intents,
                 resolvedIntent,
                 aiResponse: processed.message,
                 plan,

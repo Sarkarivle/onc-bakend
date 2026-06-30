@@ -4,8 +4,12 @@
  */
 class SuggestionEngine {
     static generate(plan, context, aiSuggestions = []) {
-        if (!plan) return aiSuggestions || [];
-        let suggestions = Array.isArray(aiSuggestions) ? [...aiSuggestions] : [];
+        // Priority to Neural Suggestions from LLM
+        if (Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
+            return aiSuggestions.slice(0, 3);
+        }
+
+        if (!plan) return [];
         const intent = plan.intent || plan.mode || "";
         const topic = context?.state?.topic || context?.topic || "";
         const hasJobs = context?.jobs && context.jobs.length > 0;
