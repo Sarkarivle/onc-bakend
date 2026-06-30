@@ -44,7 +44,7 @@ function postLlmFilter(llmResponse, normalizedQuery) {
   const lowerCaseResponse = llmResponse.toLowerCase();
 
   const forbiddenContent = ['system prompt', 'internal rules', 'config.json', 'api key', 'ignore previous instructions'];
-  if (forbiddenContent.some(kw => lowerCaseResponse.includes(kw))) return shapeResponse(SAFE_RESPONSES.UNSAFE_OUTPUT);
+  if (forbiddenContent.some(kw => lowerCaseResponse.includes(kw))) return SAFE_RESPONSES.UNSAFE_OUTPUT;
 
   return llmResponse;
 }

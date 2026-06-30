@@ -51,6 +51,12 @@ class AIOrchestrator {
 
         const userMessage = normalizeRequest(input);
 
+        // Fast local greeting guard: simple greetings must never enter the RAG
+        // or no-data fallback path, otherwise users see greeting + factual fallback.
+        if (this._isSimpleGreeting(userMessage)) {
+            return { ...shapeResponse(Cleaner.getGreetingFallback()), requestId };
+        }
+
         // PHASE 1 Evolution: Neural Gateway Check (Replaces keywords)
         const gateway = await SmartGateway.validate(userMessage);
 
@@ -205,6 +211,10 @@ class AIOrchestrator {
             let finalContent = postLlmFilter(llmContent, rawInput);
             if (!validation.passed && validationInput.isPureGreeting) {
                 finalContent = Cleaner.getGreetingFallback();
+            } else if (!validation.passed && validation.shouldRetryLLM && this._isFactualJobMode(plan) && !this._hasVerifiedData(knowledgeContext)) {
+                // If no verified DB/search source exists, never let a repaired or raw
+                // LLM answer invent vacancies, dates, fees, or links.
+                finalContent = this._safeNoDataResponse(rawInput);
             }
 
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
@@ -257,6 +267,12 @@ class AIOrchestrator {
         const userMessage = normalizeRequest(input);
 
         // --- EMERGENCY GREETING BYPASS ---
+        if (this._isSimpleGreeting(userMessage)) {
+            onChunk(Cleaner.getGreetingFallback());
+            onChunk(`\n\n[METADATA]${JSON.stringify({ success: true, requestId, isFullResponse: true, suggestions: ["Latest jobs", "Career advice"] })}`);
+            return;
+        }
+
         const gateway = await SmartGateway.validate(userMessage);
         if (gateway.status === 'GREET') {
             onChunk(SAFE_RESPONSES.GREETING);
@@ -329,11 +345,18 @@ class AIOrchestrator {
                 ...(history || []),
                 { role: 'user', content: searchQuery }
             ], (chunk) => {
+                // Do not stream unvalidated factual answers. The UI appends chunks,
+                // so sending a later fallback would visibly concatenate wrong data.
                 fullContent += chunk;
-                onChunk(chunk);
             });
 
-            const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, { passed: true });
+            const validationInput = { query: searchQuery, liveData: knowledgeContext, intent: plan.intent, userProfile: profile, isPureGreeting: plan.isPureGreeting || plan.behavior === 'GREET', resolvedIntent, state, plan };
+            const validation = Validator.validate(fullContent, validationInput);
+            if (!validation.passed && validation.shouldRetryLLM && this._isFactualJobMode(plan) && !this._hasVerifiedData(knowledgeContext)) {
+                fullContent = this._safeNoDataResponse(rawInput);
+            }
+
+            const confidence = ConfidenceEngine.calculate(plan, knowledgeContext, validation);
             const processed = this._finalProcess(fullContent, confidence, {
                 intent: plan.intent || resolvedIntent.primaryIntent,
                 query: searchQuery,
@@ -341,6 +364,8 @@ class AIOrchestrator {
                 plan: plan,
                 knowledgeContext: knowledgeContext
             });
+
+            onChunk(processed.message);
 
             await SessionState.update(sessionId, {
                 query: rawInput,
@@ -387,9 +412,34 @@ class AIOrchestrator {
 
         if (!apiKey) return "";
         const results = await SearchService.search(query, apiKey, cxId);
-        const reranked = SearchReranker.rank(query, results);
+        const reranked = await SearchReranker.rank(query, results);
 
         return reranked.map((r, i) => `SOURCE ${i + 1}: [TITLE: ${r.title}] [URL: ${r.url}] [SNIPPET: ${r.snippet}]`).join("\n");
+    }
+
+    static _isSimpleGreeting(message = "") {
+        const clean = String(message).toLowerCase().replace(/[?.!]/g, '').trim();
+        return /^(hi|hello|hey|hii|hiii|namaste|namaskar|ram ram|kaise ho|kya haal hai|hello jobo|hi jobo|hey jobo)$/.test(clean);
+    }
+
+    static _isFactualJobMode(plan = {}) {
+        return ['JOB_SEARCH', 'JOB_DETAILS', 'MORE_RESULTS', 'RESULT'].includes(plan.mode);
+    }
+
+    static _hasVerifiedData(knowledgeContext = {}) {
+        return Boolean(
+            (knowledgeContext.jobs && knowledgeContext.jobs.trim()) ||
+            (knowledgeContext.web && knowledgeContext.web.trim())
+        );
+    }
+
+    static _safeNoDataResponse(query = "") {
+        const q = String(query).toLowerCase();
+        if (q.includes('job') || q.includes('naukri') || q.includes('bharti') || q.includes('vacancy')) {
+            return "Abhi mere verified database/search me active job record nahi mil raha. Main bina official source ke vacancy, last date, fees ya link nahi bataunga. Aap category bata sakte hain: railway, police, SSC, bank, teacher, 10th pass, 12th pass ya graduate.";
+        }
+
+        return semanticSafeFallback(query);
     }
 
     static _finalProcess(content, confidence, meta = {}) {
