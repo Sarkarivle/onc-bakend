@@ -110,44 +110,46 @@ class LLMProvider {
                 prompt: prompt,
                 stream: false,
                 options: {
-                    temperature: 0.0, // Force most likely tokens
-                    stop: ["\n", "}", "###"]
+                    temperature: 0.0,
+                    stop: ["\n", "###"]
                 }
             }, { timeout: options.timeout || 30000 });
 
-            let raw = response.data.response;
+            let raw = response.data.response.trim();
 
-            // If we are doing completion-style (refinedQuery: "), we need to rebuild the JSON
-            const completionMatch = prompt.match(/Output JSON: \{ "([^"]+)": "/);
-            if (completionMatch) {
-                const key = completionMatch[1];
-                if (!raw.trim().startsWith('{')) {
-                    raw = `{ "${key}": "${raw.trim()}`;
-                }
-                if (!raw.endsWith('"}')) raw += '"}';
-                if (!raw.endsWith('}')) raw += '}';
+            // 1. If it's already a JSON-like string, try to parse it
+            if (raw.startsWith('{')) {
+                try { return JSON.parse(raw); } catch (e) {}
             }
 
-            // Aggressive JSON Extraction
-            const startIdx = raw.indexOf('{');
-            const endIdx = raw.lastIndexOf('}');
+            // 2. RESILIENT EXTRACTION: Look for keywords in the model's "yapping"
+            const intents = ["GREETING", "JOB_SEARCH", "FIELD_CHECK", "CAREER_ADVICE", "PROFILE_INQUIRY", "DISCOVERY"];
+            const modes = ["JOB_SEARCH", "JOB_DETAILS", "CAREER_GUIDANCE", "GENERAL_HELP", "PROFILE_CHECK"];
+            const behaviors = ["RESPOND", "CLARIFY", "GREET"];
 
-            if (startIdx !== -1 && endIdx !== -1) {
-                let cleaned = raw.substring(startIdx, endIdx + 1)
-                    .replace(/\\n/g, ' ')
-                    .replace(/\n/g, ' ')
-                    .replace(/,\s*([}\]])/g, '$1');
-
-                try {
-                    return JSON.parse(cleaned);
-                } catch (pErr) {
-                    // Final attempt: manual fix for common trailing issues
-                    if (!cleaned.endsWith('"}')) cleaned = cleaned.replace(/"?\s*$/, '"}');
-                    try { return JSON.parse(cleaned); } catch (e) {}
-                }
+            // Check if this was an Intent Detection task
+            if (prompt.includes('primaryIntent')) {
+                const foundIntent = intents.find(i => raw.toUpperCase().includes(i));
+                return { primaryIntent: foundIntent || "GENERAL_QUERY", tone: "POLITE" };
             }
 
-            return { refinedQuery: raw.trim() }; // Fallback for refiner
+            // Check if this was a Planner task
+            if (prompt.includes('Plan for job assistant')) {
+                const foundMode = modes.find(m => raw.toUpperCase().includes(m));
+                const foundBehavior = behaviors.find(b => raw.toUpperCase().includes(b));
+                return {
+                    mode: foundMode || "GENERAL_HELP",
+                    behavior: foundBehavior || "RESPOND",
+                    tools: ["DATABASE"]
+                };
+            }
+
+            // Default for Refiner: Clean it from conversational fillers
+            let cleaned = raw.replace(/^["']|["']$/g, '')
+                             .replace(/^(User|Assistant|Refined Query|Instruction): /i, '');
+
+            return { refinedQuery: cleaned || prompt.match(/"([^"]+)"/)?.[1] || "naukri" };
+
         } catch (error) {
             console.error("❌ Runpod Generate Error:", error.message);
             return null;
