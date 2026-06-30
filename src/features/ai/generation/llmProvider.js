@@ -107,23 +107,17 @@ class LLMProvider {
 
             const response = await axios.post(targetUrl, {
                 model: constants.AI_MODEL_NAME,
-                prompt: `### Instruction:
-You are an expert system that output ONLY valid JSON.
-Task: ${prompt}
-
-### Response:
-{`,
+                prompt: prompt,
                 stream: false,
                 options: {
                     temperature: options.temperature || 0.1,
                     top_p: 0.9,
-                    stop: ["###", "Instruction:", "Response:"]
+                    stop: ["###", "User:", "Assistant:"]
                 }
             }, { timeout: options.timeout || 30000 });
 
-            let raw = response.data.response;
-            // Since we pre-filled '{' in the prompt to force JSON, we add it back to the result
-            if (raw && !raw.trim().startsWith('{')) raw = '{' + raw;
+            const raw = response.data.response;
+            // console.log(`[LLM_RAW] ${raw}`); // For local debugging if possible
 
             // Aggressive JSON Extraction
             const startIdx = raw.indexOf('{');
