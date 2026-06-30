@@ -17,7 +17,8 @@ const INTENT_EXAMPLES = {
         "mere qualification pe kya milega", "form aaya hai kya", "vacancy open hai kya", "koi kaam dila do",
         "sarkari form batao", "open post batao", "mere liye opening hai kya", "naukri chahiye",
         "job option dikhao", "latest form batao", "kaha apply kar sakta hu", "bharti nikli hai kya",
-        "kaam ka option", "sarkari rojgar", "apply karne wali vacancy", "data me jobs dikhao"
+        "kaam ka option", "sarkari rojgar", "apply karne wali vacancy", "data me jobs dikhao",
+        "behan ko sarkari naukri", "bhai ke liye job", "job milegi ya nahi"
     ],
     MORE_RESULTS: [
         "aur hai kya", "1 hi hai kya", "sirf itna hi", "next", "aur batao", "dusra option", "more jobs",
