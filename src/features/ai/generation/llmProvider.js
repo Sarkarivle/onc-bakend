@@ -59,6 +59,47 @@ class LLMProvider {
     }
 
     /**
+     * PERSONALITY ENGINE: Lora_v1 (Streaming Chat)
+     */
+    static async chatStream(messages, onChunk) {
+        try {
+            const baseUrl = await this.getBaseUrl();
+            const response = await axios.post(`${baseUrl}/api/chat`, {
+                model: constants.AI_PERSONALITY_MODEL,
+                messages: messages,
+                stream: true,
+                options: { temperature: 0.7 }
+            }, {
+                timeout: 30000,
+                responseType: 'stream'
+            });
+
+            return new Promise((resolve, reject) => {
+                response.data.on('data', chunk => {
+                    const payload = chunk.toString();
+                    const lines = payload.split('\n');
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const json = JSON.parse(line);
+                            if (json.message && json.message.content) {
+                                onChunk(json.message.content);
+                            }
+                            if (json.done) resolve();
+                        } catch (e) {
+                            // Partial JSON, wait for more data
+                        }
+                    }
+                });
+                response.data.on('error', err => reject(err));
+            });
+        } catch (error) {
+            console.error("❌ Personality Engine Stream Error:", error.message);
+            throw error;
+        }
+    }
+
+    /**
      * REASONING ENGINE: DeepSeek-R1 (Thinking)
      */
     static async generateReasoning(prompt) {

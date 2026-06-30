@@ -77,6 +77,51 @@ class AIOrchestrator {
         }
     }
 
+    static async processRequestStream(input, onChunk) {
+        const userMessage = normalizeRequest(input);
+        const { userName, sessionId = `session_${Date.now()}` } = input;
+
+        try {
+            const [state, profile] = await Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)]);
+
+            // 1. LOGIC PHASE
+            const resolvedIntent = await IntentEngine.classify(userMessage, state, profile);
+            const plan = await AgenticPlanner.generatePlan(userMessage, resolvedIntent, { topic: state.topic });
+
+            // 2. RETRIEVAL PHASE
+            let knowledge = "";
+            if (plan.needsDatabase) {
+                const dbResult = await RetrievalEngine.searchJobs(resolvedIntent.refinedQuery || userMessage, profile, plan);
+                knowledge = dbResult?.jobs || "";
+            }
+
+            // 3. REASONING PHASE
+            let reasoning = "";
+            if (plan.mode === 'CAREER_GUIDANCE') {
+                reasoning = await LLMProvider.generateReasoning(`Analyze career path for: ${userMessage}. Knowledge: ${knowledge}`);
+            }
+
+            // 4. PERSONALITY PHASE (Streaming)
+            let fullContent = "";
+            await LLMProvider.chatStream([
+                { role: 'system', content: `You are Jobo AI. Personality: Desi & Friendly. Context: ${knowledge} ${reasoning}` },
+                { role: 'user', content: userMessage }
+            ], (chunk) => {
+                fullContent += chunk;
+                onChunk(chunk);
+            });
+
+            // Persist after stream complete
+            const formatted = EliteFormatter.format(fullContent);
+            const suggestions = SuggestionEngine.generate(plan, { jobs: knowledge });
+            await this._persist(userName, sessionId, userMessage, formatted, suggestions);
+
+        } catch (error) {
+            console.error("❌ Streaming Pipeline Error:", error);
+            onChunk("Bhai, server thoda slow hai. Ek baar check karo net ya thodi der me try karo.");
+        }
+    }
+
     static async _persist(userName, sessionId, query, response, suggestions) {
         await Chat.create({ userName, sessionId, role: 'user', content: query });
         await Chat.create({ userName, sessionId, role: 'assistant', content: response, suggestions });
