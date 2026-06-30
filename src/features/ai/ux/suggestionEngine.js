@@ -13,6 +13,7 @@ class SuggestionEngine {
         const intent = plan.intent || plan.mode || "";
         const topic = context?.state?.topic || context?.topic || "";
         const hasJobs = context?.jobs && context.jobs.length > 0;
+        const suggestions = [];
 
         if (hasJobs || topic !== "GENERAL") {
             if (intent === 'GOVT_JOB' || intent === 'JOB_QUERY') {

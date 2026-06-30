@@ -21,17 +21,7 @@ class AgenticPlanner {
         const prompt = buildPrompt(refinedQuery, resolvedIntent, context);
         const plan = await LLMProvider.generate(prompt);
 
-        if (!plan) return {
-            tools: ["DATABASE"],
-            mode: "JOB_SEARCH",
-            priorityModules: ["CORE", "GOVT_JOB"],
-            behavior: "RESPOND",
-            // If the neural planner is unavailable, keep the old safe behavior:
-            // job searches should still hit the database instead of skipping retrieval.
-            needsDatabase: true,
-            needsWebSearch: false,
-            needsProfile: false
-        };
+        if (!plan) return this._fallbackPlan(resolvedIntent);
 
         return {
             ...plan,
@@ -65,6 +55,46 @@ class AgenticPlanner {
         }`;
 
         return await LLMProvider.generate(prompt);
+    }
+
+    static _fallbackPlan(resolvedIntent = {}) {
+        const intent = resolvedIntent.primaryIntent || 'GENERAL_QUERY';
+
+        // Planner timeouts should not turn normal chat into job search. Only
+        // factual job-like intents should touch retrieval in the fallback path.
+        if (['JOB_QUERY', 'FIELD_DETAILS', 'RESULT_ADMIT_CARD', 'APPLICATION_HELP'].includes(intent)) {
+            return {
+                tools: ["DATABASE"],
+                mode: intent === 'JOB_QUERY' ? "JOB_SEARCH" : "JOB_DETAILS",
+                priorityModules: ["CORE", "GOVT_JOB"],
+                behavior: "RESPOND",
+                needsDatabase: true,
+                needsWebSearch: false,
+                needsProfile: false
+            };
+        }
+
+        if (intent === 'CAREER_GUIDANCE') {
+            return {
+                tools: [],
+                mode: "CAREER_GUIDANCE",
+                priorityModules: ["CORE", "PERSONALITY", "CAREER"],
+                behavior: "RESPOND",
+                needsDatabase: false,
+                needsWebSearch: false,
+                needsProfile: true
+            };
+        }
+
+        return {
+            tools: [],
+            mode: "GENERAL_HELP",
+            priorityModules: ["CORE", "PERSONALITY"],
+            behavior: "RESPOND",
+            needsDatabase: false,
+            needsWebSearch: false,
+            needsProfile: false
+        };
     }
 }
 
