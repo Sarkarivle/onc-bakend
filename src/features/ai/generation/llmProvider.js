@@ -110,21 +110,28 @@ class LLMProvider {
                 prompt: prompt,
                 stream: false,
                 options: {
-                    temperature: options.temperature || 0.1,
-                    top_p: 0.9,
-                    stop: ["###", "User:", "Assistant:"]
+                    temperature: 0.0, // Force most likely tokens
+                    stop: ["\n", "}", "###"]
                 }
             }, { timeout: options.timeout || 30000 });
 
-            const raw = response.data.response;
-            // console.log(`[LLM_RAW] ${raw}`); // For local debugging if possible
+            let raw = response.data.response;
+
+            // If we are doing completion-style (refinedQuery: "), we need to rebuild the JSON
+            if (prompt.includes('Output JSON: { "')) {
+                // Find the first key we were expecting
+                const key = prompt.split('"').slice(-2, -1)[0];
+                raw = `{ "${key}": "${raw}`;
+                if (!raw.endsWith('"}')) raw += '"}';
+                if (!raw.endsWith('}')) raw += '}';
+            }
 
             // Aggressive JSON Extraction
             const startIdx = raw.indexOf('{');
             const endIdx = raw.lastIndexOf('}');
 
             if (startIdx !== -1 && endIdx !== -1) {
-                const cleaned = raw.substring(startIdx, endIdx + 1)
+                let cleaned = raw.substring(startIdx, endIdx + 1)
                     .replace(/\\n/g, ' ')
                     .replace(/\n/g, ' ')
                     .replace(/,\s*([}\]])/g, '$1');
@@ -132,12 +139,13 @@ class LLMProvider {
                 try {
                     return JSON.parse(cleaned);
                 } catch (pErr) {
-                    const aggressive = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
-                    try { return JSON.parse(aggressive); } catch (e) { }
+                    // Final attempt: manual fix for common trailing issues
+                    if (!cleaned.endsWith('"}')) cleaned = cleaned.replace(/"?\s*$/, '"}');
+                    try { return JSON.parse(cleaned); } catch (e) {}
                 }
             }
 
-            return raw.trim();
+            return { refinedQuery: raw.trim() }; // Fallback for refiner
         } catch (error) {
             console.error("❌ Runpod Generate Error:", error.message);
             return null;

@@ -1,12 +1,6 @@
 /**
- * Prompt for NeuralRefiner Task (JSON Mode)
+ * Minimalist Prompt for NeuralRefiner
  */
-module.exports = (query, context) => `### Instruction:
-Fix typos and clarify the following user query for a job assistant.
-If it is a greeting like "hi", keep it as is.
-Return ONLY a JSON object with the key "refinedQuery".
-
-User Query: "${query}"
-
-### Response:
-{`;
+module.exports = (query, context) => `Task: Fix typos and clarify for a job assistant.
+Input: "${query}"
+Output JSON: { "refinedQuery": "`;
