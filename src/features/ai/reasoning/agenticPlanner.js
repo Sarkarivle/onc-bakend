@@ -17,6 +17,8 @@ class AgenticPlanner {
             needsWebSearch: plan.tools?.includes('WEB_SEARCH'),
             needsProfile: plan.tools?.includes('USER_PROFILE')
         };
+    }
+
     /**
      * Decisions on what to do if the first search fails.
      */

@@ -2,9 +2,7 @@
  * NeuralValidator Module (Phase 5 Evolution)
  * Responsibility: LLM-driven critique of draft responses to prevent hallucinations.
  */
-const axios = require('axios');
-const Settings = require('../../../settings/settingsModel');
-const constants = require('../../../../config/constants');
+const LLMProvider = require('../generation/llmProvider');
 const buildPrompt = require('./prompts/neuralValidator');
 
 class NeuralValidator {
@@ -13,24 +11,14 @@ class NeuralValidator {
      */
     static async validate(query, draft, context = {}) {
         try {
-            const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-            let baseUrl = runpodSetting?.value || constants.DEFAULT_RUNPOD_URL;
-            baseUrl = baseUrl.replace(/\/api\/chat\/?$/, '').replace(/\/$/, '');
-            const url = `${baseUrl}/api/generate`;
-
             const prompt = buildPrompt(query, draft, context);
+            const result = await LLMProvider.generate(prompt, { timeout: 8000 });
 
-            const aiRes = await axios.post(url, {
-                model: constants.AI_MODEL_NAME,
-                prompt: `System: Quality Auditor. Return ONLY JSON.\n\nUser: ${prompt}`,
-                stream: false,
-                options: { temperature: 0.1 }
-            }, { timeout: 5000 });
+            if (!result || typeof result !== 'object') {
+                return { passed: true, score: 100, issues: [] };
+            }
 
-            const rawOutput = aiRes.data.response;
-            const cleaned = rawOutput.substring(rawOutput.indexOf('{'), rawOutput.lastIndexOf('}') + 1);
-            return JSON.parse(cleaned);
-
+            return result;
         } catch (err) {
             console.error('❌ Neural Validator Error:', err.message);
             // Robust Fallback: Pass but log error
