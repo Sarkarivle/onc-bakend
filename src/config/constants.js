@@ -3,7 +3,7 @@ module.exports = {
     // 1. LOGIC ENGINE (JSON & Classification Expert)
     AI_LOGIC_MODEL: "qwen3:8b",
     // 2. PERSONALITY ENGINE (Your Trained Model)
-    AI_PERSONALITY_MODEL: "Lora_v1:latest",
+    AI_PERSONALITY_MODEL: "llama3.1:8b",
     // 3. REASONING ENGINE (Complex Career Guidance)
     AI_REASONING_MODEL: "deepseek-r1:8b",
     // 4. VERIFICATION ENGINE (Fact & Accuracy Checker)
