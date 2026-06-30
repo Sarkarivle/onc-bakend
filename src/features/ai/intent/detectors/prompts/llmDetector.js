@@ -16,6 +16,7 @@ Strict Logic:
 - "kaise ho jobo bhai" is ALWAYS GREETING.
 - "main kitne saal ka hu" is ALWAYS PROFILE_INQUIRY.
 - "fees" is ALWAYS FIELD_CHECK.
+- If the query is a QUESTION (ends in ? or asks "kya hai", "kitna hai"), TONE must be "CURIOUS".
 
 Return ONLY JSON:
 {
