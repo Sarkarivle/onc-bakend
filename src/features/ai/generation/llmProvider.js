@@ -121,7 +121,11 @@ class LLMProvider {
             }, { timeout: options.timeout || 30000 });
 
             let raw = response.data.response.trim();
-            console.log(`[LLM_RAW_LOGIC] 🛰️ Response: ${raw.substring(0, 50)}...`);
+            console.log(`[LLM_RAW_LOGIC] 🛰️ Response: ${raw.substring(0, 100)}...`);
+
+            // Clean escaped underscores and other common Mistral quirks
+            raw = raw.replace(/\\_/g, '_');
+
             if (!raw.startsWith('{')) raw = '{' + raw;
 
             // Aggressive JSON Extraction

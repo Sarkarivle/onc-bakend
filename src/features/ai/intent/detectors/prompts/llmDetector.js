@@ -13,14 +13,15 @@ Categories:
 - DISCOVERY: "top jobs", "trending".
 
 Instructions:
+- Choose EXACTLY ONE category. Do not return multiple categories separated by slashes.
 - "kaise ho" is GREETING.
 - "naukri" is JOB_SEARCH (but ambiguous).
 - "main kitne saal ka hu" is PROFILE_INQUIRY.
 
-Return ONLY JSON:
+Return ONLY JSON (No backslashes before underscores):
 {
   "primaryIntent": "CATEGORY",
   "reasoning": "why",
-  "tone": "CURIOUS/POLITE"
+  "tone": "CURIOUS"
 }
 `;

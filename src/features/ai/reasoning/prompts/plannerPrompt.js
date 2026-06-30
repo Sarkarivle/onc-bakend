@@ -11,11 +11,11 @@ Rules:
 2. If Intent is PROFILE_INQUIRY: mode MUST be "PROFILE_CHECK", behavior "RESPOND", tool "USER_PROFILE".
 3. If Intent is GREETING: mode MUST be "GENERAL_HELP", behavior "GREET", no tools.
 
-Return ONLY JSON:
+Return ONLY JSON (Choose exactly one mode, no backslashes):
 {
   "thought": "brief",
-  "mode": "JOB_SEARCH/JOB_DETAILS/PROFILE_CHECK/GENERAL_HELP",
-  "behavior": "RESPOND/CLARIFY/GREET",
-  "tools": ["DATABASE", "USER_PROFILE"]
+  "mode": "JOB_SEARCH",
+  "behavior": "RESPOND",
+  "tools": ["DATABASE"]
 }
 `;
