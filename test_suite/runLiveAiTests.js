@@ -33,8 +33,8 @@ async function getLiveAiResponse(userMessage, history = []) {
             history: history || [],
             sessionId: `live-test-${Date.now()}`,
             context: {}, // Add context if needed in future
-            // Mock user profile for consistency
-            userProfile: {
+            // Mock user for consistency
+            user: {
                 userName: "LiveTester",
                 userLocation: "Bareilly",
                 userQualification: "Graduate"
