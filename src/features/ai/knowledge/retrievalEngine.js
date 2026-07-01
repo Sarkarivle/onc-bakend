@@ -76,30 +76,38 @@ Output JSON: { "semanticQuery": "sentence with synonyms", "keywords": ["word1", 
      * Step 2A: Vector Search (Semantic)
      */
     static async _vectorSearch(query, profile) {
-        const queryVector = await VectorService.generate(query);
-        if (!queryVector) return [];
+        try {
+            const queryVector = await VectorService.generate(query);
+            if (!queryVector) return [];
 
-        const pipeline = [
-            {
-                $vectorSearch: {
-                    index: "vector_index",
-                    path: "searchVector",
-                    queryVector: queryVector,
-                    numCandidates: 100,
-                    limit: 20
-                }
-            },
-            { $match: { isActive: true } }
-        ];
+            const pipeline = [
+                {
+                    $vectorSearch: {
+                        index: "vector_index",
+                        path: "searchVector",
+                        queryVector: queryVector,
+                        numCandidates: 100,
+                        limit: 20
+                    }
+                },
+                { $match: { isActive: true } }
+            ];
 
-        // Metadata Filter: Qualification matching at DB level
-        if (profile.qualification) {
-            pipeline.push({
-                $match: { "eligibility.education": { $regex: profile.qualification, $options: 'i' } }
-            });
+            // Metadata Filter: Qualification matching at DB level
+            if (profile.qualification) {
+                pipeline.push({
+                    $match: { "eligibility.education": { $regex: profile.qualification, $options: 'i' } }
+                });
+            }
+
+            return await Job.aggregate(pipeline);
+        } catch (error) {
+            if (error.message.includes('$vectorSearch') || error.message.includes('Atlas')) {
+                console.warn("⚠️ Vector Search failed (Non-Atlas or Index missing). Using Keyword fallback.");
+                return []; // Let keyword search handle it
+            }
+            throw error;
         }
-
-        return await Job.aggregate(pipeline);
     }
 
     /**

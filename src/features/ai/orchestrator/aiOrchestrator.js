@@ -86,7 +86,6 @@ class AIOrchestrator {
             await this._persist(userName, sessionId, userMessage, formatted, suggestions);
 
             BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: formatted, plan, execResult, suggestions });
-            Telemetry.endTrace(traceId);
 
             return { ...shapeResponse(formatted, { suggestions }), requestId: traceId };
 
@@ -198,7 +197,6 @@ class AIOrchestrator {
 
             await this._persist(userName, sessionId, userMessage, finalContent, suggestions);
             BackgroundServices.runAll({ traceId, userName, userMessage, finalContent, plan, execResult, suggestions });
-            Telemetry.endTrace(traceId);
 
         } catch (error) {
             console.error("❌ Stream Pipeline Error:", error);

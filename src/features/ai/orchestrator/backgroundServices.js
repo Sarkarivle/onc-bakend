@@ -15,21 +15,23 @@ class BackgroundServices {
     static async runAll(data) {
         const { traceId, userName, userMessage, finalContent, plan, execResult, suggestions } = data;
 
+        // Finalize trace and get the full report before cleanup
+        const traceReport = Telemetry.endTrace(traceId);
+
         // 1. MEMORY INTELLIGENCE ENGINE
-        // Extracts facts -> Embeddings -> Stores in Vector DB
         this.runMemoryEngine(userName, userMessage, finalContent).catch(e =>
             console.error("❌ Background Memory Error:", e.message)
         );
 
         // 2. OBSERVABILITY ENGINE
         // Aggregates Logs, Metrics, and Analytics
-        this.runObservabilityEngine(traceId, plan, execResult).catch(e =>
+        this.runObservabilityEngine(traceReport, plan, execResult).catch(e =>
             console.error("❌ Background Observability Error:", e.message)
         );
 
         // 3. LEARNING ENGINE
         // Analyzes failures, planner accuracy, and feedback
-        this.runLearningEngine(traceId, userMessage, finalContent, plan).catch(e =>
+        this.runLearningEngine(traceReport, userMessage, finalContent, plan).catch(e =>
             console.error("❌ Background Learning Error:", e.message)
         );
     }
@@ -40,17 +42,17 @@ class BackgroundServices {
         await MemoryEngine.extractFacts(userName || "User", query, response);
     }
 
-    static async runObservabilityEngine(traceId, plan, execResult) {
-        // Collect metrics from telemetry and finalize report
-        const report = Telemetry.endTrace(traceId);
+    static async runObservabilityEngine(traceReport, plan, execResult) {
+        if (!traceReport) return;
         // Here we could pipe report to an analytics DB or Grafana
-        // console.log(`[OBSERVABILITY] Trace ${traceId} Finalized.`);
+        // console.log(`[OBSERVABILITY] Trace ${traceReport.traceId} Finalized.`);
     }
 
-    static async runLearningEngine(traceId, query, response, plan) {
+    static async runLearningEngine(traceReport, query, response, plan) {
+        if (!traceReport) return;
         // failure detection & planner analytics
         await LearningEngine.processTrace({
-            traceId,
+            ...traceReport,
             query,
             response,
             intent: plan.intent,

@@ -41,11 +41,11 @@ class LearningEngine {
                 rootCause: analysis.rootCause,
                 recommendation: analysis.recommendation,
                 metrics: {
-                    latency: trace.totalDuration,
-                    tokens: trace.metrics.totalTokens,
-                    retries: trace.metrics.retries
+                    latency: trace.totalDuration || 0,
+                    tokens: trace.metrics?.totalTokens || 0,
+                    retries: trace.metrics?.retries || 0
                 },
-                intent: this._getStageMetadata(trace, 'UCC_PLANNING', 'intent'),
+                intent: this._getStageMetadata(trace, 'UCC_PLANNING', 'intent') || trace.intent,
                 plannerPlan: this._getStageMetadata(trace, 'UCC_PLANNING', 'plan')
             });
 
@@ -67,6 +67,8 @@ class LearningEngine {
         let failureCategory = 'NONE';
         let rootCause = '';
         let recommendation = '';
+
+        if (!trace.stages) return { score, failureCategory, rootCause, recommendation };
 
         const ucc = trace.stages.find(s => s.module === 'UCC_PLANNING');
         const outputVal = trace.stages.find(s => s.module === 'OUTPUT_VALIDATION');
@@ -109,6 +111,7 @@ class LearningEngine {
     }
 
     static _getStageMetadata(trace, moduleName, key) {
+        if (!trace || !trace.stages) return null;
         const stage = trace.stages.find(s => s.module === moduleName);
         return stage?.metadata ? stage.metadata[key] : null;
     }

@@ -39,6 +39,16 @@ class MemoryEngine {
             })).sort((a, b) => b.score - a.score);
 
         } catch (error) {
+            if (error.message.includes('$vectorSearch') || error.message.includes('Atlas')) {
+                // Fallback to simple query if vector search is not available
+                const simpleMemories = await Fact.find({ userId, isDeleted: false }).limit(limit).lean();
+                return simpleMemories.map(m => ({
+                    id: m._id,
+                    fact: m.fact,
+                    category: m.category,
+                    score: this._calculateScore(m)
+                }));
+            }
             console.error("❌ Memory Search Error:", error.message);
             return [];
         }
