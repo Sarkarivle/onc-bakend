@@ -74,6 +74,55 @@ class LLMProvider {
         }
     }
 
+    static async chatStream(messages, onChunk) {
+        try {
+            const baseUrl = await this.getBaseUrl();
+            const response = await axios.post(`${baseUrl}/api/chat`, {
+                model: constants.AI_PERSONALITY_MODEL,
+                messages: messages,
+                stream: true,
+                options: { temperature: 0.7 }
+            }, { responseType: 'stream', timeout: 60000 });
+
+            return new Promise((resolve, reject) => {
+                let buffer = '';
+                response.data.on('data', chunk => {
+                    buffer += chunk.toString();
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep partial line in buffer
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const json = JSON.parse(line);
+                            if (json.message && json.message.content) {
+                                onChunk(json.message.content);
+                            } else if (json.response) {
+                                onChunk(json.response);
+                            }
+                            if (json.done) resolve();
+                        } catch (e) {
+                            // JSON might be split across chunks
+                        }
+                    }
+                });
+                response.data.on('error', reject);
+                response.data.on('end', () => {
+                    if (buffer.trim()) {
+                        try {
+                            const json = JSON.parse(buffer);
+                            if (json.message && json.message.content) onChunk(json.message.content);
+                        } catch (e) {}
+                    }
+                    resolve();
+                });
+            });
+        } catch (error) {
+            console.error("❌ LLM Stream Error:", error.message);
+            throw error;
+        }
+    }
+
     static async verifyResponse(query, answer, knowledge) {
         const prompt = `Fact-Check Task:\nQuery: ${query}\nFact: ${knowledge}\nAI: ${answer}\nReturn JSON: {"isValid":bool, "reason":"why", "correctedAnswer":"..."}`;
         return await this.generateLogic(prompt);

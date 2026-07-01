@@ -200,7 +200,7 @@ class AIOrchestrator {
             }
 
             if (onStatus) onStatus('LLM_THINKING', 'Jawab soch raha hoon...');
-            const priorityModules = [resolvedIntent.primaryIntent, plan.mode].filter(Boolean);
+            const priorityModules = [resolvedIntent.normalizedIntent || resolvedIntent.intent, plan.mode].filter(Boolean);
             const systemPrompt = await PromptComposer.build(
                 priorityModules,
                 { name: userName, ...profile, state },
