@@ -67,50 +67,36 @@ class IntentEngine {
         const sub = String(analysis.subIntent || '').toUpperCase();
         const lowQuery = query.toLowerCase();
 
-        // Level 1: Strict Domain Steering (Prevents Overfitting)
+        // Tier 1: High-Confidence Specialization (MOTIVATION, SKILLS, etc.)
+        if (['MOTIVATION', 'SKILLS', 'RESUME', 'INTERVIEW', 'SCHOLARSHIP'].includes(primary)) return primary;
+        if (['MOTIVATION', 'SKILLS', 'RESUME', 'INTERVIEW', 'SCHOLARSHIP'].includes(sub)) return sub;
+
+        // Tier 2: Domain-Led Guardrails
         if (domain === 'PERSONAL') {
-            if (lowQuery.includes('naam') || lowQuery.includes('qualification') || lowQuery.includes('profile') || lowQuery.includes('update')) {
-                return 'PROFILE_INQUIRY';
-            }
+            if (lowQuery.includes('naam') || lowQuery.includes('detail') || lowQuery.includes('profile')) return 'PROFILE_INQUIRY';
         }
         if (domain === 'RAPPORT') {
-            if (lowQuery.includes('kaun') || lowQuery.includes('who') || lowQuery.includes('founder') || lowQuery.includes('identity')) {
-                return 'IDENTITY';
-            }
+            if (lowQuery.includes('kaun') || lowQuery.includes('founder') || lowQuery.includes('jobo')) return 'IDENTITY';
             return 'GREETING';
         }
 
-        // Level 2: High-Confidence Vector Match (Failsafe for short queries)
-        // If vector matches and LLM is unsure or general, trust Vector
-        if (vectorIntent && (analysis.confidence < 0.85 || primary === 'GENERAL_QUERY')) {
+        // Tier 3: Motive Mapping (Gemini Strategy)
+        if (primary === 'TRANSACTIONAL') return 'JOB_SEARCH';
+        if (primary === 'FACTUAL') return 'FIELD_DETAILS';
+        if (primary === 'ADMINISTRATIVE') return 'RESULT_ADMIT_CARD';
+        if (primary === 'DISCOVERY') return 'DISCOVERY';
+        if (primary === 'GUIDANCE') return 'CAREER_GUIDANCE';
+
+        // Tier 4: Mathematical Vector Tie-breaker (If LLM is unsure)
+        if (vectorIntent && (analysis.confidence < 0.8 || primary === 'CATEGORY')) {
             return vectorIntent;
         }
 
-        // Level 3: Semantic Bhaav Mapping (Gemini Mapping)
-        const mapping = {
-            'TRANSACTIONAL': 'JOB_SEARCH',
-            'FACTUAL': 'FIELD_DETAILS',
-            'GUIDANCE': 'CAREER_GUIDANCE',
-            'ADMINISTRATIVE': 'RESULT_ADMIT_CARD',
-            'PERSISTENCE': 'PROFILE_INQUIRY',
-            'DISCOVERY': 'DISCOVERY',
-            'RAPPORT': 'GREETING'
-        };
+        // Tier 5: Direct Keyword Failsafes (Anti-Regression)
+        if (lowQuery.includes('result') || lowQuery.includes('score card')) return 'RESULT_ADMIT_CARD';
+        if (lowQuery.includes('fees') || lowQuery.includes('salary') || lowQuery.includes('date')) return 'FIELD_DETAILS';
 
-        let resolved = mapping[primary] || primary;
-
-        // Level 4: Specific Sub-Intent Overrides (Fine-tuning)
-        if (resolved === 'CAREER_GUIDANCE') {
-            if (['RESUME', 'INTERVIEW', 'SCHOLARSHIP', 'SKILLS', 'COLLEGE'].includes(sub)) return sub;
-            if (lowQuery.includes('resume') || lowQuery.includes('cv')) return 'RESUME';
-            if (lowQuery.includes('scholarship')) return 'SCHOLARSHIP';
-        }
-
-        // Fix for 'Result' and 'Fees' specific edge cases
-        if (lowQuery.includes('result') || lowQuery.includes('admit card') || lowQuery.includes('score card')) return 'RESULT_ADMIT_CARD';
-        if (lowQuery.includes('fees') || lowQuery.includes('salary') || lowQuery.includes('age limit')) return 'FIELD_DETAILS';
-
-        return resolved || 'GENERAL_QUERY';
+        return primary || 'GENERAL_QUERY';
     }
 
     static _getBestSemanticMatch(queryVec) {
