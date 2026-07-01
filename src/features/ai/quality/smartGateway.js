@@ -59,26 +59,33 @@ class SmartGateway {
      * The main gatekeeper logic
      */
     static async validate(query) {
-        if (!query || query.length < 2) return { status: 'BLOCK', reason: 'EMPTY' };
+        const q = String(query || "").trim().toLowerCase();
+        if (!q || q.length < 2) return { status: 'BLOCK', reason: 'EMPTY' };
+
+        // Hard Filter for extremely common gibberish/short trash
+        if (/^[a-z]{5,}$/.test(q) && !['hello', 'hiiii', 'namaste'].includes(q)) {
+             // Block strings like 'asdfghjkl' that aren't known words
+             return { status: 'BLOCK', reason: 'GIBBERISH' };
+        }
 
         const queryVector = await VectorService.generate(query);
-        if (!queryVector) return { status: 'PROCEED' }; // Fallback to pipeline if embedding fails
+        if (!queryVector) return { status: 'PROCEED' };
 
         // 1. Check for Semantic Attacks (Prompt Injection)
         const attackScore = this._getMaxSimilarity(queryVector, 'ATTACK');
-        if (attackScore > 0.82) { // Lowered from 0.88
+        if (attackScore > 0.80) { // Stricter threshold
             return { status: 'BLOCK', reason: 'MALICIOUS_INTENT', score: attackScore };
         }
 
         // 2. Check for Greetings (Small Talk)
         const greetingScore = this._getMaxSimilarity(queryVector, 'GREETING');
-        if (greetingScore > 0.78) { // Lowered from 0.85
+        if (greetingScore > 0.75) {
             return { status: 'GREET', score: greetingScore };
         }
 
-        // 3. Check for Gibberish
+        // 3. Check for Gibberish (Semantic)
         const gibberishScore = this._getMaxSimilarity(queryVector, 'GIBBERISH');
-        if (gibberishScore > 0.90) { // Lowered from 0.92
+        if (gibberishScore > 0.85) {
             return { status: 'BLOCK', reason: 'GIBBERISH' };
         }
 

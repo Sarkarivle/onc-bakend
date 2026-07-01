@@ -5,17 +5,27 @@
  */
 class VectorService {
     static extractor = null;
+    static initializing = null;
 
     /**
      * Loads the model into local server memory.
      */
     static async init() {
-        if (!this.extractor) {
-            const { pipeline } = await import('@xenova/transformers');
-            console.log("⏳ Loading Local Search Model (all-MiniLM-L6-v2)...");
-            this.extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-            console.log("✅ Local Search Model Ready.");
-        }
+        if (this.extractor) return;
+        if (this.initializing) return this.initializing;
+
+        this.initializing = (async () => {
+            try {
+                const { pipeline } = await import('@xenova/transformers');
+                console.log("⏳ Loading Local Search Model (all-MiniLM-L6-v2)...");
+                this.extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+                console.log("✅ Local Search Model Ready.");
+            } finally {
+                this.initializing = null;
+            }
+        })();
+
+        return this.initializing;
     }
 
     /**
