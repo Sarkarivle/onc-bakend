@@ -1,19 +1,17 @@
 /**
- * IntentEngine Module (Phase 3: Clean-Slate Neural Intelligence)
- * Responsibility: Zero-logic routing. Trusting the Example-based Brain.
+ * IntentEngine Module (Phase 3: Deep Cognitive Bridge)
  */
 const NeuralRefiner = require('./normalizers/neuralRefiner');
 const LLMDetector = require('./detectors/llmDetector');
 
 class IntentEngine {
     static async classify(query, state = {}, profile = {}) {
-        // 1. NEURAL REFINEMENT: Fix typos and expand context
+        // 1. NEURAL REFINEMENT
         const refinedQuery = await NeuralRefiner.refine(query, {
-            topic: state.currentTopic || state.topic,
-            turnCount: state.turnCount
+            topic: state.currentTopic || state.topic
         });
 
-        // 2. NEURAL DETECTION: High-precision categorization
+        // 2. BRAIN ANALYSIS (Direct to LLM)
         const analysis = await LLMDetector.classify(refinedQuery, {
             topic: state.currentTopic || state.topic
         });
@@ -22,21 +20,18 @@ class IntentEngine {
             return { primaryIntent: 'GENERAL_QUERY', refinedQuery };
         }
 
-        // 3. CLEAN MAPPING: Ensure final intent is a valid system key
-        let finalIntent = String(analysis.primaryIntent).toUpperCase();
+        // 3. NORMALIZATION (Ensuring name consistency with test cases)
+        let intent = String(analysis.primaryIntent).toUpperCase();
 
-        // Final Safety Normalization (The only logic remaining)
-        if (finalIntent === 'SPECIALIZED_GUIDANCE') {
-            const sub = String(analysis.subIntent || '').toUpperCase();
-            if (['RESUME', 'INTERVIEW', 'SCHOLARSHIP', 'SKILLS'].includes(sub)) finalIntent = sub;
-            else finalIntent = 'CAREER_GUIDANCE';
-        }
+        // Anti-Regression: Support old 'FIELD_CHECK' and 'JOB_QUERY' names if LLM outputs them
+        if (intent === 'FIELD_CHECK') intent = 'FIELD_DETAILS';
+        if (intent === 'JOB_QUERY') intent = 'JOB_SEARCH';
 
         return {
             ...analysis,
             refinedQuery,
-            primaryIntent: finalIntent,
-            isFollowUp: analysis.discourse === 'FOLLOW_UP' || (state.topic && (refinedQuery.length < 10))
+            primaryIntent: intent,
+            isFollowUp: analysis.discourse === 'FOLLOW_UP' || (refinedQuery.length < 10 && state.topic)
         };
     }
 }

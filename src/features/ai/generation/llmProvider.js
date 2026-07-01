@@ -10,188 +10,62 @@ class LLMProvider {
     }
 
     /**
-     * LOGIC ENGINE: Generic JSON Expert
+     * UNBREAKABLE JSON ENGINE (Gemini Style)
      */
-    static async generateLogic(prompt, options = {}) {
+    static async generateLogic(prompt) {
         try {
             const baseUrl = await this.getBaseUrl();
             const response = await axios.post(`${baseUrl}/api/chat`, {
                 model: constants.AI_LOGIC_MODEL,
                 messages: [
-                    { role: 'system', content: 'You are a JSON expert. Output ONLY valid JSON. No markdown, no explanation.' },
+                    { role: 'system', content: 'You are a Strict Intent Classifier. Respond ONLY with valid JSON. NO markdown. NO explanation.' },
                     { role: 'user', content: prompt }
                 ],
-                stream: false,
                 options: { temperature: 0.1 }
-            }, { timeout: 30000 });
+            }, { timeout: 25000 });
 
             let raw = response.data.message.content.trim();
 
-            // Handle markdown code blocks if Llama includes them
-            if (raw.includes('```')) {
-                const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-                if (match) raw = match[1];
-            }
-
-            // Remove control characters that break JSON.parse
+            // Clean control characters and markdown blocks
             raw = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
 
-            try {
-                return JSON.parse(raw);
-            } catch (e) {
-                const match = raw.match(/\{[\s\S]*\}/);
-                return match ? JSON.parse(match[0]) : null;
+            if (!jsonMatch) {
+                console.error("❌ LLM failed to return JSON structure.");
+                return null;
             }
+
+            return JSON.parse(jsonMatch[0]);
         } catch (error) {
-            console.error("❌ Logic Engine Error:", error.message);
+            console.error("❌ LLM Logic Engine Error:", error.message);
             return null;
         }
     }
 
-    /**
-     * PERSONALITY ENGINE: Lora_v1 (Chat)
-     */
-    static async chat(messages, options = {}) {
+    static async chat(messages) {
         try {
             const baseUrl = await this.getBaseUrl();
             const response = await axios.post(`${baseUrl}/api/chat`, {
                 model: constants.AI_PERSONALITY_MODEL,
                 messages: messages,
-                stream: false,
                 options: { temperature: 0.7 }
             }, { timeout: 30000 });
-
-            return { content: response.data.message.content, provider: 'runpod-local' };
+            return { content: response.data.message.content };
         } catch (error) {
             console.error("❌ Personality Engine Error:", error.message);
             throw error;
         }
     }
 
-    /**
-     * PERSONALITY ENGINE: Lora_v1 (Streaming Chat)
-     */
-    static async chatStream(messages, onChunk) {
-        try {
-            const baseUrl = await this.getBaseUrl();
-            const response = await axios.post(`${baseUrl}/api/chat`, {
-                model: constants.AI_PERSONALITY_MODEL,
-                messages: messages,
-                stream: true,
-                options: { temperature: 0.7 }
-            }, {
-                timeout: 30000,
-                responseType: 'stream'
-            });
-
-            return new Promise((resolve, reject) => {
-                response.data.on('data', chunk => {
-                    const payload = chunk.toString();
-                    const lines = payload.split('\n');
-                    for (const line of lines) {
-                        if (!line.trim()) continue;
-                        try {
-                            const json = JSON.parse(line);
-                            if (json.message && json.message.content) {
-                                onChunk(json.message.content);
-                            }
-                            if (json.done) resolve();
-                        } catch (e) {
-                            // Partial JSON, wait for more data
-                        }
-                    }
-                });
-                response.data.on('error', err => reject(err));
-            });
-        } catch (error) {
-            console.error("❌ Personality Engine Stream Error:", error.message);
-            throw error;
-        }
+    static async verifyResponse(query, answer, knowledge) {
+        const prompt = `Match the AI Answer with Fact Data.\nQuery: ${query}\nFact: ${knowledge}\nAnswer: ${answer}\nReturn JSON: {"isValid":true/false, "correctedAnswer": "..."}`;
+        return await this.generateLogic(prompt);
     }
 
-    /**
-     * REASONING ENGINE: DeepSeek-R1 (Thinking)
-     */
-    static async generateReasoning(prompt) {
-        try {
-            const baseUrl = await this.getBaseUrl();
-            const response = await axios.post(`${baseUrl}/api/generate`, {
-                model: constants.AI_REASONING_MODEL,
-                prompt: prompt,
-                stream: false,
-                options: { temperature: 0.6 }
-            }, { timeout: 60000 });
-            return response.data.response;
-        } catch (error) {
-            console.error("❌ Reasoning Engine Error:", error.message);
-            return null;
-        }
-    }
-
-    /**
-     * VERIFICATION ENGINE: Llama 3.1 8B (Accuracy Checker)
-     */
-    static async verifyResponse(originalQuery, aiAnswer, knowledge) {
-        try {
-            const baseUrl = await this.getBaseUrl();
-            const prompt = `Task: Check if the AI Answer accurately reflects the data and answers the query correctly.
-User Query: "${originalQuery}"
-Fact Data: "${knowledge}"
-AI Answer: "${aiAnswer}"
-
-Return ONLY JSON:
-{ "isValid": true/false, "reason": "why", "correctedAnswer": "if invalid, provide fixed text" }`;
-
-            const response = await axios.post(`${baseUrl}/api/generate`, {
-                model: constants.AI_VERIFY_MODEL,
-                prompt: prompt,
-                stream: false,
-                options: { temperature: 0.1 }
-            }, { timeout: 30000 });
-
-            let raw = response.data.response.trim();
-            // Remove control characters
-            raw = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-
-            const match = raw.match(/\{[\s\S]*\}/);
-            return match ? JSON.parse(match[0]) : { isValid: true };
-        } catch (error) {
-            console.error("❌ Verification Engine Error:", error.message);
-            return { isValid: true };
-        }
-    }
-
-    /**
-     * Alias for generateLogic to support legacy/external calls
-     */
-    static async generate(prompt, options = {}) {
-        return this.generateLogic(prompt, options);
-    }
-
-    /**
-     * SECURITY GUARD: Llama-Guard 3 (Safety Filter)
-     */
-    static async guardResponse(userQuery, aiAnswer) {
-        try {
-            const baseUrl = await this.getBaseUrl();
-            const prompt = `[INST] Task: Check if the following conversation is safe.
-User: ${userQuery}
-Assistant: ${aiAnswer} [/INST]`;
-
-            const response = await axios.post(`${baseUrl}/api/generate`, {
-                model: constants.AI_GUARD_MODEL,
-                prompt: prompt,
-                stream: false,
-                options: { temperature: 0.1 }
-            }, { timeout: 30000 });
-
-            const result = response.data.response.trim().toLowerCase();
-            const isSafe = result.includes('safe') && !result.includes('unsafe');
-            return isSafe;
-        } catch (error) {
-            console.error("❌ Security Guard Error:", error.message);
-            return true;
-        }
+    static async guardResponse(query, answer) {
+        const prompt = `Check if safe: User: ${query}\nAI: ${answer}\nReturn "safe" or "unsafe"`;
+        const res = await this.generateLogic(prompt);
+        return res?.status !== 'unsafe';
     }
 }
 
