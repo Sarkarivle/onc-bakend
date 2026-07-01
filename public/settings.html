@@ -130,7 +130,13 @@
 
         async function saveSetting(key) {
             const value = document.getElementById(key).value;
+            const btn = event.target;
+            const originalText = btn.innerText;
+
             try {
+                btn.innerText = 'Saving...';
+                btn.disabled = true;
+
                 const response = await fetch('/api/v1/settings/update', {
                     method: 'POST',
                     headers: {
@@ -139,9 +145,20 @@
                     },
                     body: JSON.stringify({ key, value })
                 });
-                if (response.ok) alert('✅ Updated!');
-                else alert('❌ Failed');
-            } catch (err) { alert('Error'); }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('✅ ' + (data.message || 'Updated!'));
+                } else {
+                    alert('❌ Failed: ' + (data.message || 'Server error'));
+                }
+            } catch (err) {
+                alert('❌ Error: Connection failed');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         function logout() {

@@ -4,27 +4,25 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
-const handle = (fnName) => (req, res, next) => {
-    try {
-        const settingsController = require('./settingsController');
-        if (settingsController && typeof settingsController[fnName] === 'function') {
-            return settingsController[fnName](req, res, next);
-        }
-        throw new Error(`Controller method ${fnName} not found`);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ status: 'error', message: 'Internal Server Error' });
-    }
+// Robust handler wrapper for async functions
+const catchAsync = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch((err) => {
+        console.error('🔥 Async Route Error:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    });
 };
 
+// Admin Protection
 router.use(authMiddleware.protect);
 router.use(authMiddleware.restrictTo('admin'));
 
-router.get('/', handle('getAllSettings'));
-router.post('/update', handle('updateSetting'));
+// Routes
+router.get('/', catchAsync(settingsController.getAllSettings));
+router.post('/update', catchAsync(settingsController.updateSetting));
 
+// Specialized routes (can still be used if needed)
 router.route('/api-key')
-  .get(handle('getApiKey'))
-  .post(handle('updateApiKey'));
+  .get(catchAsync(settingsController.getApiKey))
+  .post(catchAsync(settingsController.updateApiKey));
 
 module.exports = router;
