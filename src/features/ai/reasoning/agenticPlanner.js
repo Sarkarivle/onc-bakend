@@ -23,6 +23,12 @@ class AgenticPlanner {
             tools.push("USER_PROFILE");
         }
 
+        // Determine if Math Tool is needed
+        const mathKeywords = ['+', '-', '*', '/', 'multiply', 'divide', 'calculate', 'hisab', 'hisab-kitab'];
+        if (mathKeywords.some(k => query.toLowerCase().includes(k)) || contract.normalizedIntent === 'MATH') {
+            tools.push("CALCULATOR");
+        }
+
         // Module Selection based on Intent
         if (contract.normalizedIntent === "JOB_SEARCH" || contract.normalizedIntent === "DISCOVERY") {
             priorityModules.push("GOVT_JOB");

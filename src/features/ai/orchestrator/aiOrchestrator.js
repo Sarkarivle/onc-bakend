@@ -15,6 +15,8 @@ const LLMProvider = require('../generation/llmProvider');
 const ProgressEmitter = require('../ux/progressEmitter');
 const EliteFormatter = require('../quality/eliteFormatter');
 const SuggestionEngine = require('../ux/suggestionEngine');
+const LanguageDetector = require('../intent/normalizers/langDetector');
+const Calculator = require('../tools/calculator');
 
 class AIOrchestrator {
     static initialized = false;
@@ -34,6 +36,9 @@ class AIOrchestrator {
         try {
             await this._ensureInitialized();
             ProgressEmitter.emit(sessionId, 'REQUEST_RECEIVED');
+
+            // PHASE: Language Detection
+            const langResult = LanguageDetector.detect(userMessage);
 
             // PHASE 1: SMART GATEWAY (Safety & Greetings)
             ProgressEmitter.emit(sessionId, 'INPUT_PROCESSING');
@@ -77,6 +82,14 @@ class AIOrchestrator {
                 const queryToSearch = contract.refinedQuery || userMessage;
                 const dbResult = await RetrievalEngine.searchJobs(queryToSearch, profile, plan);
                 knowledge = dbResult?.jobs || "";
+            }
+
+            // PHASE: Tools Execution
+            if (plan.tools.includes("CALCULATOR")) {
+                const mathResult = Calculator.execute(userMessage);
+                if (mathResult.success) {
+                    knowledge += `\n[TOOL_RESULT: CALCULATOR] Result of ${mathResult.expression} is ${mathResult.result}`;
+                }
             }
 
             // PHASE 6: REASONING (DeepSeek Thinking)
@@ -152,6 +165,11 @@ class AIOrchestrator {
 
         try {
             await this._ensureInitialized();
+
+            // PHASE 1: Language Detection
+            const langResult = LanguageDetector.detect(userMessage);
+            if (onStatus) onStatus('LANG_DETECTION', `Language detected: ${langResult.label}`);
+
             if (onStatus) onStatus('INPUT_PROCESSING', 'Message samajh raha hoon...');
 
             // Minimalist stream pipeline for speed
@@ -168,6 +186,17 @@ class AIOrchestrator {
                 if (onStatus) onStatus('DATABASE_CHECKING', 'Database check kar raha hoon...');
                 const dbResult = await RetrievalEngine.searchJobs(resolvedIntent.refinedQuery || userMessage, profile, plan);
                 knowledge = dbResult?.jobs || "";
+            }
+
+            // PHASE: Tools Execution (e.g. Calculator)
+            let toolOutput = "";
+            if (plan.tools.includes("CALCULATOR")) {
+                if (onStatus) onStatus('TOOL_EXECUTION', 'Calculating...');
+                const mathResult = Calculator.execute(userMessage);
+                if (mathResult.success) {
+                    toolOutput = `\n[TOOL_RESULT: CALCULATOR] Result of ${mathResult.expression} is ${mathResult.result}`;
+                    knowledge += toolOutput;
+                }
             }
 
             if (onStatus) onStatus('LLM_THINKING', 'Jawab soch raha hoon...');
