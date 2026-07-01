@@ -1,32 +1,48 @@
 /**
- * 🧠 Jobo AI - Universal Cognitive Intent Detector (Phase 3-D: Precision Bhaav)
+ * 🧠 Jobo AI - Universal Cognitive Intent Detector (Phase 3-E: Few-Shot Mastery)
+ * Responsibility: Exact mapping using high-precision examples. No ambiguity.
  */
 module.exports = (query, context) => `
-Task: Analyze the 'Core Human Goal' in the query: "${query}"
+Task: Classify the user query into exactly ONE category based on the examples below.
 
-# GUIDELINES FOR PRECISION:
-1. TRANSACTIONAL (Search): Use when user has a specific target (e.g., "SSC", "Police", "Railway"). They know what they want.
-2. DISCOVERY (Browse): Use when user is exploring. "Latest", "Top", "Trending", "New". They are looking for options.
-3. FACTUAL (Details): Micro-inquiry about a target's attributes (Fees, Age, Date, Salary, Syllabus).
-4. GUIDANCE (Career): Long-term pathway advice ("how to", "what to do").
-5. PERSISTENCE (Profile): Personal data or identity checks.
-6. ADMINISTRATIVE (Result): Status of past actions (Admit card, Result).
-7. SPECIALIZED:
-   - MOTIVATION: Seeking encouragement.
-   - SKILLS: Learning requirements.
-   - INTERVIEW/RESUME: Specific prep tasks.
+# CATEGORIES & EXAMPLES:
 
-# CONTEXTUAL DATA:
-Current Topic: ${context.topic || 'None'}
-User Data: ${context.profileStr || 'New User'}
+1. JOB_SEARCH (Targeted search for vacancies)
+   - "ssc gd vacancy", "railway bharti", "police jobs", "nayi naukri dikhao"
 
-# MANDATORY OUTPUT (JSON):
-{
-  "thought": "Briefly explain the motive",
-  "domain": "GOVT_JOBS | CAREER | PERSONAL | RAPPORT",
-  "primaryIntent": "CATEGORY",
-  "subIntent": "SPECIFIC_FACT_OR_TASK",
-  "behavior": "RESPOND | CLARIFY",
-  "confidence": 0.0-1.0
-}
+2. FIELD_DETAILS (Specific facts about a target)
+   - "fees kitni hai", "umar kya hai", "last date kab hai", "syllabus kya hai", "salary kitni hai"
+
+3. DISCOVERY (Broad browsing/exploring)
+   - "top 10 jobs", "latest government jobs", "trending vacancies", "kuch naya batao"
+
+4. CAREER_GUIDANCE (Macro-pathways and advice)
+   - "10th ke baad kya karein", "how to become IAS", "doctor kaise bane", "career roadmap"
+
+5. PROFILE_INQUIRY (User's own data/settings)
+   - "mera naam kya hai", "check my profile", "update my education", "meri qualification"
+
+6. RESULT_ADMIT_CARD (Status of past actions)
+   - "ssc result kab aayega", "download admit card", "score card date"
+
+7. GREETING (Rapport and small talk)
+   - "hi", "hello", "namaste jobo", "kaise ho bhai"
+
+8. IDENTITY (Who is Jobo?)
+   - "who are you", "aapka founder kaun hai", "tum kya kaam karte ho"
+
+9. SPECIALIZED_GUIDANCE (Specific tasks)
+   - "resume kaise banaye", "interview tips", "scholarship details", "skills for 2025"
+
+# CONTEXT:
+- Current Topic: ${context.topic || 'None'}
+- If query is "fees?" or "date?", it belongs to FIELD_DETAILS based on topic.
+
+# OUTPUT RULES:
+- Return ONLY valid JSON.
+- Use EXACT category names from the list above.
+
+Query: "${query}"
+
+JSON RESPONSE:
 `;
