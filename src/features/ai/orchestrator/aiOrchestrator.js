@@ -1,258 +1,121 @@
 /**
- * AIOrchestrator Module (Production 10-Phase Neural Pipeline)
- * Responsibility: Coordinating the request journey from Smart Gateway to Elite Formatting.
+ * AIOrchestrator Module (Architectural Version 12.0 - Learning Loop Integrated)
  */
 const Chat = require('../../chat/chatModel');
-const { normalizeRequest, shapeResponse, SAFE_RESPONSES } = require('../quality/safetyGuard');
-const SmartGateway = require('../quality/smartGateway');
 const SessionState = require('../context/sessionState');
 const UserProfile = require('../context/userProfile');
 const IntentEngine = require('../intent/intentEngine');
-const AgenticPlanner = require('../reasoning/agenticPlanner');
-const RetrievalEngine = require('../knowledge/retrievalEngine');
+const ExecutionEngine = require('./executionEngine');
+const MemoryEngine = require('../memory/memoryEngine');
 const PromptComposer = require('../generation/promptComposer');
 const LLMProvider = require('../generation/llmProvider');
-const ProgressEmitter = require('../ux/progressEmitter');
+const ValidationEngine = require('../quality/validationEngine');
 const EliteFormatter = require('../quality/eliteFormatter');
 const SuggestionEngine = require('../ux/suggestionEngine');
-const LanguageDetector = require('../intent/normalizers/langDetector');
-const Calculator = require('../tools/calculator');
+const Telemetry = require('./telemetryEngine');
+const LearningEngine = require('../learning/learningEngine'); // New Learning Engine
+const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/safetyGuard');
 
 class AIOrchestrator {
-    static initialized = false;
-
-    static async _ensureInitialized() {
-        if (!this.initialized) {
-            await SmartGateway.initialize();
-            this.initialized = true;
-        }
-    }
-
     static async processRequest(input) {
-        const requestId = `req_${Date.now()}`;
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
 
+        const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
+
         try {
-            await this._ensureInitialized();
-            ProgressEmitter.emit(sessionId, 'REQUEST_RECEIVED');
-
-            // PHASE: Language Detection
-            const langResult = LanguageDetector.detect(userMessage);
-
-            // PHASE 1: SMART GATEWAY (Safety & Greetings)
-            ProgressEmitter.emit(sessionId, 'INPUT_PROCESSING');
-            const gateResult = await SmartGateway.validate(userMessage);
-
-            if (gateResult.status === 'BLOCK') {
-                const blockMsg = gateResult.reason === 'MALICIOUS_INTENT'
-                    ? SAFE_RESPONSES.INJECTION_ATTEMPT
-                    : SAFE_RESPONSES.EMPTY_INPUT;
-                return { ...shapeResponse(blockMsg), requestId };
-            }
-
-            if (gateResult.status === 'GREET') {
-                return { ...shapeResponse(SAFE_RESPONSES.GREETING), requestId };
-            }
-
-            // PHASE 2 & 3: CONTEXT & INTENT
-            ProgressEmitter.emit(sessionId, 'CONVERSATION_STATE_LOADING');
-            const [state, profile] = await Promise.all([
-                SessionState.get(sessionId),
-                UserProfile.get(userName, input)
-            ]);
-
-            ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
-            const contract = await IntentEngine.classify(userMessage, state, profile);
-
-            // NEURAL MEMORY: Track topic evolution
-            if (contract.entities?.job || contract.subIntent) {
-                state.lastTopic = contract.entities?.job || contract.subIntent;
-                await SessionState.update(sessionId, { query: userMessage, resolvedIntent: contract });
-            }
-
-            // PHASE 4: AGENTIC PLANNING
-            ProgressEmitter.emit(sessionId, 'PLANNING');
-            const plan = await AgenticPlanner.generatePlan(userMessage, contract, { topic: state.topic });
-
-            // PHASE 5: RETRIEVAL (RAG)
-            ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
-            let knowledge = "";
-            if (plan.needsDatabase) {
-                const queryToSearch = contract.refinedQuery || userMessage;
-                const dbResult = await RetrievalEngine.searchJobs(queryToSearch, profile, plan);
-                knowledge = dbResult?.jobs || "";
-            }
-
-            // PHASE: Tools Execution
-            if (plan.tools.includes("CALCULATOR")) {
-                const mathResult = Calculator.execute(userMessage);
-                if (mathResult.success) {
-                    knowledge += `\n[TOOL_RESULT: CALCULATOR] Result of ${mathResult.expression} is ${mathResult.result}`;
-                }
-            }
-
-            // PHASE 6: REASONING (DeepSeek Thinking)
-            let reasoning = "";
-            if (plan.mode === 'CAREER_GUIDANCE') {
-                ProgressEmitter.emit(sessionId, 'LLM_THINKING');
-                reasoning = await LLMProvider.generateReasoning(`Analyze career path for: ${userMessage}. Knowledge: ${knowledge}`);
-            }
-
-            // PHASE 7: PROMPT COMPOSITION
-            ProgressEmitter.emit(sessionId, 'PROMPT_COMPOSING');
-            const systemPrompt = await PromptComposer.build(
-                plan.priorityModules,
-                { name: userName, ...profile, state },
-                { jobs: knowledge },
-                { sessionId, turnCount: state.turnCount, behavior: plan.behavior, plan, currentDate: new Date().toLocaleDateString() }
+            // STAGE 1: INPUT VALIDATION
+            const inputStatus = await Telemetry.trackStage(traceId, 'INPUT_VALIDATION',
+                () => ValidationEngine.validateInput(userMessage)
             );
 
-            // PHASE 8: GENERATION
-            ProgressEmitter.emit(sessionId, 'LLM_THINKING');
-            const aiResponse = await LLMProvider.chat([
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userMessage }
-            ]);
+            if (inputStatus.status === 'BLOCK') {
+                const finalTrace = Telemetry.endTrace(traceId);
+                LearningEngine.processTrace(finalTrace).catch(console.error);
+                return { ...shapeResponse(SAFE_RESPONSES[inputStatus.reason]), requestId: traceId };
+            }
+
+            // STAGE 2: CONTEXT LOADING
+            const [state, profile] = await Telemetry.trackStage(traceId, 'CONTEXT_LOADING',
+                () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
+            );
+
+            // STAGE 3: COGNITIVE PLANNING
+            const plan = await Telemetry.trackStage(traceId, 'UCC_PLANNING',
+                () => IntentEngine.classify(userMessage, state, profile)
+            );
+            Telemetry.logEvent(traceId, 'UCC_PLANNING', { intent: plan.intent, parallel: plan.parallel, plan });
+
+            // STAGE 4: EXECUTION ENGINE
+            const execResult = await Telemetry.trackStage(traceId, 'TOOL_EXECUTION',
+                () => ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan })
+            );
+            Telemetry.logEvent(traceId, 'TOOL_EXECUTION', {
+                latency: execResult.metrics.latency,
+                success: execResult.success,
+                toolsUsed: Object.keys(execResult.outputs),
+                resultsCount: execResult.outputs.rag?.count || 0
+            });
+
+            const liveData = {
+                jobs: execResult.outputs.rag?.jobs || "",
+                memory: execResult.outputs.memory || {},
+                calculator: execResult.outputs.calculator?.result || ""
+            };
+
+            // STAGE 5: PROMPT COMPOSITION
+            const promptData = await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
+                () => PromptComposer.build(
+                    [plan.intent],
+                    { ...profile, history: liveData.memory.recentHistory, insights: liveData.memory.facts },
+                    liveData,
+                    { sessionId, turnCount: state.turnCount, behavior: plan.behavior, plan, currentDate: new Date().toLocaleDateString() }
+                )
+            );
+            Telemetry.logEvent(traceId, 'PROMPT_BUILDER', { tokenEstimate: promptData.tokenEstimate });
+
+            // STAGE 6: LLM SYNTHESIS
+            const aiResponse = await Telemetry.trackStage(traceId, 'LLM_SYNTHESIS',
+                () => LLMProvider.chat([
+                    { role: 'system', content: promptData.systemPrompt },
+                    { role: 'user', content: userMessage }
+                ])
+            );
+            Telemetry.logEvent(traceId, 'LLM_SYNTHESIS', { finishReason: aiResponse.finishReason });
 
             let finalContent = aiResponse.content;
-
-            // Extract content from <USER_MESSAGE> tags if present
             if (finalContent.includes('<USER_MESSAGE>')) {
-                const match = finalContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
-                if (match) finalContent = match[1].trim();
+                finalContent = (finalContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i) || [null, finalContent])[1].trim();
             }
 
-            // PHASE 9: NEURAL SELF-CRITIQUE (Verification)
-            if (knowledge && knowledge.length > 50) {
-                ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
-                const audit = await LLMProvider.verifyResponse(userMessage, finalContent, knowledge);
-                if (audit && !audit.isValid && audit.correctedAnswer) {
-                    console.log("🛠 Correcting Hallucination:", audit.reason);
-                    finalContent = audit.correctedAnswer;
-                }
-            }
-
-            // PHASE 10: SECURITY GUARD
-            const isSafe = await LLMProvider.guardResponse(userMessage, finalContent);
-            if (!isSafe) {
-                finalContent = SAFE_RESPONSES.UNSAFE_OUTPUT;
-            }
-
-            // PHASE 11: FORMATTING & UX
-            ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
-            const formatted = EliteFormatter.format(finalContent, {
-                intent: contract.normalizedIntent,
-                userProfile: profile
-            });
-            const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: knowledge });
-
-            await this._persist(userName, sessionId, userMessage, formatted, suggestions);
-
-            ProgressEmitter.emit(sessionId, 'FINAL_RESPONSE_READY');
-            return { ...shapeResponse(formatted, { suggestions }), requestId };
-
-        } catch (error) {
-            console.error("❌ Pipeline Error:", error);
-            ProgressEmitter.emit(sessionId, 'ERROR');
-            return { ...shapeResponse(SAFE_RESPONSES.GENERIC_FALLBACK), success: false, requestId };
-        }
-    }
-
-    static async processRequestStream(input, onChunk, onStatus) {
-        const userMessage = normalizeRequest(input);
-        const { userName, sessionId = `session_${Date.now()}` } = input;
-
-        try {
-            await this._ensureInitialized();
-
-            // PHASE 1: Language Detection
-            const langResult = LanguageDetector.detect(userMessage);
-            if (onStatus) onStatus('LANG_DETECTION', `Language detected: ${langResult.label}`);
-
-            if (onStatus) onStatus('INPUT_PROCESSING', 'Message samajh raha hoon...');
-
-            // Minimalist stream pipeline for speed
-            const [state, profile] = await Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)]);
-
-            if (onStatus) onStatus('INTENT_DETECTION', 'Sawal ka intent samajh raha hoon...');
-            const resolvedIntent = await IntentEngine.classify(userMessage, state, profile);
-
-            if (onStatus) onStatus('PLANNING', 'Best tareeka soch raha hoon...');
-            const plan = await AgenticPlanner.generatePlan(userMessage, resolvedIntent, { topic: state.topic });
-
-            let knowledge = "";
-            if (plan.needsDatabase) {
-                if (onStatus) onStatus('DATABASE_CHECKING', 'Database check kar raha hoon...');
-                const dbResult = await RetrievalEngine.searchJobs(resolvedIntent.refinedQuery || userMessage, profile, plan);
-                knowledge = dbResult?.jobs || "";
-            }
-
-            // PHASE: Tools Execution (e.g. Calculator)
-            let toolOutput = "";
-            if (plan.tools.includes("CALCULATOR")) {
-                if (onStatus) onStatus('TOOL_EXECUTION', 'Calculating...');
-                const mathResult = Calculator.execute(userMessage);
-                if (mathResult.success) {
-                    toolOutput = `\n[TOOL_RESULT: CALCULATOR] Result of ${mathResult.expression} is ${mathResult.result}`;
-                    knowledge += toolOutput;
-                }
-            }
-
-            if (onStatus) onStatus('LLM_THINKING', 'Jawab soch raha hoon...');
-            const priorityModules = [resolvedIntent.normalizedIntent || resolvedIntent.intent, plan.mode].filter(Boolean);
-            const systemPrompt = await PromptComposer.build(
-                priorityModules,
-                { name: userName, ...profile, state },
-                { jobs: knowledge },
-                { sessionId, turnCount: state.turnCount, behavior: plan.behavior, plan, currentDate: new Date().toLocaleDateString() }
+            // STAGE 7: OUTPUT VALIDATION
+            const outputStatus = await Telemetry.trackStage(traceId, 'OUTPUT_VALIDATION',
+                () => ValidationEngine.validateOutput(userMessage, finalContent, liveData)
             );
+            if (outputStatus.status === 'REPLACE') {
+                finalContent = outputStatus.content;
+                Telemetry.logEvent(traceId, 'OUTPUT_VALIDATION', { autoCorrected: true, reason: outputStatus.reason });
+            }
 
-            let fullContent = "";
-            let isInsideUserMessage = false;
+            // STAGE 8: PERSISTENCE & UX
+            const formatted = EliteFormatter.format(finalContent, { intent: plan.intent, userProfile: profile });
+            const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
 
-            await LLMProvider.chatStream([
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userMessage }
-            ], (chunk) => {
-                fullContent += chunk;
-
-                // If model uses tags, we only stream what's inside <USER_MESSAGE>
-                if (fullContent.includes('<USER_MESSAGE>')) {
-                    if (!isInsideUserMessage) {
-                        const startIndex = fullContent.indexOf('<USER_MESSAGE>') + '<USER_MESSAGE>'.length;
-                        const streamable = fullContent.substring(startIndex);
-                        if (streamable.length > 0) {
-                            onChunk(streamable);
-                            isInsideUserMessage = true;
-                        }
-                    } else {
-                        // Just send the chunk, but watch for closing tag
-                        if (!chunk.includes('</USER_MESSAGE>')) {
-                            onChunk(chunk);
-                        } else {
-                            const lastPart = chunk.split('</USER_MESSAGE>')[0];
-                            onChunk(lastPart);
-                        }
-                    }
-                } else if (!fullContent.includes('<')) {
-                    // Fallback for models not using tags
-                    onChunk(chunk);
-                }
-            });
-
-            // Cleanup for persistence
-            let finalContent = fullContent;
-            const match = fullContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
-            if (match) finalContent = match[1].trim();
-
-            const formatted = EliteFormatter.format(finalContent, { intent: resolvedIntent.primaryIntent, userProfile: profile });
-            const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: knowledge });
             await this._persist(userName, sessionId, userMessage, formatted, suggestions);
 
+            // FINAL: END TRACE & TRIGGER LEARNING
+            const finalTrace = Telemetry.endTrace(traceId);
+            // ASYNC LEARNING LOOP (Does not block user response)
+            LearningEngine.processTrace(finalTrace).catch(console.error);
+
+            return { ...shapeResponse(formatted, { suggestions }), requestId: traceId };
+
         } catch (error) {
-            console.error("❌ Streaming Pipeline Error:", error);
-            onChunk("Bhai, system thoda busy hai. Ek baar check karo net ya thodi der me try karo.");
+            console.error("❌ Observed Pipeline Error:", error);
+            Telemetry.logEvent(traceId, 'FATAL_ERROR', { error: error.message });
+            const finalTrace = Telemetry.endTrace(traceId);
+            LearningEngine.processTrace(finalTrace).catch(console.error);
+            return { ...shapeResponse(SAFE_RESPONSES.GENERIC_FALLBACK), success: false, requestId: traceId };
         }
     }
 
@@ -261,9 +124,7 @@ class AIOrchestrator {
             const name = userName || "User";
             await Chat.create({ userName: name, sessionId, role: 'user', content: query });
             await Chat.create({ userName: name, sessionId, role: 'assistant', content: response, suggestions });
-        } catch (e) {
-            console.error("❌ Persistence Error:", e.message);
-        }
+        } catch (e) { console.error("❌ Persistence Error:", e.message); }
     }
 }
 

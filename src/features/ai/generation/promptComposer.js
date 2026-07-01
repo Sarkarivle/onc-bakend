@@ -1,136 +1,125 @@
 /**
- * PromptComposer Module
- * Responsibility: Dynamic assembly of system instructions from various modules.
+ * PromptComposer Module (Architectural Version 6.0 - Dynamic Prompt Builder)
+ * Responsibility: Intelligent context injection, compression, and deduplication.
  */
-const PromptManager = require('./promptManager');
-const registry = require('./moduleRegistry');
+const templates = require('./promptTemplates');
+const TokenManager = require('./tokenManager');
 
 class PromptComposer {
+    /**
+     * Builds a production-grade prompt system.
+     */
     static async build(priorityModules, userData, liveData, meta) {
-        const { currentDate, currentYear, sessionId, turnCount, behavior, plan } = meta;
-        const cleanUser = this._sanitizeData(userData);
-        cleanUser.insights = this._sanitizeInsights(cleanUser.insights, cleanUser);
+        const { plan, currentDate, turnCount } = meta;
 
-        const isPureGreeting = behavior === 'GREET';
+        // 1. Context Compression (Saliency Logic)
+        const compressedProfile = this._compressProfile(userData, plan);
+        const compressedMemory = this._compressMemory(userData.insights, plan);
+        const compressedHistory = this._compressHistory(userData.state?.history || []);
 
-        // Fix: Ensure priorityModules is always an array to avoid "not iterable" error
-        const modules = Array.isArray(priorityModules) ? priorityModules : [];
+        // 2. Component Selection (Dynamic Context)
+        const components = this._selectComponents(plan, priorityModules, currentDate);
 
-        let allKeys = ['CORE', 'PERSONALITY', 'REASONING', 'MEMORY', 'OUTPUT', 'HALLUCINATION_PREVENTION', ...modules];
-        if (isPureGreeting) {
-            allKeys = ['CORE', 'PERSONALITY', 'MEMORY', 'LANGUAGE', 'OUTPUT'];
+        // 3. Build Data Blocks with Priorities
+        let dataBlocks = [
+            { name: 'PROFILE', content: compressedProfile, priority: 1 },
+            { name: 'MEMORY', content: compressedMemory, priority: 2 },
+            { name: 'HISTORY', content: compressedHistory, priority: 3 },
+            { name: 'RAG', content: liveData.jobs || "", priority: 4 }
+        ].filter(b => b.content);
+
+        // 4. Token Budgeting & Pruning
+        const prunedBlocks = TokenManager.prune(dataBlocks, TokenManager.BUDGETS.SYSTEM);
+
+        // 5. Assemble System Prompt
+        let systemPrompt = this._assemble(components, prunedBlocks);
+
+        // 6. Deduplication & Final Polish
+        systemPrompt = this._deduplicate(systemPrompt);
+
+        // 7. Structure Output
+        const metadata = {
+            intent: plan.intent,
+            turnCount: turnCount,
+            blocksIncluded: prunedBlocks.map(b => b.name)
+        };
+
+        return {
+            systemPrompt,
+            messages: [], // Can be used for few-shot injection
+            metadata,
+            tokenEstimate: TokenManager.estimate(systemPrompt)
+        };
+    }
+
+    /**
+     * Injects only the profile fields relevant to the current plan.
+     */
+    static _compressProfile(profile, plan) {
+        if (!profile) return "";
+        const relevantFields = ['name'];
+
+        if (['JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS'].includes(plan.intent)) {
+            relevantFields.push('qualification', 'category', 'state');
+        } else if (plan.intent === 'CAREER_GUIDANCE') {
+            relevantFields.push('qualification', 'dob', 'state');
         }
-        const uniqueKeys = [...new Set(allKeys)];
 
-        const moduleMap = {};
-        await Promise.all(uniqueKeys.map(async (key) => {
-            moduleMap[key] = await PromptManager.getModule(key, sessionId);
-        }));
+        const filtered = {};
+        relevantFields.forEach(f => { if (profile[f]) filtered[f] = profile[f]; });
+        return Object.keys(filtered).length > 1 ? `[USER PROFILE]: ${JSON.stringify(filtered)}` : "";
+    }
 
-        let promptChunks = [];
+    /**
+     * Summarizes memory or filters for relevance.
+     */
+    static _compressMemory(insights, plan) {
+        if (!insights) return "";
+        // If it's a greeting, we don't need deep memory insights
+        if (plan.intent === 'GREETING') return "";
 
-        if (moduleMap.CORE) promptChunks.push(`[IDENTITY]:\n${moduleMap.CORE}`);
-        if (moduleMap.PERSONALITY) promptChunks.push(`[PERSONALITY]:\n${moduleMap.PERSONALITY}`);
+        return typeof insights === 'string' ? insights : JSON.stringify(insights);
+    }
 
-        if (plan) {
-            let intentSection = `[PLANNING]:\n`;
-            intentSection += `- Mode: ${plan.mode}\n`;
-            intentSection += `- Use Previous Context: ${plan.usePreviousContext}\n`;
-            intentSection += `- Needs Database: ${plan.needsDatabase}\n`;
-            intentSection += `- Needs General Guidance: ${plan.needsGeneralGuidance}\n`;
-            if (plan.selectedItemIndex) intentSection += `- Selected Item Index: ${plan.selectedItemIndex}\n`;
-            if (plan.referencedItem) intentSection += `- Referenced Item: ${plan.referencedItem}\n`;
+    /**
+     * Sliding window history compression.
+     */
+    static _compressHistory(history) {
+        if (!history || history.length === 0) return "";
+        const window = history.slice(-3); // Only last 3 turns
+        return window.map(h => `User: ${h.user}\nAI: ${h.assistant}`).join('\n---\n');
+    }
 
-            intentSection += `\n[RESOLVED INTENT]: ${JSON.stringify({
-                primaryIntent: plan.intent,
-                emotionalTone: plan.emotionalTone,
-                userConstraints: plan.userConstraints,
-                implicitGoal: plan.implicitGoal,
-                communicationAct: plan.resolvedIntent?.communicationAct,
-                domain: plan.domain,
-                task: plan.resolvedIntent?.task,
-                isFollowUp: plan.isFollowUp,
-                entities: plan.resolvedIntent?.entities
-            })}\n`;
-            promptChunks.push(intentSection);
+    static _selectComponents(plan, priorityModules, currentDate) {
+        const components = [
+            templates.CORE,
+            templates.STYLE,
+            templates.REASONING,
+            templates.SAFETY,
+            templates.OUTPUT_FORMAT(currentDate)
+        ];
+
+        // Dynamic Intent Specific Module
+        if (templates.DYNAMIC_COMPONENTS[plan.intent]) {
+            components.push(templates.DYNAMIC_COMPONENTS[plan.intent]);
         }
 
-        priorityModules.forEach(mod => {
-            if (moduleMap[mod] && !['CORE', 'PERSONALITY', 'OUTPUT', 'CONTEXT'].includes(mod)) {
-                promptChunks.push(`[${mod} MODULE]:\n${moduleMap[mod]}`);
-            }
+        return components;
+    }
+
+    static _assemble(components, blocks) {
+        let prompt = components.join('\n\n');
+        prompt += '\n\n# CONTEXTUAL DATA\n';
+        blocks.forEach(b => {
+            prompt += `\n[${b.name}]:\n${b.content}\n`;
         });
-
-        let contextSection = `# CONTEXTUAL DATA:\n`;
-        contextSection += `[CONVERSATION STATE]: Turn Number ${turnCount || 0}\n`;
-        contextSection += registry.CONTEXT(cleanUser.name, cleanUser.state, cleanUser.dob, cleanUser.category, cleanUser.qualification, cleanUser.insights, currentDate, currentYear);
-
-        if (liveData.jobs || liveData.web) {
-            contextSection += `\n\n# REAL-TIME DATA SOURCE:\n`;
-            if (liveData.jobs) contextSection += `[DATABASE]: ${liveData.jobs}\n`;
-            if (liveData.web) contextSection += `[SEARCH]: ${liveData.web}\n`;
-        }
-        promptChunks.push(contextSection);
-
-        if (moduleMap.OUTPUT) {
-            const outputContent = typeof moduleMap.OUTPUT === 'function'
-                ? moduleMap.OUTPUT(currentDate)
-                : moduleMap.OUTPUT;
-            promptChunks.push(`[CRITICAL OUTPUT RULES]:\n${outputContent}`);
-        }
-
-        if (moduleMap.HALLUCINATION_PREVENTION) promptChunks.push(`[GUARDRAILS]:\n${moduleMap.HALLUCINATION_PREVENTION}`);
-
-        let finalPrompt = promptChunks.join('\n\n---\n\n');
-        finalPrompt += `\n\nBEGIN AGENTIC PROCESSING.
-
-        CRITICAL:
-        1. Start your response with <AGENT_THOUGHT> tags to analyze the request.
-        2. Then, provide the final response in Hinglish inside <USER_MESSAGE> tags.
-        3. NEVER include headers like "[PERSONALITY]" in the user message.
-
-        OPEN <AGENT_THOUGHT>:`;
-
-        return finalPrompt;
+        return prompt;
     }
 
-    static _sanitizeData(data) {
-        const sanitized = {};
-        for (const [key, value] of Object.entries(data)) {
-            if (typeof value === 'string') {
-                sanitized[key] = value.replace(/ignore previous instructions|system prompt|you are now/gi, '[REDACTED]');
-            } else {
-                sanitized[key] = value;
-            }
-        }
-        return sanitized;
-    }
-
-    static _sanitizeInsights(insights, user) {
-        if (!insights) return insights;
-
-        const normalizedQualification = String(user.qualification || '').toLowerCase();
-        const cleanInsights = typeof insights === 'object' ? { ...insights } : insights;
-
-        // Structured profile is authoritative. Memory can fill blanks, but must
-        // not contradict the current profile selected by the user.
-        if (typeof cleanInsights === 'object' && user.qualification && cleanInsights.qualification) {
-            const memoryQualification = String(cleanInsights.qualification).toLowerCase();
-            if (memoryQualification && memoryQualification !== normalizedQualification) {
-                delete cleanInsights.qualification;
-            }
-            return cleanInsights;
-        }
-
-        if (typeof cleanInsights === 'string' && user.qualification) {
-            const hasStale12th = /\b12th\b|\b12वीं\b|\bbarahvi\b|\bintermediate\b/i.test(cleanInsights);
-            const userIsNot12th = !/\b12th\b|\b12वीं\b|\bbarahvi\b|\bintermediate\b/i.test(normalizedQualification);
-            if (hasStale12th && userIsNot12th) {
-                return cleanInsights.replace(/[^.。\n]*(12th|12वीं|barahvi|intermediate)[^.。\n]*(\.|।)?/gi, '').trim();
-            }
-        }
-
-        return cleanInsights;
+    static _deduplicate(text) {
+        const lines = text.split('\n');
+        const uniqueLines = [...new Set(lines)];
+        return uniqueLines.join('\n');
     }
 }
 

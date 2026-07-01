@@ -1,157 +1,154 @@
 /**
- * RetrievalEngine Module (Phase 3)
- * Responsibility: Executing Hybrid Search (Vector + Semantic) to find the best data.
+ * RetrievalEngine Module (Architectural Version 8.0 - Hybrid Neural Retrieval)
+ * Responsibility: Executing Hybrid Search (Vector + BM25 + Metadata) with Reranking.
+ * Designed for enterprise-grade precision and minimal hallucination.
  */
 const Job = require('../../jobs/jobModel');
 const VectorService = require('./vectorService');
 const SearchReranker = require('./searchReranker');
+const LLMProvider = require('../generation/llmProvider');
 
 class RetrievalEngine {
     /**
-     * Finds jobs based on the refined query and user profile.
+     * Entry Point: Optimized Hybrid Search
      */
-    static async searchJobs(refinedQuery, profile = {}, plan = {}) {
+    static async searchJobs(userQuery, profile = {}, plan = {}) {
+        const startTime = Date.now();
+        const telemetry = { latency: {}, stats: {} };
+
         try {
-            console.log(`🔎 Neural Search: Searching for "${refinedQuery}" with profile matching.`);
+            // 1. QUERY UNDERSTANDING & EXPANSION
+            // We use the refinedQuery from the UCC, but expand it for better coverage
+            const expansion = await this._expandQuery(userQuery);
+            telemetry.expandedQuery = expansion;
 
-            // 1. Vector Search (Semantic Meaning)
-            let results = await this._vectorSearch(refinedQuery);
+            // 2. PARALLEL RETRIEVAL (Phase 1: Candidate Generation)
+            const [vectorCandidates, keywordCandidates] = await Promise.all([
+                this._vectorSearch(expansion.semanticQuery, profile),
+                this._keywordSearch(expansion.keywords, profile)
+            ]);
 
-            // 2. Profile Compatibility Filter (NEURAL MATCHING)
-            if (results.length > 0 && profile.qualification) {
-                results = await this._applyNeuralProfileFilter(results, profile);
-            }
+            // 3. MERGE & DEDUPLICATE
+            let candidates = this._mergeCandidates(vectorCandidates, keywordCandidates);
+            telemetry.stats.candidatesFound = candidates.length;
 
-            // 3. Hybrid Fallback (If vector results are low)
-            if (!results || results.length < 2) {
-                const keywordResults = await this._semanticTextSearch(refinedQuery, profile);
-                results = this._mergeResults(results, keywordResults);
-            }
+            if (candidates.length === 0) return { jobs: "", documents: [], confidence: 0 };
 
-            // 3. Neural Reranking (Phase 7 Evolution)
-            if (results.length > 1) {
-                console.log(`🧠 Reranking ${results.length} candidates...`);
-                results = await SearchReranker.rank(refinedQuery, results, profile);
-            }
+            // 4. NEURAL RERANKING (Phase 2: Precision Ranking)
+            // Considering freshness, popularity, and profile compatibility
+            const rankedResults = await SearchReranker.rank(userQuery, candidates, profile);
+            telemetry.stats.rankedCount = rankedResults.length;
+
+            // 5. HALLUCINATION CHECK & SCORING
+            const finalResults = rankedResults.filter(r => r.score > 0.4); // Threshold for quality
+
+            // 6. TELEMETRY & LOGGING
+            telemetry.latency.total = Date.now() - startTime;
+            this._logTelemetry(telemetry);
 
             return {
-                count: results.length,
-                jobs: results.length > 0 ? results.map(j => this._formatJob(j)).join("\n") : ""
+                count: finalResults.length,
+                documents: finalResults,
+                jobs: finalResults.map(j => this._formatJob(j)).join("\n"),
+                confidence: finalResults.length > 0 ? finalResults[0].score : 0
             };
+
         } catch (error) {
-            console.error("❌ Retrieval Engine Error:", error.message);
-            return { count: 0, jobs: "" };
+            console.error("❌ Hybrid Retrieval Error:", error.message);
+            return { count: 0, jobs: "", documents: [], confidence: 0 };
         }
     }
 
     /**
-     * Step A: Pure Neural Search (Vector)
+     * Step 1: Semantic Query Expansion
      */
-    static async _vectorSearch(query) {
+    static async _expandQuery(query) {
+        const prompt = `
+Task: Expand user career query for Hybrid Search.
+Query: "${query}"
+Output JSON: { "semanticQuery": "sentence with synonyms", "keywords": ["word1", "word2"], "filters": { "salary": bool, "location": "string" } }
+`;
+        const res = await LLMProvider.generateLogic(prompt);
+        return res || { semanticQuery: query, keywords: query.split(' '), filters: {} };
+    }
+
+    /**
+     * Step 2A: Vector Search (Semantic)
+     */
+    static async _vectorSearch(query, profile) {
         const queryVector = await VectorService.generate(query);
         if (!queryVector) return [];
 
-        try {
-            return await Job.aggregate([
-                {
-                    $vectorSearch: {
-                        index: "vector_index",
-                        path: "searchVector",
-                        queryVector: queryVector,
-                        numCandidates: 100,
-                        limit: 10
-                    }
-                },
-                { $match: { isActive: true } }
-            ]);
-        } catch (err) {
-            console.warn("⚠️ Vector Index not ready, skipping vector search.");
-            return [];
+        const pipeline = [
+            {
+                $vectorSearch: {
+                    index: "vector_index",
+                    path: "searchVector",
+                    queryVector: queryVector,
+                    numCandidates: 100,
+                    limit: 20
+                }
+            },
+            { $match: { isActive: true } }
+        ];
+
+        // Metadata Filter: Qualification matching at DB level
+        if (profile.qualification) {
+            pipeline.push({
+                $match: { "eligibility.education": { $regex: profile.qualification, $options: 'i' } }
+            });
         }
+
+        return await Job.aggregate(pipeline);
     }
 
     /**
-     * Step B: Semantic Text Search (Fallback)
-     * Matches Phase 3: No manual keywords, uses AI-refined query.
+     * Step 2B: Keyword Search (BM25 Equivalent)
      */
-    static async _semanticTextSearch(query, profile) {
-        const normalizedQuery = String(query || '').toLowerCase();
-
-        // Generic list requests such as "new job ki list do" or
-        // "koi bhi job hai kya" should not be treated as exact title searches.
-        // For these, the safest DB behavior is to show latest active jobs.
-        if (this._isGenericJobListQuery(normalizedQuery)) {
-            const now = new Date();
-            const criteria = {
-                isActive: true,
-                $or: [
-                    { lastDate: { $gte: now } },
-                    { lastDate: null },
-                    { lastDate: { $exists: false } }
-                ]
-            };
-
-            if (profile.qualification) {
-                criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
-            }
-
-            return await Job.find(criteria).sort({ createdAt: -1 }).limit(10);
-        }
-
-        // We use the refined query as a whole for regex matching across title/org/content
-        const searchRegex = new RegExp(query.split(' ').filter(w => w.length > 3).join('|'), 'i');
-
-        let criteria = {
+    static async _keywordSearch(keywords, profile) {
+        const searchString = keywords.join(' ');
+        const criteria = {
             isActive: true,
-            $or: [
-                { title: searchRegex },
-                { organization: searchRegex },
-                { fullHtmlContent: searchRegex }
-            ]
+            $text: { $search: searchString }
         };
 
-        // Personalization Filter (If available)
         if (profile.qualification) {
             criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
         }
 
-        return await Job.find(criteria).sort({ createdAt: -1 }).limit(10);
+        return await Job.find(criteria)
+            .sort({ score: { $meta: "textScore" } })
+            .limit(20)
+            .lean();
     }
 
-    static _isGenericJobListQuery(query) {
-        const normalized = String(query || '').toLowerCase();
-
-        // Semantic check: Does the user want a list of any/latest jobs without specific filters?
-        const genericKeywords = [
-            'job', 'naukri', 'vacancy', 'vacancies', 'bharti', 'recruitment',
-            'list', 'dikhao', 'batao', 'do', 'latest', 'new', 'top', 'trending',
-            'koi', 'sabse', 'accha', 'kaun', 'acchi', 'badhiya', 'fresh', 'abhi'
-        ];
-
-        const words = normalized.split(/\s+/);
-        const hasJobKeyword = /\b(job|naukri|vacancy|vacancies|bharti|recruitment)\b/i.test(normalized);
-        const hasListKeyword = /\b(list|dikhao|batao|do|latest|new|top|trending|koi|acchi|badhiya|kaun|show|any)\b/i.test(normalized);
-
-        if (hasJobKeyword && hasListKeyword) return true;
-        if (words.length <= 4 && hasJobKeyword) return true;
-
-        return false;
-    }
-
-    static _mergeResults(vec, text) {
-        const seen = new Set(vec.map(j => j._id.toString()));
-        const merged = [...vec];
-        text.forEach(j => {
-            if (!seen.has(j._id.toString())) {
-                merged.push(j);
-                seen.add(j._id.toString());
+    /**
+     * Step 3: Candidate Merging (Reciprocal Rank Fusion logic)
+     */
+    static _mergeCandidates(vec, key) {
+        const map = new Map();
+        vec.forEach((j, i) => map.set(j._id.toString(), { ...j, score: 1 / (i + 1) }));
+        key.forEach((j, i) => {
+            const id = j._id.toString();
+            const existing = map.get(id);
+            const keyScore = 1 / (i + 1);
+            if (existing) {
+                existing.score += keyScore;
+            } else {
+                map.set(id, { ...j, score: keyScore });
             }
         });
-        return merged.slice(0, 10);
+        return Array.from(map.values());
     }
 
     static _formatJob(j) {
-        return `- JOB: ${j.title || "N/A"} | Org: ${j.organization || "N/A"} | Vacancy: ${j.totalVacancy || "N/A"} | Last Date: ${j.importantDates?.applicationLastDate || "Check Official Site"}`;
+        return `- [${j.title}] | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || "Verified Soon"} | Link: ${j.officialLinks?.apply || "In Details"}`;
+    }
+
+    static _logTelemetry(data) {
+        if (process.env.DEBUG_RETRIEVAL === 'true') {
+            console.log('[RETRIEVAL TELEMETRY]', JSON.stringify(data, null, 2));
+        }
     }
 }
 

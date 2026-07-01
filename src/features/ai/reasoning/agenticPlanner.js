@@ -1,62 +1,29 @@
 /**
- * AgenticPlanner Module (Architectural Version 3.0)
- * Responsibility: Executing Technical Strategy based on IntentEngine's Decision.
- * NO Intent Mapping should happen here.
+ * AgenticPlanner Module (Architectural Version 4.0)
+ * Responsibility: Consuming the Unified Cognitive Plan.
+ * This module no longer contains hardcoded "if/else" tool selection.
  */
-const LLMProvider = require('../generation/llmProvider');
-
 class AgenticPlanner {
     /**
-     * Consumes the Intent Contract and decides Tool selection.
+     * Strategic Wrapper for the UCC Plan.
+     * Simply prepares the final strategy object for the Orchestrator.
      */
     static async generatePlan(query, contract, context = {}) {
-        // 1. Technical Resource Assignment (Tools)
-        const tools = [];
-        const priorityModules = ["CORE", "PERSONALITY"];
+        // All rule-based routing removed.
+        // We now extract the strategy directly from the Semantic Contract (UCC).
 
-        // Determine if DB is needed based on the centralized mode
-        const needsDatabase = ["JOB_SEARCH", "JOB_DETAILS", "SCHOLARSHIP"].includes(contract.mode);
-        if (needsDatabase) tools.push("DATABASE");
-
-        // Determine if Profile context is needed
-        if (contract.mode === "PROFILE_CHECK" || contract.mode === "CAREER_GUIDANCE") {
-            tools.push("USER_PROFILE");
-        }
-
-        // Determine if Math Tool is needed
-        const mathKeywords = ['+', '-', '*', '/', 'multiply', 'divide', 'calculate', 'hisab', 'hisab-kitab'];
-        if (mathKeywords.some(k => query.toLowerCase().includes(k)) || contract.normalizedIntent === 'MATH') {
-            tools.push("CALCULATOR");
-        }
-
-        // Module Selection based on Intent
-        if (contract.normalizedIntent === "JOB_SEARCH" || contract.normalizedIntent === "DISCOVERY") {
-            priorityModules.push("GOVT_JOB");
-        } else if (contract.normalizedIntent === "CAREER_GUIDANCE") {
-            priorityModules.push("CAREER");
-        } else if (contract.normalizedIntent === "RESUME") {
-            priorityModules.push("RESUME");
-        }
-
-        // 2. Final Strategy Packaging
         return {
-            mode: contract.mode,
-            behavior: contract.behavior,
-            intent: contract.normalizedIntent,
-            tools: tools,
-            needsDatabase: needsDatabase,
-            priorityModules: priorityModules,
-            useReasoningModel: contract.mode === "CAREER_GUIDANCE",
-            emotionalTone: contract.emotionalTone || "NEUTRAL"
+            mode: contract.mode || contract.intent,
+            behavior: contract.behavior || "RESPOND",
+            intent: contract.normalizedIntent || contract.intent,
+            tools: contract.execution ? contract.execution.map(e => e.tool) : [],
+            needsDatabase: contract.execution ? contract.execution.some(e => e.tool === 'RAG') : false,
+            parallel: contract.parallel || false,
+            execution: contract.execution || [],
+            priorityModules: ["CORE", "PERSONALITY", contract.intent].filter(Boolean),
+            useReasoningModel: contract.intent === "CAREER_GUIDANCE",
+            emotionalTone: "NEUTRAL" // Can be expanded in UCC later
         };
-    }
-
-    /**
-     * Strategic Pivot if no data found.
-     */
-    static async generatePivotPlan(query, previousError) {
-        // ... existing logic ...
-        return { tool: "WEB_SEARCH", newSearchQuery: query };
     }
 }
 

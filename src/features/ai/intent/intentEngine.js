@@ -1,173 +1,85 @@
 /**
- * IntentEngine Module (Architectural Version 3.0)
- * Responsibility: SINGLE SOURCE OF TRUTH for Intent, Domain, and Behavioral Logic.
- * This version includes a hybrid approach with a deterministic guard layer and a semantic LLM detector.
+ * IntentEngine Module (Architectural Version 4.0 - Unified Cognitive Controller)
+ * Responsibility: SINGLE SOURCE OF TRUTH for Intent, Planning, and Execution Strategy.
+ * This replaces legacy rule-based detection with a Gemini-style unified planning call.
  */
-const NeuralRefiner = require('./normalizers/neuralRefiner');
-const LLMDetector = require('./detectors/llmDetector');
-const VectorService = require('../knowledge/vectorService');
-const DeterministicIntentResolver = require('./DeterministicIntentResolver');
+const LLMProvider = require('../generation/llmProvider');
 
 class IntentEngine {
     /**
-     * The Master Contract for all downstream modules.
+     * Unified Cognitive Controller (UCC)
+     * Performs Intent Detection, Query Refinement, and Tool Planning in a single LLM call.
      */
-    static _createContract(data = {}) {
-        return {
-            originalQuery: data.originalQuery || data.query || "",
-            refinedQuery: data.refinedQuery || data.query || "",
-            rawIntent: data.rawIntent || data.normalizedIntent || "NONE",
-            normalizedIntent: data.normalizedIntent || "GENERAL_QUERY",
-            intent: data.normalizedIntent || "GENERAL_QUERY", // Backward compatibility alias
-            domain: data.domain || "GENERAL",
-            behavior: data.behavior || "RESPOND", // Default behavior
-            mode: data.mode || "GENERAL_HELP", // Default mode
-            confidence: data.confidence !== undefined ? data.confidence : 0.1,
-            slots: data.slots || data.entities || {},
-            entities: data.slots || data.entities || {}, // Backward compatibility alias
-            needsClarification: data.needsClarification || data.behavior === 'CLARIFY',
-            isFollowUp: !!data.isFollowUp, // Ensure boolean
-            reasoningShort: data.reasoningShort || "Contract fallback logic"
-        };
-    }
-
     static async classify(query, state = {}, profile = {}) {
-        // 0. Deterministic Guard Layer (for greetings, safety, simple commands)
-        const deterministicResult = DeterministicIntentResolver.resolve(query);
-        if (deterministicResult) {
-            const { normalizedIntent, mode, behavior } = this._resolveSystemValues(deterministicResult, query);
-            const finalContract = this._createContract({
-                ...deterministicResult,
-                normalizedIntent,
-                mode,
-                behavior
-            });
-            return finalContract;
+        const prompt = `
+Task: Act as the Cognitive Controller for Jobo AI.
+Generate a high-precision Execution Plan for the following user request.
+
+[USER QUERY]: "${query}"
+[CONTEXT]: Topic: ${state.currentTopic || 'General'} | Turn: ${state.turnCount || 0}
+[USER PROFILE]: ${JSON.stringify(profile)}
+
+# COGNITIVE REQUIREMENTS:
+1. INTENT: Detect primary and sub-intents (e.g., JOB_SEARCH, FIELD_DETAILS, CAREER_GUIDANCE, RESUME, SCHOLARSHIP).
+2. REWRITE: If the query is vague or uses pronouns (e.g., "fees?", "uski link"), rewrite it using context into a full searchable query.
+3. PLANNING: Decide if external tools are needed to fulfill the request.
+4. PARALLELISM: Identify if multiple tools can be executed simultaneously for speed.
+
+# AVAILABLE TOOLS:
+- RAG: Search the Job/Scholarship Database for verified updates.
+- PROFILE: Access user's deep profile context (Qualification, DOB, Category).
+- CALCULATOR: Perform mathematical operations or age calculations.
+- LLM: The final synthesis tool (always required).
+
+# OUTPUT SCHEMA (STRICT JSON ONLY):
+{
+  "intent": "STRING",
+  "confidence": 0.0-1.0,
+  "refinedQuery": "STRING",
+  "needsPlanning": BOOLEAN,
+  "parallel": BOOLEAN,
+  "requiredContext": ["profile", "conversation"],
+  "execution": [
+    { "step": 1, "tool": "RAG|PROFILE|CALCULATOR", "purpose": "brief reason" },
+    { "step": 2, "tool": "LLM", "purpose": "synthesis" }
+  ],
+  "reasoningShort": "1 sentence logic"
+}
+
+PLAN:`;
+
+        try {
+            const plan = await LLMProvider.generateLogic(prompt);
+
+            if (!plan || !plan.intent) throw new Error("Invalid Plan from LLM");
+
+            // Normalize for backward compatibility with other modules
+            return {
+                ...plan,
+                normalizedIntent: plan.intent,
+                primaryIntent: plan.intent,
+                refinedQuery: plan.refinedQuery || query,
+                mode: plan.intent, // Mapping intent to mode for Planner/Orchestrator
+                behavior: "RESPOND"
+            };
+        } catch (error) {
+            console.error("❌ UCC Planning Failure:", error.message);
+            return this._fallbackPlan(query);
         }
-
-        // 1. NEURAL REFINEMENT (Preserves original signal)
-        const refinerResult = await NeuralRefiner.refine(query, {
-            topic: state.currentTopic || state.topic,
-            turnCount: state.turnCount
-        });
-
-        // Determine the primary query signal based on refiner risk assessment
-        const primaryQuerySignal = refinerResult.refinerChangedMeaningRisk
-            ? refinerResult.originalQuery
-            : refinerResult.refinedQuery;
-
-        // 2. COGNITIVE ANALYSIS (Motive & Entities)
-        const analysis = await LLMDetector.classify(primaryQuerySignal, {
-            topic: state.currentTopic || state.topic,
-            profileStr: JSON.stringify(profile),
-            isHighRiskRefinement: !!refinerResult.refinerChangedMeaningRisk
-        });
-
-        // If LLM analysis fails, create a default contract but still resolve system values
-        const baseAnalysis = analysis || { primaryIntent: 'FALLBACK' };
-
-        // 3. MASTER NORMALIZATION (Centralized logic - no re-mapping in Planner)
-        const { normalizedIntent, mode, behavior } = this._resolveSystemValues(baseAnalysis, refinerResult.refinedQuery);
-
-        const finalContract = this._createContract({
-            ...refinerResult,
-            rawIntent: baseAnalysis.primaryIntent,
-            normalizedIntent,
-            domain: baseAnalysis.domain || "GENERAL",
-            behavior: behavior, // Always use the system-resolved behavior for consistency
-            mode,
-            confidence: baseAnalysis.confidence || 0.5,
-            entities: baseAnalysis.entities || {},
-            reasoningShort: baseAnalysis.thought_process || baseAnalysis.reasoning || (analysis ? "Neural classification" : "LLM detector fallback")
-        });
-
-        if (process.env.DEBUG_AI_PIPELINE === 'true') {
-            console.log('[AI DEBUG] IntentEngine Output:', {
-                originalQuery: finalContract.originalQuery,
-                refinedQuery: finalContract.refinedQuery,
-                ...finalContract,
-                source: finalContract.reasoningShort,
-                refinerRisk: refinerResult.refinerChangedMeaningRisk
-            });
-        }
-        return finalContract;
     }
 
-    /**
-     * Maps Motives (Human) to System Constants (Technical)
-     */
-    static _resolveSystemValues(analysis, query) {
-        const raw = String(analysis.primaryIntent || '').toUpperCase();
-        const lowQuery = query.toLowerCase();
-        const isClarify = analysis.needsClarification === true;
-
-        // Default Values
-        let normalizedIntent = "GENERAL_QUERY";
-        let mode = "GENERAL_HELP";
-        let behavior = "RESPOND";
-
-        // Logic Mapping
-        if (isClarify) {
-            behavior = "CLARIFY";
-            normalizedIntent = analysis.primaryIntent || "AMBIGUOUS_QUERY";
-        }
-        else if (raw === 'SAFETY_VIOLATION' || raw === 'GARBAGE') {
-            behavior = "BLOCK";
-            normalizedIntent = raw;
-        }
-        else if (raw === 'ACKNOWLEDGEMENT') {
-            behavior = "OK_RESPONSE";
-            normalizedIntent = raw;
-        }
-        else if (raw === 'AMBIGUOUS_QUERY') {
-            behavior = "CLARIFY";
-            normalizedIntent = raw;
-        }
-        else if (raw === 'GREETING' || raw === 'RAPPORT') {
-            normalizedIntent = "GREETING";
-            mode = "GENERAL_HELP";
-            behavior = "GREET";
-        }
-        else if (raw === 'IDENTITY') {
-            normalizedIntent = "IDENTITY";
-            mode = "GENERAL_HELP";
-        }
-        else if (raw === 'TRANSACTIONAL' || raw === 'JOB_SEARCH') {
-            normalizedIntent = "JOB_SEARCH";
-            mode = "JOB_SEARCH";
-        } else if (raw === 'FACTUAL' || raw === 'FIELD_DETAILS' || raw === 'FIELD_CHECK') {
-            normalizedIntent = "FIELD_DETAILS";
-            mode = "JOB_DETAILS";
-        } else if (raw === 'DISCOVERY') {
-            normalizedIntent = "DISCOVERY";
-            mode = "JOB_SEARCH";
-        } else if (raw === 'GUIDANCE' || raw === 'CAREER_GUIDANCE') {
-            normalizedIntent = "CAREER_GUIDANCE";
-            mode = "CAREER_GUIDANCE";
-        } else if (raw === 'PERSISTENCE' || raw === 'PROFILE_INQUIRY') {
-            normalizedIntent = "PROFILE_INQUIRY";
-            mode = "PROFILE_CHECK";
-        } else if (raw === 'ADMINISTRATIVE' || raw === 'RESULT_ADMIT_CARD') {
-            normalizedIntent = "RESULT_ADMIT_CARD";
-            mode = "JOB_DETAILS";
-        } else if (raw === 'RESUME' || raw === 'INTERVIEW' || raw === 'SKILLS' || raw === 'COLLEGE') {
-            normalizedIntent = raw;
-            mode = "CAREER_GUIDANCE";
-        } else if (raw === 'SCHOLARSHIP') {
-            normalizedIntent = "SCHOLARSHIP";
-            mode = "JOB_SEARCH";
-        } else if (raw === 'MOTIVATION') {
-            normalizedIntent = "MOTIVATION";
-            mode = "GENERAL_HELP";
-        }
-
-        // Emergency Overrides based on query semantic (Anti-Hallucination)
-        if (lowQuery.includes('fees') || lowQuery.includes('salary')) {
-            normalizedIntent = "FIELD_DETAILS";
-            mode = "JOB_DETAILS";
-        }
-
-        return { normalizedIntent, mode, behavior };
+    static _fallbackPlan(query) {
+        return {
+            intent: "GENERAL_QUERY",
+            normalizedIntent: "GENERAL_QUERY",
+            confidence: 0.5,
+            refinedQuery: query,
+            mode: "GENERAL_HELP",
+            behavior: "RESPOND",
+            parallel: false,
+            execution: [{ step: 1, tool: "LLM", purpose: "fallback" }],
+            reasoningShort: "Fallback due to planning error"
+        };
     }
 }
 
