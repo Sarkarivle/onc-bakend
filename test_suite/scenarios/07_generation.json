@@ -1,0 +1,22 @@
+[
+  { "id": "GN_01", "query": "Namaste Jobo bhai", "expectedTone": "FRIENDLY", "requiredStyle": "HINGLISH", "type": "FLOW" },
+  { "id": "GN_02", "query": "Mujhe job nahi mil rahi, tension ho rahi hai", "expectedTone": "EMPATHETIC", "requiredStyle": "HINGLISH", "type": "EMOTION" },
+  { "id": "GN_03", "query": "SSC GD details please", "expectedTone": "INFORMATIVE", "requiredStyle": "PROFESSIONAL_HINGLISH", "type": "STRUCTURE" },
+  { "id": "GN_04", "query": "Shukriya bhai!", "expectedTone": "FRIENDLY", "requiredStyle": "POLITE", "type": "FLOW" },
+  { "id": "GN_05", "query": "Aap bahut achha kaam kar rahe ho", "expectedTone": "GRATEFUL", "requiredStyle": "HUMBLE", "type": "FLOW" },
+  { "id": "GN_06", "query": "SSC CGL crack kaise karun? Tough lag raha hai", "expectedTone": "ENCOURAGING", "requiredStyle": "MOTIVATIONAL", "type": "TONE" },
+  { "id": "GN_07", "query": "Fees kitni hai? Jaldi batao", "expectedTone": "DIRECT", "requiredStyle": "FAST", "type": "FLOW" },
+  { "id": "GN_08", "query": "Hello?", "expectedTone": "FRIENDLY", "requiredStyle": "HELPFUL", "type": "FLOW" },
+  { "id": "GN_09", "query": "Kya aap robot ho?", "expectedTone": "WITTY", "requiredStyle": "PERSONALITY", "type": "IDENTITY" },
+  { "id": "GN_10", "query": "Mera interview kal hai, kuch tips do", "expectedTone": "SUPPORTIVE", "requiredStyle": "MOTIVATIONAL", "type": "TONE" },
+  { "id": "GN_11", "query": "Bhai meri help karo scholarship ke liye", "expectedTone": "HELPFUL", "requiredStyle": "HINGLISH", "type": "FLOW" },
+  { "id": "GN_12", "query": "Jobo, what can you do?", "expectedTone": "CONFIDENT", "requiredStyle": "INFORMATIVE", "type": "IDENTITY" },
+  { "id": "GN_13", "query": "Good night Jobo", "expectedTone": "FRIENDLY", "requiredStyle": "POLITE", "type": "FLOW" },
+  { "id": "GN_14", "query": "Kaise ho?", "expectedTone": "FRIENDLY", "requiredStyle": "HINGLISH", "type": "FLOW" },
+  { "id": "GN_15", "query": "Main fail ho gaya exam me", "expectedTone": "EMPATHETIC", "requiredStyle": "MOTIVATIONAL", "type": "EMOTION" },
+  { "id": "GN_16", "query": "Aap insaan ho ya computer?", "expectedTone": "FRIENDLY", "requiredStyle": "WITTY", "type": "IDENTITY" },
+  { "id": "GN_17", "query": "Bahut slow ho aap", "expectedTone": "APOLOGETIC", "requiredStyle": "POLITE", "type": "FLOW" },
+  { "id": "GN_18", "query": "Aur kuch nayi job aayi hai?", "expectedTone": "INFORMATIVE", "requiredStyle": "HINGLISH", "type": "FLOW" },
+  { "id": "GN_19", "query": "Bye bye!", "expectedTone": "FRIENDLY", "requiredStyle": "POLITE", "type": "FLOW" },
+  { "id": "GN_20", "query": "Namaste!", "expectedTone": "FRIENDLY", "requiredStyle": "POLITE", "type": "FLOW" }
+]

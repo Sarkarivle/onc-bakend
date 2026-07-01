@@ -1,0 +1,22 @@
+[
+  { "id": "INT_01", "query": "Latest govt jobs dikhao", "expected": { "intent": "DISCOVERY", "mode": "JOB_SEARCH" } },
+  { "id": "INT_02", "query": "SSC CGL ki notification kab aayi?", "expected": { "intent": "JOB_SEARCH", "mode": "JOB_SEARCH" } },
+  { "id": "INT_03", "query": "UP Police me General ki age limit?", "expected": { "intent": "FIELD_DETAILS", "mode": "JOB_DETAILS" } },
+  { "id": "INT_04", "query": "SSC GD ki fees kitni hai?", "expected": { "intent": "FIELD_DETAILS", "mode": "JOB_DETAILS" } },
+  { "id": "INT_05", "query": "IAS kaise bante hain?", "expected": { "intent": "CAREER_GUIDANCE", "mode": "CAREER_GUIDANCE" } },
+  { "id": "INT_06", "query": "Resume kaise banayein professional?", "expected": { "intent": "RESUME", "mode": "CAREER_GUIDANCE" } },
+  { "id": "INT_07", "query": "Syllabus of Railway Group D", "expected": { "intent": "FIELD_DETAILS", "mode": "JOB_DETAILS" } },
+  { "id": "INT_08", "query": "Bank jobs for graduates", "expected": { "intent": "JOB_SEARCH", "mode": "JOB_SEARCH" } },
+  { "id": "INT_09", "query": "Top 5 highest paying govt jobs", "expected": { "intent": "DISCOVERY", "mode": "JOB_SEARCH" } },
+  { "id": "INT_10", "query": "UPSSSC PET result kab aayega?", "expected": { "intent": "RESULT_ADMIT_CARD", "mode": "JOB_DETAILS" } },
+  { "id": "INT_11", "query": "Scholarship for UP students", "expected": { "intent": "SCHOLARSHIP", "mode": "JOB_SEARCH" } },
+  { "id": "INT_12", "query": "Interview crack karne ki tips", "expected": { "intent": "INTERVIEW", "mode": "CAREER_GUIDANCE" } },
+  { "id": "INT_13", "query": "Mera naam aur education kya hai?", "expected": { "intent": "PROFILE_INQUIRY", "mode": "PROFILE_CHECK" } },
+  { "id": "INT_14", "query": "Update my qualification to B.Tech", "expected": { "intent": "PROFILE_INQUIRY", "mode": "PROFILE_CHECK" } },
+  { "id": "INT_15", "query": "SSC MTS ki last date kya hai?", "expected": { "intent": "FIELD_DETAILS", "mode": "JOB_DETAILS" } },
+  { "id": "INT_16", "query": "Defense jobs after 12th science", "expected": { "intent": "JOB_SEARCH", "mode": "JOB_SEARCH" } },
+  { "id": "INT_17", "query": "Skills for software engineer", "expected": { "intent": "SKILLS", "mode": "CAREER_GUIDANCE" } },
+  { "id": "INT_18", "query": "Aapka founder kaun hai?", "expected": { "intent": "IDENTITY", "mode": "GENERAL_HELP" } },
+  { "id": "INT_19", "query": "Job search kaise karte hain?", "expected": { "intent": "GENERAL_QUERY", "mode": "GENERAL_HELP" } },
+  { "id": "INT_20", "query": "Motivation message for exams", "expected": { "intent": "MOTIVATION", "mode": "GENERAL_HELP" } }
+]

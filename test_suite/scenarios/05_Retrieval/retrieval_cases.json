@@ -1,0 +1,22 @@
+[
+  { "id": "RT_01", "query": "SSC GD 2024", "expectedFound": true },
+  { "id": "RT_02", "query": "UP Police Bharti", "expectedFound": true },
+  { "id": "RT_03", "query": "Railway Group D", "expectedFound": true },
+  { "id": "RT_04", "query": "Delhi Police Age", "expectedFound": true },
+  { "id": "RT_05", "query": "Banking Jobs", "expectedFound": true },
+  { "id": "RT_06", "query": "Female Jobs", "expectedFound": true },
+  { "id": "RT_07", "query": "UPSC IAS 2025", "expectedFound": true },
+  { "id": "RT_08", "query": "MTS Syllabus", "expectedFound": true },
+  { "id": "RT_09", "query": "UPSSSC PET", "expectedFound": true },
+  { "id": "RT_10", "query": "Agniveer Rally", "expectedFound": true },
+  { "id": "RT_11", "query": "Private Bareilly", "expectedFound": false },
+  { "id": "RT_12", "query": "Teaching Delhi", "expectedFound": true },
+  { "id": "RT_13", "query": "Medical Exam", "expectedFound": true },
+  { "id": "RT_14", "query": "High Salary Job", "expectedFound": true },
+  { "id": "RT_15", "query": "Scholarship OBC", "expectedFound": true },
+  { "id": "RT_16", "query": "10th pass job", "expectedFound": true },
+  { "id": "RT_17", "query": "SSC CGL Post", "expectedFound": true },
+  { "id": "RT_18", "query": "Sarkari Result", "expectedFound": true },
+  { "id": "RT_19", "query": "Bank Clerk", "expectedFound": true },
+  { "id": "RT_20", "query": "Random 123456", "expectedFound": false }
+]

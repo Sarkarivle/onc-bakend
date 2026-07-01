@@ -1,0 +1,22 @@
+[
+  { "id": "PR_01", "query": "Mera naam kya hai?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_02", "query": "Meri qualification kya save hai?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_03", "query": "Update my location to Bareilly", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_04", "query": "Main kaunsi category se hoon?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_05", "query": "Check my eligibility based on profile", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_06", "query": "Am I a graduate in your records?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_07", "query": "Change my age to 21", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_08", "query": "What is my date of birth?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_09", "query": "Reset my profile data", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_10", "query": "Mera city Delhi kar do", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_11", "query": "Show my full profile summary", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_12", "query": "Do you know my dream job?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_13", "query": "Update my education to 12th Pass", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_14", "query": "Mera mobile number kya hai?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_15", "query": "Check if I can apply for UPSC with my degree", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_16", "query": "Mera state Uttar Pradesh hai", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_17", "query": "Do I have any pending documents?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_18", "query": "Tell me about my profile insights", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_19", "query": "Can you see my previous chat?", "expectedIntent": "PROFILE_INQUIRY" },
+  { "id": "PR_20", "query": "Who is the user in this session?", "expectedIntent": "PROFILE_INQUIRY" }
+]

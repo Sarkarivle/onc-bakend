@@ -1,0 +1,22 @@
+[
+  { "id": "GN_01", "query": "Namaste Jobo", "expectedTone": "FRIENDLY" },
+  { "id": "GN_02", "query": "Job nahi mil rahi tension hai", "expectedTone": "EMPATHETIC" },
+  { "id": "GN_03", "query": "SSC GD details please", "expectedTone": "INFORMATIVE" },
+  { "id": "GN_04", "query": "Shukriya bhai!", "expectedTone": "FRIENDLY" },
+  { "id": "GN_05", "query": "Aap bahut achha kaam kar rahe ho", "expectedTone": "GRATEFUL" },
+  { "id": "GN_06", "query": "SSC CGL tough lag raha hai", "expectedTone": "ENCOURAGING" },
+  { "id": "GN_07", "query": "Fees batao jaldi", "expectedTone": "DIRECT" },
+  { "id": "GN_08", "query": "Kya aap robot ho?", "expectedTone": "WITTY" },
+  { "id": "GN_09", "query": "Mera interview kal hai", "expectedTone": "SUPPORTIVE" },
+  { "id": "GN_10", "query": "Help me scholarship", "expectedTone": "HELPFUL" },
+  { "id": "GN_11", "query": "Good night", "expectedTone": "FRIENDLY" },
+  { "id": "GN_12", "query": "Kaise ho?", "expectedTone": "FRIENDLY" },
+  { "id": "GN_13", "query": "Main fail ho gaya", "expectedTone": "EMPATHETIC" },
+  { "id": "GN_14", "query": "Aap computer ho?", "expectedTone": "WITTY" },
+  { "id": "GN_15", "query": "Bahut slow ho", "expectedTone": "APOLOGETIC" },
+  { "id": "GN_16", "query": "Aur kuch nayi job?", "expectedTone": "INFORMATIVE" },
+  { "id": "GN_17", "query": "Bye bye", "expectedTone": "FRIENDLY" },
+  { "id": "GN_18", "query": "Kaam kya karte ho?", "expectedTone": "INFORMATIVE" },
+  { "id": "GN_19", "query": "Tension ho rahi hai", "expectedTone": "EMPATHETIC" },
+  { "id": "GN_20", "query": "Aap best ho", "expectedTone": "GRATEFUL" }
+]

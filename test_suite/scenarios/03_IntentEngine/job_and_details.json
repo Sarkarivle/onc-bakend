@@ -1,0 +1,22 @@
+[
+  { "id": "INT_01", "query": "Latest govt jobs list", "expected": { "intent": "DISCOVERY" } },
+  { "id": "INT_02", "query": "SSC GD 2024 vacancy kab aayegi?", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_03", "query": "UP Police recruitment details", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_04", "query": "SSC GD ki fees kitni hai?", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_05", "query": "Delhi Police age limit general category", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_06", "query": "UPSSSC PET last date kab hai?", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_07", "query": "MTS ka syllabus kya hai?", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_08", "query": "Bank PO ki starting salary", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_09", "query": "Teaching jobs in UP secondary school", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_10", "query": "Army rally bharti 2025", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_11", "query": "UPSC Civil Services vacancy count", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_12", "query": "Syllabus for SSC MTS", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_13", "query": "SSC MTS result kab aayega?", "expected": { "intent": "RESULT_ADMIT_CARD" } },
+  { "id": "INT_14", "query": "Admit card for GD exam", "expected": { "intent": "RESULT_ADMIT_CARD" } },
+  { "id": "INT_15", "query": "Scholarship for OBC students", "expected": { "intent": "SCHOLARSHIP" } },
+  { "id": "INT_16", "query": "UP scholarship status check", "expected": { "intent": "SCHOLARSHIP" } },
+  { "id": "INT_17", "query": "12th pass ke liye govt jobs", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_18", "query": "Upcoming ssc exams calendar", "expected": { "intent": "DISCOVERY" } },
+  { "id": "INT_19", "query": "Age relaxation for OBC in central jobs", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_20", "query": "Top 10 highest paying govt jobs", "expected": { "intent": "DISCOVERY" } }
+]

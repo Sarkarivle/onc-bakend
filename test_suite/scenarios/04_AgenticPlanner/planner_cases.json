@@ -1,0 +1,22 @@
+[
+  { "id": "PL_01", "query": "latest jobs", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_02", "query": "ssc gd details", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_03", "query": "how to become ias", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_04", "query": "resume help", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_05", "query": "naukri", "expected": { "behavior": "CLARIFY" } },
+  { "id": "PL_06", "query": "fees?", "expected": { "behavior": "CLARIFY" } },
+  { "id": "PL_07", "query": "check my profile", "expected": { "mode": "PROFILE_CHECK" } },
+  { "id": "PL_08", "query": "scholarships in up", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_09", "query": "interview tips", "expected": { "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_10", "query": "bank po salary", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_11", "query": "highest paying jobs", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_12", "query": "10th ke baad kya karein", "expected": { "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_13", "query": "update my age", "expected": { "mode": "PROFILE_CHECK" } },
+  { "id": "PL_14", "query": "syllabus for mts", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_15", "query": "last date?", "expected": { "behavior": "CLARIFY" } },
+  { "id": "PL_16", "query": "motivation for ssc", "expected": { "mode": "GENERAL_HELP" } },
+  { "id": "PL_17", "query": "who made you", "expected": { "mode": "GENERAL_HELP" } },
+  { "id": "PL_18", "query": "skills for 2025", "expected": { "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_19", "query": "army recruitment", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_20", "query": "hi", "expected": { "mode": "GENERAL_HELP" } }
+]

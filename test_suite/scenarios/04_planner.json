@@ -1,0 +1,22 @@
+[
+  { "id": "PL_01", "query": "latest jobs", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_02", "query": "ssc gd details", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_03", "query": "how to become ias", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" }, "type": "GUIDANCE_TRIGGER" },
+  { "id": "PL_04", "query": "resume help", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" }, "type": "GUIDANCE_TRIGGER" },
+  { "id": "PL_05", "query": "fees of delhi police", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_06", "query": "hello jobo", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" }, "type": "GREETING" },
+  { "id": "PL_07", "query": "check my profile", "expected": { "needsDatabase": false, "mode": "PROFILE_CHECK" }, "type": "PROFILE" },
+  { "id": "PL_08", "query": "scholarships in up", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_09", "query": "interview tips", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" }, "type": "GUIDANCE_TRIGGER" },
+  { "id": "PL_10", "query": "bank po salary", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_11", "query": "highest paying jobs", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_12", "query": "10th ke baad kya karein", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" }, "type": "GUIDANCE_TRIGGER" },
+  { "id": "PL_13", "query": "update my age", "expected": { "needsDatabase": false, "mode": "PROFILE_CHECK" }, "type": "PROFILE" },
+  { "id": "PL_14", "query": "syllabus for mts", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_15", "query": "ssc mts last date", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_16", "query": "motivation for ssc", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" }, "type": "GENERAL" },
+  { "id": "PL_17", "query": "who made you", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" }, "type": "IDENTITY" },
+  { "id": "PL_18", "query": "naukri", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP", "behavior": "CLARIFY" }, "type": "CLARIFICATION" },
+  { "id": "PL_19", "query": "army recruitment", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" }, "type": "DATABASE_TRIGGER" },
+  { "id": "PL_20", "query": "skills for 2025", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" }, "type": "GUIDANCE_TRIGGER" }
+]

@@ -1,0 +1,22 @@
+[
+  { "id": "JS_01", "query": "Latest govt jobs list", "expectedIntent": "DISCOVERY" },
+  { "id": "JS_02", "query": "SSC GD 2024 vacancy kab aayegi?", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_03", "query": "UP Police recruitment details", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_04", "query": "12th pass ke liye bank jobs", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_05", "query": "Graduate ke liye best sarkari naukri", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_06", "query": "Delhi Police constable notification", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_07", "query": "Railway group D ki nayi bharti", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_08", "query": "Top 10 jobs in 2025", "expectedIntent": "DISCOVERY" },
+  { "id": "JS_09", "query": "Teaching jobs in UP secondary school", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_10", "query": "Army rally bharti 2025", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_11", "query": "Banking exams calendar 2025", "expectedIntent": "DISCOVERY" },
+  { "id": "JS_12", "query": "Female candidates ke liye safety jobs", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_13", "query": "UPSC Civil Services vacancy count", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_14", "query": "Agniveer Vayu bharti details", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_15", "query": "B.Com graduate ke liye govt jobs", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_16", "query": "High salary sarkari naukri list", "expectedIntent": "DISCOVERY" },
+  { "id": "JS_17", "query": "Sports quota recruitment 2024", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_18", "query": "Technical jobs in defense", "expectedIntent": "JOB_SEARCH" },
+  { "id": "JS_19", "query": "State wise govt jobs list", "expectedIntent": "DISCOVERY" },
+  { "id": "JS_20", "query": "Upcoming ssc exams", "expectedIntent": "DISCOVERY" }
+]

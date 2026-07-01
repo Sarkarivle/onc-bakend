@@ -1,0 +1,22 @@
+[
+  { "id": "RF_01", "query": "ssc", "expectedContains": ["ssc", "vacancy", "details"], "type": "EXPANSION" },
+  { "id": "RF_02", "query": "gd form", "expectedContains": ["ssc", "gd", "form", "apply"], "type": "EXPANSION" },
+  { "id": "RF_03", "query": "fees?", "context": { "topic": "Delhi Police" }, "expectedContains": ["delhi", "police", "fees"], "type": "CONTEXTUAL" },
+  { "id": "RF_04", "query": "kab aayega?", "context": { "topic": "SSC CGL" }, "expectedContains": ["ssc", "cgl", "date"], "type": "CONTEXTUAL" },
+  { "id": "RF_05", "query": "police bharti", "expectedContains": ["police", "recruitment", "bharti"], "type": "EXPANSION" },
+  { "id": "RF_06", "query": "age limit", "context": { "topic": "UP Police" }, "expectedContains": ["up", "police", "age", "limit"], "type": "CONTEXTUAL" },
+  { "id": "RF_07", "query": "sarkari result", "expectedContains": ["latest", "government", "jobs"], "type": "EXPANSION" },
+  { "id": "RF_08", "query": "12th pass", "expectedContains": ["jobs", "after", "12th"], "type": "EXPANSION" },
+  { "id": "RF_09", "query": "bank job", "expectedContains": ["banking", "latest", "vacancy"], "type": "EXPANSION" },
+  { "id": "RF_10", "query": "syllabus", "context": { "topic": "MTS" }, "expectedContains": ["ssc", "mts", "syllabus"], "type": "CONTEXTUAL" },
+  { "id": "RF_11", "query": "upsc", "expectedContains": ["ias", "notification", "2025"], "type": "EXPANSION" },
+  { "id": "RF_12", "query": "last date", "context": { "topic": "Agniveer" }, "expectedContains": ["agniveer", "application", "last", "date"], "type": "CONTEXTUAL" },
+  { "id": "RF_13", "query": "railway group d", "expectedContains": ["railway", "recruitment", "group d"], "type": "EXPANSION" },
+  { "id": "RF_14", "query": "qualification kya hai", "context": { "topic": "Bank PO" }, "expectedContains": ["bank", "po", "eligibility"], "type": "CONTEXTUAL" },
+  { "id": "RF_15", "query": "ias kaise bane", "expectedContains": ["steps", "to", "become", "ias"], "type": "EXPANSION" },
+  { "id": "RF_16", "query": "nayi vacancy", "expectedContains": ["latest", "job", "notifications"], "type": "EXPANSION" },
+  { "id": "RF_17", "query": "form kaise bharein", "context": { "topic": "UPSSSC PET" }, "expectedContains": ["upsssc", "pet", "how", "to", "apply"], "type": "CONTEXTUAL" },
+  { "id": "RF_18", "query": "ssc cgl salary", "expectedContains": ["pay", "scale", "post"], "type": "EXPANSION" },
+  { "id": "RF_19", "query": "teacher jobs", "expectedContains": ["teaching", "vacancy", "b.ed"], "type": "EXPANSION" },
+  { "id": "RF_20", "query": "army rally", "expectedContains": ["army", "bharti", "recruitment"], "type": "EXPANSION" }
+]

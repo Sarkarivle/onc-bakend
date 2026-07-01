@@ -1,0 +1,22 @@
+[
+  { "id": "JD_01", "query": "SSC GD ki fees kitni hai?", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_02", "query": "Delhi Police age limit general category", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_03", "query": "UPSSSC PET last date kab hai?", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_04", "query": "MTS ka syllabus kya hai?", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_05", "query": "Bank PO ki starting salary", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_06", "query": "How to apply for Agniveer online?", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_07", "query": "SSC CGL qualification for Inspector post", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_08", "query": "UPSC IAS interview marks distribution", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_09", "query": "Railway Group D physical test details", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_10", "query": "Is there any negative marking in SSC?", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_11", "query": "UP Police height requirement for females", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_12", "query": "IBPS PO exam pattern for mains", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_13", "query": "CGL last year cut off", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_14", "query": "Documents needed for army bharti", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_15", "query": "SSC MTS result kab aayega?", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_16", "query": "Syllabus of General Knowledge for GD", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_17", "query": "Salary after 7th Pay Commission for Group C", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_18", "query": "Age relaxation for OBC in central jobs", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_19", "query": "Application link for Delhi Police", "expectedIntent": "FIELD_DETAILS" },
+  { "id": "JD_20", "query": "MTS exam language options", "expectedIntent": "FIELD_DETAILS" }
+]

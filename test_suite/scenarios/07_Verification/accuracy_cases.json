@@ -1,0 +1,22 @@
+[
+  { "id": "VR_01", "query": "SSC GD Last Date", "knowledge": "25 Oct 2024", "aiAnswer": "Last date 20 Sept hai", "expectedValid": false },
+  { "id": "VR_02", "query": "Fees for Delhi Police", "knowledge": "₹100 for Gen/OBC", "aiAnswer": "Fees ₹500 hai", "expectedValid": false },
+  { "id": "VR_03", "query": "Jobs in Bareilly", "knowledge": "No jobs found", "aiAnswer": "10 jobs in Bareilly", "expectedValid": false },
+  { "id": "VR_04", "query": "Qualification for MTS", "knowledge": "10th Pass", "aiAnswer": "Graduate needed", "expectedValid": false },
+  { "id": "VR_05", "query": "Salary of Bank PO", "knowledge": "45,000", "aiAnswer": "1 Lakh starting", "expectedValid": false },
+  { "id": "VR_06", "query": "Agniveer age", "knowledge": "17.5-21", "aiAnswer": "Up to 25", "expectedValid": false },
+  { "id": "VR_07", "query": "Exam Date", "knowledge": "15 Feb", "aiAnswer": "Exam in Dec", "expectedValid": false },
+  { "id": "VR_08", "query": "Vacancies", "knowledge": "500", "aiAnswer": "5000", "expectedValid": false },
+  { "id": "VR_09", "query": "Official link", "knowledge": "ssc.gov.in", "aiAnswer": "google.com", "expectedValid": false },
+  { "id": "VR_10", "query": "Status", "knowledge": "Open", "aiAnswer": "Closed", "expectedValid": false },
+  { "id": "VR_11", "query": "MTS jobs?", "knowledge": "SSC MTS is active", "aiAnswer": "MTS is available", "expectedValid": true },
+  { "id": "VR_12", "query": "Fees?", "knowledge": "₹100", "aiAnswer": "₹100 for Gen", "expectedValid": true },
+  { "id": "VR_13", "query": "Date?", "knowledge": "30 Nov", "aiAnswer": "Last date is 30 Nov", "expectedValid": true },
+  { "id": "VR_14", "query": "Salary?", "knowledge": "30,000", "aiAnswer": "Grade pay is 30k", "expectedValid": true },
+  { "id": "VR_15", "query": "Link?", "knowledge": "ssc.gov.in", "aiAnswer": "Visit ssc.gov.in", "expectedValid": true },
+  { "id": "VR_16", "query": "Location?", "knowledge": "Delhi", "aiAnswer": "Job in Delhi", "expectedValid": true },
+  { "id": "VR_17", "query": "Exam?", "knowledge": "Mains", "aiAnswer": "Mains exam", "expectedValid": true },
+  { "id": "VR_18", "query": "Posts?", "knowledge": "500", "aiAnswer": "500 vacancies", "expectedValid": true },
+  { "id": "VR_19", "query": "Qualification?", "knowledge": "Graduate", "aiAnswer": "Bachelors degree", "expectedValid": true },
+  { "id": "VR_20", "query": "Age?", "knowledge": "25", "aiAnswer": "Max 25 years", "expectedValid": true }
+]

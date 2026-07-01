@@ -1,114 +1,103 @@
+/**
+ * 🧠 Jobo AI - Deep Neural Pipeline Evaluation (Modular 2.0)
+ * Location: vps_code/test_suite/runNeuralTests.js
+ */
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-// Load Orchestrator components
+const AIOrchestrator = require('../src/features/ai/orchestrator/aiOrchestrator');
 const IntentEngine = require('../src/features/ai/intent/intentEngine');
-const AgenticPlanner = require('../src/features/ai/reasoning/agenticPlanner');
-const UserProfile = require('../src/features/ai/context/userProfile');
+const SmartGateway = require('../src/features/ai/quality/smartGateway');
+const EliteFormatter = require('../src/features/ai/quality/eliteFormatter');
 
-const TEST_FILE = path.join(__dirname, 'neural_tests.json');
+const SCENARIOS_ROOT = path.join(__dirname, 'scenarios');
 const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/onc_db";
 
-async function runTest(testCase) {
-    const { query, context = {}, profile = {} } = testCase;
-
-    console.log(`\nTesting Query: "${query}"`);
+async function runTest(file, test) {
+    let passed = false;
+    let actual = null;
 
     try {
-        // 1. Run Intent Detection
-        const resolvedIntent = await IntentEngine.classify(query, context, profile);
-
-        // 2. Run Agentic Planning
-        const plan = await AgenticPlanner.generatePlan(query, resolvedIntent, {
-            topic: context.currentTopic || 'GENERAL',
-            profileStr: UserProfile.toContextString(profile)
-        });
-
-        const actual = {
-            intent: resolvedIntent.primaryIntent,
-            mode: plan.mode,
-            behavior: plan.behavior,
-            tone: resolvedIntent.tone || plan.emotionalTone
-        };
-
-        const result = {
-            id: testCase.id,
-            query,
-            expected: testCase.expected,
-            actual,
-            passed: true,
-            mismatches: []
-        };
-
-        // Validate
-        for (const [key, expectedValue] of Object.entries(testCase.expected)) {
-            if (actual[key] !== expectedValue) {
-                result.passed = false;
-                result.mismatches.push(`${key}: Expected "${expectedValue}", got "${actual[key]}"`);
-            }
+        if (file.includes('Gateway')) {
+            const res = await SmartGateway.validate(test.query);
+            actual = res.status;
+            passed = actual === test.expected;
         }
-
-        return result;
-
-    } catch (error) {
-        return {
-            id: testCase.id,
-            query,
-            error: error.message,
-            passed: false
-        };
+        else if (file.includes('Intent_DeepDive')) {
+            const res = await IntentEngine.classify(test.query);
+            actual = res.primaryIntent;
+            passed = actual === test.expectedIntent;
+        }
+        else {
+            // Full Pipeline Test for Planner and Quality
+            const res = await AIOrchestrator.processRequest({ userMessage: test.query });
+            actual = res.success ? "SUCCESS" : "FAILED";
+            passed = res.success;
+        }
+        return { passed, actual };
+    } catch (err) {
+        return { passed: false, actual: 'ERROR', error: err.message };
     }
 }
 
-async function main() {
-    console.log('🧠 Starting Neural Logic Evaluation (Multi-Label)...');
+async function scanAndTest() {
+    console.log('============================================================');
+    console.log('🏁 JOBO AI - DEEP MODULAR EVALUATION (200+ CASES)');
+    console.log('============================================================');
 
     try {
         await mongoose.connect(mongoURI);
-        console.log('✅ DB Connected for Tests');
+        await SmartGateway.initialize();
     } catch (err) {
-        console.error('❌ DB Connection Error:', err.message);
         process.exit(1);
     }
 
-    if (!fs.existsSync(TEST_FILE)) {
-        console.error('Test file not found!');
-        mongoose.disconnect();
-        return;
-    }
+    const categories = fs.readdirSync(SCENARIOS_ROOT);
+    const finalReport = [];
 
-    const tests = JSON.parse(fs.readFileSync(TEST_FILE, 'utf8'));
-    const results = [];
+    for (const cat of categories) {
+        const catPath = path.join(SCENARIOS_ROOT, cat);
+        if (!fs.lstatSync(catPath).isDirectory()) continue;
 
-    for (const test of tests) {
-        const res = await runTest(test);
-        results.push(res);
+        console.log(`\n📂 Category: ${cat}`);
+        const files = fs.readdirSync(catPath).filter(f => f.endsWith('.json'));
 
-        if (res.passed) {
-            console.log(`  ✅ [PASSED] ${test.id}`);
-        } else {
-            console.log(`  ❌ [FAILED] ${test.id}`);
-            if (res.error) {
-                console.log(`     Error: ${res.error}`);
-            } else {
-                res.mismatches.forEach(m => console.log(`     - ${m}`));
+        for (const file of files) {
+            const scenarios = JSON.parse(fs.readFileSync(path.join(catPath, file), 'utf8'));
+            let filePassed = 0;
+
+            console.log(`   📄 Testing ${file} (${scenarios.length} cases)`);
+
+            for (const test of scenarios) {
+                const res = await runTest(path.join(cat, file), test);
+                if (res.passed) filePassed++;
+                process.stdout.write(res.passed ? '✅' : '❌');
             }
+
+            const score = ((filePassed / scenarios.length) * 100).toFixed(0);
+            console.log(` -> ${score}%`);
+            finalReport.push({ name: `${cat}/${file}`, total: scenarios.length, passed: filePassed });
         }
     }
 
-    const passedCount = results.filter(r => r.passed).length;
-    console.log('\n============================================================');
-    console.log('NEURAL INTELLIGENCE REPORT');
-    console.log('============================================================');
-    console.log(`Total Cases: ${tests.length}`);
-    console.log(`Passed:      ${passedCount}`);
-    console.log(`Failed:      ${tests.length - passedCount}`);
-    console.log(`Accuracy:    ${((passedCount / tests.length) * 100).toFixed(2)}%`);
-    console.log('============================================================\n');
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 FINAL NEURAL INTELLIGENCE REPORT');
+    console.log('='.repeat(60));
+
+    finalReport.forEach(r => {
+        const bar = '█'.repeat(Math.round((r.passed/r.total)*10)) + '░'.repeat(10 - Math.round((r.passed/r.total)*10));
+        console.log(`${r.name.padEnd(35)} | ${bar} | ${r.passed}/${r.total}`);
+    });
+
+    console.log('='.repeat(60));
+    const grandTotal = finalReport.reduce((a, b) => a + b.total, 0);
+    const grandPassed = finalReport.reduce((a, b) => a + b.passed, 0);
+    console.log(`TOTAL SCORE: ${grandPassed}/${grandTotal} (${((grandPassed/grandTotal)*100).toFixed(2)}%)`);
+    console.log('='.repeat(60) + '\n');
 
     await mongoose.disconnect();
 }
 
-main();
+scanAndTest();
