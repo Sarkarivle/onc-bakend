@@ -56,21 +56,34 @@ class IntentEngine {
             refinedQuery,
             isFollowUp: analysis.discourse === 'FOLLOW_UP',
             usePreviousContext: analysis.discourse === 'FOLLOW_UP',
-            primaryIntent: primary === 'GREETING' ? 'GREETING' : this._mapToLegacyIntents(primary, analysis.subIntent)
+            primaryIntent: primary === 'GREETING' ? 'GREETING' : this._mapToLegacyIntents(primary, analysis.subIntent, refinedQuery)
         };
     }
 
-    static _mapToLegacyIntents(primary, sub) {
+    static _mapToLegacyIntents(primary, sub, originalQuery) {
         const p = String(primary || '').toUpperCase();
-        const s = String(sub || '').toUpperCase();
+        const lowQuery = String(originalQuery || '').toLowerCase();
 
-        // High-confidence overrides for specific keywords that Llama 8b might misclassify
-        if (p === 'JOB_SEARCH' || p === 'DISCOVERY') {
-            if (s.includes('FEES') || s.includes('AGE') || s.includes('DATE') || s.includes('SALARY')) return 'FIELD_DETAILS';
+        // 🧠 SMART OVERRIDE: Only override if the LLM is already in a "Job-related" context
+        const isJobRelated = ['JOB_SEARCH', 'DISCOVERY', 'GENERAL_QUERY', 'FIELD_CHECK'].includes(p);
+
+        if (isJobRelated) {
+            // Check for specific detail-oriented keywords
+            const hasDetailKeyword = /\b(fees?|paisa|umar|age|limit|salary|vetan|tarikh|date|timeline|eligibility|qualification)\b/i.test(lowQuery);
+
+            // If it's a very short query with a detail keyword, it's almost certainly FIELD_DETAILS
+            if (hasDetailKeyword && lowQuery.split(' ').length <= 6) {
+                return 'FIELD_DETAILS';
+            }
+
+            // Force DISCOVERY for "top/latest" queries if model said JOB_SEARCH
+            if (p === 'JOB_SEARCH' && /\b(top|latest|nayi|new|sabse acchi)\b/i.test(lowQuery)) {
+                return 'DISCOVERY';
+            }
         }
 
         if (p === 'JOB_SEARCH' || p === 'JOB_QUERY') return 'JOB_SEARCH';
-        if (p === 'FIELD_CHECK' || p === 'FIELD_DETAILS' || s === 'FEES' || s === 'AGE_LIMIT') return 'FIELD_DETAILS';
+        if (p === 'FIELD_CHECK' || p === 'FIELD_DETAILS') return 'FIELD_DETAILS';
         if (p === 'DISCOVERY') return 'DISCOVERY';
         if (p === 'CAREER_ADVICE' || p === 'CAREER_GUIDANCE') return 'CAREER_GUIDANCE';
         if (p === 'STATUS_CHECK' || p === 'RESULT_ADMIT_CARD') return 'RESULT_ADMIT_CARD';
