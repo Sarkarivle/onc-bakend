@@ -3,6 +3,7 @@
  * Responsibility: Intelligent context collection, compression, and deduplication.
  */
 const templates = require('./promptTemplates');
+const personality = require('./prompts/personality');
 
 class PromptComposer {
     /**
@@ -17,8 +18,9 @@ class PromptComposer {
         const historyBlock = this._formatHistory(liveData.memory?.recentHistory || []);
         const ragBlock = this._formatRAG(liveData.jobs);
 
-        // 2. Build Component List
+        // 2. Build Component List (Personality First)
         const components = [
+            personality,
             templates.CORE,
             templates.STYLE,
             templates.REASONING,

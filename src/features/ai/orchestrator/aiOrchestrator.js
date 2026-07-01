@@ -145,9 +145,12 @@ class AIOrchestrator {
             let hasExitedUserMessage = false;
             let hasPushedAnyContent = false;
 
+            // Reinforce formatting in the user message to ensure model follows tags
+            const reinforcedUserMessage = `${userMessage}\n\n(Note: Jawab Hinglish में दें और <USER_MESSAGE> टैग्स का इस्तेमाल करें)`;
+
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
-                { role: 'user', content: userMessage }
+                { role: 'user', content: reinforcedUserMessage }
             ], async (chunk) => {
                 fullContent += chunk;
 
@@ -219,7 +222,7 @@ class AIOrchestrator {
 
         // Fallback for greetings if stream was empty
         if (!hasPushed) {
-            await stream.pushChunk("Namaste! Main aapka AI assistant hoon. Kaise madad karun?");
+            await stream.pushChunk("Namaste bhai! Main Jobo AI hoon. Bataiye, aaj aapki career ya jobs se judi kya help kar sakta hoon?");
         }
 
         const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions: ["Latest jobs", "Scholarships"] })}`;
