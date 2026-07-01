@@ -12,13 +12,18 @@ class RetrievalEngine {
      */
     static async searchJobs(refinedQuery, profile = {}, plan = {}) {
         try {
-            console.log(`🔎 Retrieval: Searching for "${refinedQuery}"`);
+            console.log(`🔎 Neural Search: Searching for "${refinedQuery}" with profile matching.`);
 
             // 1. Vector Search (Semantic Meaning)
             let results = await this._vectorSearch(refinedQuery);
 
-            // 2. Hybrid Fallback (If vector results are low or empty)
-            if (!results || results.length < 3) {
+            // 2. Profile Compatibility Filter (NEURAL MATCHING)
+            if (results.length > 0 && profile.qualification) {
+                results = await this._applyNeuralProfileFilter(results, profile);
+            }
+
+            // 3. Hybrid Fallback (If vector results are low)
+            if (!results || results.length < 2) {
                 const keywordResults = await this._semanticTextSearch(refinedQuery, profile);
                 results = this._mergeResults(results, keywordResults);
             }

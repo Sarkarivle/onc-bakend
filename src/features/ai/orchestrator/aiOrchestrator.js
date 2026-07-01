@@ -60,6 +60,12 @@ class AIOrchestrator {
             ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
             const resolvedIntent = await IntentEngine.classify(userMessage, state, profile);
 
+            // NEURAL MEMORY: Track topic evolution
+            if (resolvedIntent.entities?.job || resolvedIntent.subIntent) {
+                state.lastTopic = resolvedIntent.entities?.job || resolvedIntent.subIntent;
+                await SessionState.save(sessionId, state);
+            }
+
             // PHASE 4: AGENTIC PLANNING
             ProgressEmitter.emit(sessionId, 'PLANNING');
             const plan = await AgenticPlanner.generatePlan(userMessage, resolvedIntent, { topic: state.topic });

@@ -1,63 +1,87 @@
 /**
- * IntentEngine Module (Phase 2-B: Neural Query Completion)
- * Responsibility: Coordinating AI-driven refinement and intent detection.
+ * IntentEngine Module (Phase 3: Neural Intent Detection)
+ * Responsibility: Semantic classification of motives and entity extraction.
  */
 const NeuralRefiner = require('./normalizers/neuralRefiner');
 const LLMDetector = require('./detectors/llmDetector');
+const VectorService = require('../knowledge/vectorService');
+
+// Semantic Anchors for Ultra-Fast Intent Mapping (Bhaav-based)
+const INTENT_ANCHORS = {
+    'JOB_SEARCH': ["new vacancy", "naukri chahiye", "bharti", "recruitment notifications"],
+    'FIELD_DETAILS': ["fees kitni hai", "last date", "age limit", "salary kitni milegi", "syllabus"],
+    'CAREER_GUIDANCE': ["10th ke baad kya karein", "how to become doctor", "ias preparation", "roadmap"],
+    'PROFILE_INQUIRY': ["mera naam kya hai", "check my profile", "update qualification"],
+    'RESULT_ADMIT_CARD': ["result kab aayega", "admit card date", "status check"]
+};
 
 class IntentEngine {
+    static anchorVectors = new Map();
+    static isInitialized = false;
+
+    static async _init() {
+        if (this.isInitialized) return;
+        for (const [intent, examples] of Object.entries(INTENT_ANCHORS)) {
+            const vectors = await Promise.all(examples.map(ex => VectorService.generate(ex)));
+            this.anchorVectors.set(intent, vectors.filter(v => v !== null));
+        }
+        this.isInitialized = true;
+    }
+
     static async classify(query, state = {}, profile = {}) {
-        // 1. NEURAL REFINEMENT: Fix typos and complete adhoora sawal
-        // Example: "fees?" -> "Delhi Police ki fees kya hai?"
+        await this._init();
+        const queryVector = await VectorService.generate(query);
+
+        // 1. NEURAL REFINEMENT
         const refinedQuery = await NeuralRefiner.refine(query, {
             topic: state.currentTopic || state.topic,
             turnCount: state.turnCount
         });
 
-        console.log(`🧠 Query Evolution: "${query}" -> "${refinedQuery}"`);
-
-        // 2. NEURAL INTENT DETECTION: Use the "Perfected" query
+        // 2. COGNITIVE ANALYSIS (LLM + Vector)
         let analysis = await LLMDetector.classify(refinedQuery, {
             topic: state.currentTopic || state.topic,
             profile,
             turnCount: state.turnCount
         });
 
-        if (!analysis) {
-            return {
-                primaryIntent: 'GENERAL_QUERY',
-                discourse: 'NEW_TOPIC',
-                confidence: 0.1,
-                reasoning: 'Analysis Failed'
-            };
+        // 3. SEMANTIC CORRECTION (If LLM is unsure, Vector decides)
+        if (analysis.confidence < 0.7 && queryVector) {
+            const bestIntent = this._getBestSemanticMatch(queryVector);
+            if (bestIntent) analysis.primaryIntent = bestIntent;
         }
-
-        // Handle case where LLM returns a string instead of JSON object
-        if (typeof analysis === 'string') {
-            console.log(`[INTENT_RECOVERY] LLM returned string, attempting to wrap: "${analysis}"`);
-            analysis = {
-                primaryIntent: analysis.toUpperCase().includes('GREETING') ? 'GREETING' :
-                               analysis.toUpperCase().includes('JOB_SEARCH') ? 'JOB_SEARCH' :
-                               analysis.toUpperCase().includes('FIELD') ? 'FIELD_CHECK' : 'GENERAL_QUERY',
-                reasoning: 'Recovered from string response'
-            };
-        }
-
-        // Safety: Ensure primaryIntent is a string and handle object returns from some LLM versions
-        let primary = analysis.primaryIntent || analysis.intent;
-        if (typeof primary === 'object' && primary !== null) {
-            primary = primary.name || primary.intent || 'GENERAL_QUERY';
-        }
-
-        if (!primary) primary = 'GENERAL_QUERY';
 
         return {
             ...analysis,
             refinedQuery,
-            isFollowUp: analysis.discourse === 'FOLLOW_UP',
-            usePreviousContext: analysis.discourse === 'FOLLOW_UP',
-            primaryIntent: primary === 'GREETING' ? 'GREETING' : this._mapToLegacyIntents(primary, analysis.subIntent, refinedQuery)
+            isFollowUp: analysis.discourse === 'FOLLOW_UP' || (state.topic && analysis.confidence < 0.5),
+            primaryIntent: this._mapToLegacyIntents(analysis.primaryIntent, analysis.subIntent, refinedQuery)
         };
+    }
+
+    static _getBestSemanticMatch(queryVec) {
+        let maxSim = 0;
+        let bestIntent = null;
+        for (const [intent, anchors] of this.anchorVectors.entries()) {
+            for (const anchor of anchors) {
+                const sim = this._cosineSimilarity(queryVec, anchor);
+                if (sim > maxSim) {
+                    maxSim = sim;
+                    bestIntent = intent;
+                }
+            }
+        }
+        return maxSim > 0.85 ? bestIntent : null;
+    }
+
+    static _cosineSimilarity(vecA, vecB) {
+        let dot = 0, mA = 0, mB = 0;
+        for (let i = 0; i < vecA.length; i++) {
+            dot += vecA[i] * vecB[i];
+            mA += vecA[i] * vecA[i];
+            mB += vecB[i] * vecB[i];
+        }
+        return (mA && mB) ? dot / (Math.sqrt(mA) * Math.sqrt(mB)) : 0;
     }
 
     static _mapToLegacyIntents(primary, sub, originalQuery) {
