@@ -39,10 +39,12 @@ class AIOrchestrator {
 
             // 3. REASONING PHASE (DeepSeek)
             let reasoning = "";
+            /* Temporarily skip reasoning for speed test on Llama 8b
             if (plan.mode === 'CAREER_GUIDANCE') {
                 ProgressEmitter.emit(sessionId, 'DEEP_THINKING');
                 reasoning = await LLMProvider.generateReasoning(`Analyze career path for: ${userMessage}. Knowledge: ${knowledge}`);
             }
+            */
 
             // 4. PERSONALITY PHASE (Lora_v1)
             ProgressEmitter.emit(sessionId, 'GENERATING');
@@ -55,11 +57,13 @@ class AIOrchestrator {
             let finalContent = aiResponse.content;
 
             // 5. VERIFICATION PHASE (Llama 3.1 8B)
+            /* Temporarily skip verification for speed test on Llama 8b
             ProgressEmitter.emit(sessionId, 'VERIFYING_ACCURACY');
             const audit = await LLMProvider.verifyResponse(userMessage, finalContent, knowledge);
             if (!audit.isValid && audit.correctedAnswer) {
                 finalContent = audit.correctedAnswer;
             }
+            */
 
             // 6. SECURITY GUARD PHASE (Llama-Guard 3)
             ProgressEmitter.emit(sessionId, 'SECURITY_CHECK');
@@ -101,9 +105,11 @@ class AIOrchestrator {
 
             // 3. REASONING PHASE
             let reasoning = "";
+            /* Skip reasoning for speed test on Llama 8b
             if (plan.mode === 'CAREER_GUIDANCE') {
                 reasoning = await LLMProvider.generateReasoning(`Analyze career path for: ${userMessage}. Knowledge: ${knowledge}`);
             }
+            */
 
             // 4. PERSONALITY PHASE (Streaming)
             let fullContent = "";

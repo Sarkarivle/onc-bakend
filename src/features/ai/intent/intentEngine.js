@@ -64,8 +64,14 @@ class IntentEngine {
         const p = String(primary || '').toUpperCase();
         const s = String(sub || '').toUpperCase();
 
+        // High-confidence overrides for specific keywords that Llama 8b might misclassify
+        if (p === 'JOB_SEARCH' || p === 'DISCOVERY') {
+            if (s.includes('FEES') || s.includes('AGE') || s.includes('DATE') || s.includes('SALARY')) return 'FIELD_DETAILS';
+        }
+
         if (p === 'JOB_SEARCH' || p === 'JOB_QUERY') return 'JOB_SEARCH';
         if (p === 'FIELD_CHECK' || p === 'FIELD_DETAILS' || s === 'FEES' || s === 'AGE_LIMIT') return 'FIELD_DETAILS';
+        if (p === 'DISCOVERY') return 'DISCOVERY';
         if (p === 'CAREER_ADVICE' || p === 'CAREER_GUIDANCE') return 'CAREER_GUIDANCE';
         if (p === 'STATUS_CHECK' || p === 'RESULT_ADMIT_CARD') return 'RESULT_ADMIT_CARD';
         if (p === 'PROFILE_INQUIRY' || p === 'PROFILE_INFO' || p === 'PROFILE_CHECK') return 'PROFILE_INQUIRY';

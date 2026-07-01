@@ -10,21 +10,28 @@ class LLMProvider {
     }
 
     /**
-     * LOGIC ENGINE: Qwen 2.5 (Intent & Planning)
+     * LOGIC ENGINE: Generic JSON Expert
      */
     static async generateLogic(prompt, options = {}) {
         try {
             const baseUrl = await this.getBaseUrl();
-            const response = await axios.post(`${baseUrl}/api/generate`, {
+            const response = await axios.post(`${baseUrl}/api/chat`, {
                 model: constants.AI_LOGIC_MODEL,
-                prompt: `[INST] Task: Output ONLY valid JSON.\n${prompt} [/INST]\n{`,
+                messages: [
+                    { role: 'system', content: 'You are a JSON expert. Output ONLY valid JSON. No markdown, no explanation.' },
+                    { role: 'user', content: prompt }
+                ],
                 stream: false,
-                options: { temperature: 0.1, stop: ["[/INST]"] }
+                options: { temperature: 0.1 }
             }, { timeout: 30000 });
 
-            let raw = response.data.response.trim();
-            if (!raw.startsWith('{')) raw = '{' + raw;
-            raw = raw.replace(/\\_/g, '_').replace(/\\"/g, '"');
+            let raw = response.data.message.content.trim();
+
+            // Handle markdown code blocks if Llama includes them
+            if (raw.includes('```')) {
+                const match = raw.match(/```(?:json)?\s*(\{.*?\})\s*```/s);
+                if (match) raw = match[1];
+            }
 
             try {
                 return JSON.parse(raw);
