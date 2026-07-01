@@ -1,16 +1,14 @@
 /**
- * RetrievalEngine Module (Architectural Version 8.0 - Hybrid Neural Retrieval)
- * Responsibility: Executing Hybrid Search (Vector + BM25 + Metadata) with Reranking.
- * Designed for enterprise-grade precision and minimal hallucination.
+ * RetrievalEngine Module (Architectural Version 9.0 - Standard Hybrid Search)
+ * Responsibility: Executing Optimized Search (Text + Regex + Metadata) for Non-Atlas Environments.
  */
 const Job = require('../../jobs/jobModel');
-const VectorService = require('./vectorService');
 const SearchReranker = require('./searchReranker');
 const LLMProvider = require('../generation/llmProvider');
 
 class RetrievalEngine {
     /**
-     * Entry Point: Optimized Hybrid Search
+     * Entry Point: Optimized Standard Search
      */
     static async searchJobs(userQuery, profile = {}, plan = {}) {
         const startTime = Date.now();
@@ -18,31 +16,22 @@ class RetrievalEngine {
 
         try {
             // 1. QUERY UNDERSTANDING & EXPANSION
-            // We use the refinedQuery from the UCC, but expand it for better coverage
             const expansion = await this._expandQuery(userQuery);
             telemetry.expandedQuery = expansion;
 
-            // 2. PARALLEL RETRIEVAL (Phase 1: Candidate Generation)
-            const [vectorCandidates, keywordCandidates] = await Promise.all([
-                this._vectorSearch(expansion.semanticQuery, profile),
-                this._keywordSearch(expansion.keywords, profile)
-            ]);
-
-            // 3. MERGE & DEDUPLICATE
-            let candidates = this._mergeCandidates(vectorCandidates, keywordCandidates);
+            // 2. OPTIMIZED SEARCH (Standard Mongo compatible)
+            let candidates = await this._standardSearch(expansion, profile);
             telemetry.stats.candidatesFound = candidates.length;
 
             if (candidates.length === 0) return { jobs: "", documents: [], confidence: 0 };
 
-            // 4. NEURAL RERANKING (Phase 2: Precision Ranking)
-            // Considering freshness, popularity, and profile compatibility
+            // 3. NEURAL RERANKING
             const rankedResults = await SearchReranker.rank(userQuery, candidates, profile);
             telemetry.stats.rankedCount = rankedResults.length;
 
-            // 5. HALLUCINATION CHECK & SCORING
-            const finalResults = rankedResults.filter(r => r.score > 0.4); // Threshold for quality
+            // 4. QUALITY FILTERING
+            const finalResults = rankedResults.filter(r => r.score > 0.3);
 
-            // 6. TELEMETRY & LOGGING
             telemetry.latency.total = Date.now() - startTime;
             this._logTelemetry(telemetry);
 
@@ -54,113 +43,70 @@ class RetrievalEngine {
             };
 
         } catch (error) {
-            console.error("❌ Hybrid Retrieval Error:", error.message);
+            console.error("❌ Retrieval Error:", error.message);
             return { count: 0, jobs: "", documents: [], confidence: 0 };
         }
     }
 
     /**
-     * Step 1: Semantic Query Expansion
+     * Semantic Query Expansion for better Keyword matching
      */
     static async _expandQuery(query) {
-        const prompt = `
-Task: Expand user career query for Hybrid Search.
+        try {
+            const prompt = `
+Task: Expand user career query for Search.
 Query: "${query}"
-Output JSON: { "semanticQuery": "sentence with synonyms", "keywords": ["word1", "word2"], "filters": { "salary": bool, "location": "string" } }
+Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string" } }
 `;
-        const res = await LLMProvider.generateLogic(prompt);
-        return res || { semanticQuery: query, keywords: query.split(' '), filters: {} };
-    }
-
-    /**
-     * Step 2A: Vector Search (Semantic)
-     */
-    static async _vectorSearch(query, profile) {
-        try {
-            const queryVector = await VectorService.generate(query);
-            if (!queryVector) return [];
-
-            const pipeline = [
-                {
-                    $vectorSearch: {
-                        index: "vector_index",
-                        path: "searchVector",
-                        queryVector: queryVector,
-                        numCandidates: 100,
-                        limit: 20
-                    }
-                },
-                { $match: { isActive: true } }
-            ];
-
-            // Metadata Filter: Qualification matching at DB level
-            if (profile.qualification) {
-                pipeline.push({
-                    $match: { "eligibility.education": { $regex: profile.qualification, $options: 'i' } }
-                });
-            }
-
-            return await Job.aggregate(pipeline);
-        } catch (error) {
-            if (error.message.includes('$vectorSearch') || error.message.includes('Atlas')) {
-                console.warn("⚠️ Vector Search failed (Non-Atlas or Index missing). Using Keyword fallback.");
-                return []; // Let keyword search handle it
-            }
-            throw error;
+            const res = await LLMProvider.generateLogic(prompt);
+            return res || { keywords: query.split(' '), filters: {} };
+        } catch (e) {
+            return { keywords: query.split(' '), filters: {} };
         }
     }
 
     /**
-     * Step 2B: Keyword Search (BM25 Equivalent)
+     * Core Search Logic: Text Index (if available) + Regex Fallback
      */
-    static async _keywordSearch(keywords, profile) {
+    static async _standardSearch(expansion, profile) {
+        const { keywords } = expansion;
+        const searchRegex = new RegExp(keywords.join('|'), 'i');
+
+        const criteria = {
+            isActive: true,
+            $or: [
+                { title: { $regex: searchRegex } },
+                { organization: { $regex: searchRegex } },
+                { "eligibility.education": { $regex: searchRegex } },
+                { "eligibility.skills": { $regex: searchRegex } }
+            ]
+        };
+
+        // Smart Filtering based on Profile
+        if (profile.qualification) {
+            // Soft match qualification
+            const qualRegex = new RegExp(profile.qualification.split(' ')[0], 'i');
+            criteria["eligibility.education"] = { $regex: qualRegex };
+        }
+
         try {
-            const searchString = keywords.join(' ');
-            const criteria = {
+            // Try Text Search first if index exists
+            return await Job.find({
                 isActive: true,
-                $text: { $search: searchString }
-            };
-
-            if (profile.qualification) {
-                criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
-            }
-
-            return await Job.find(criteria)
-                .sort({ score: { $meta: "textScore" } })
-                .limit(20)
-                .lean();
-        } catch (error) {
-            if (error.message.includes('text index required')) {
-                console.warn("⚠️ MongoDB Text Index missing. Falling back to Regex Search (Slower).");
-                // Fallback to regex search on title and organization
-                const regex = new RegExp(keywords.join('|'), 'i');
-                return await Job.find({
-                    isActive: true,
-                    $or: [
-                        { title: regex },
-                        { organization: regex },
-                        { "eligibility.education": regex }
-                    ]
-                }).limit(20).lean();
-            }
-            throw error;
+                $text: { $search: keywords.join(' ') }
+            })
+            .limit(25).lean();
+        } catch (e) {
+            // Fallback to Regex Search
+            return await Job.find(criteria).limit(25).lean();
         }
     }
 
-    /**
-     * Step 3: Candidate Merging (Reciprocal Rank Fusion logic)
-     */
     static _mergeCandidates(vec, key) {
         const map = new Map();
-        vec.forEach((j, i) => map.set(j._id.toString(), { ...j, score: 1 / (i + 1) }));
-        key.forEach((j, i) => {
-            const id = j._id.toString();
-            const existing = map.get(id);
-            const keyScore = 1 / (i + 1);
-            if (existing) {
-                existing.score += keyScore;
-            } else {
-                map.set(id, { ...j, score: keyScore });
+        [...vec, ...key].forEach((j, i) => {
+            if (!map.has(j._id.toString())) {
+                map.set(j._id.toString(), { ...j, score: 1 });
             }
         });
         return Array.from(map.values());
