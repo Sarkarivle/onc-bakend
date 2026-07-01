@@ -1,9 +1,24 @@
 /**
- * PromptComposer Module (Architectural Version 7.0 - Dynamic Builder)
- * Responsibility: Intelligent context collection, compression, and deduplication.
+ * PromptComposer Module (Architectural Version 8.0 - Modular Prompt Engine)
+ * Responsibility: Intelligent context collection and dynamic assembly of professional prompt modules.
  */
-const templates = require('./promptTemplates');
 const personality = require('./prompts/personality');
+const core = require('./prompts/core');
+const reasoning = require('./prompts/reasoning_engine');
+const safety = require('./prompts/hallucination_prevention');
+const output = require('./prompts/output');
+const language = require('./prompts/language');
+
+// Specialized Intent Modules
+const intentModules = {
+    JOB_SEARCH: require('./prompts/govt_jobs'),
+    CAREER_GUIDANCE: require('./prompts/career_guidance'),
+    RESUME: require('./prompts/resume'),
+    SKILLS: require('./prompts/skills'),
+    COLLEGE: require('./prompts/college'),
+    SCHOLARSHIP: require('./prompts/scholarship'),
+    INTERVIEW: require('./prompts/interview')
+};
 
 class PromptComposer {
     /**
@@ -18,24 +33,24 @@ class PromptComposer {
         const historyBlock = this._formatHistory(liveData.memory?.recentHistory || []);
         const ragBlock = this._formatRAG(liveData.jobs);
 
-        // 2. Build Component List (Personality First)
+        // 2. Build Component List (Hierarchical Order)
         const components = [
-            personality,
-            templates.CORE,
-            templates.STYLE,
-            templates.REASONING,
-            templates.SAFETY,
-            templates.OUTPUT_FORMAT(currentDate)
+            personality,        // Identity & Tone
+            core,               // System Mission
+            language,           // Hinglish & Brevity Rules
+            reasoning,          // Internal Thought Process
+            safety,             // Hallucination Guardrails
+            output(currentDate) // Final Formatting Rules
         ];
 
         // 3. Dynamic Intent Components
-        if (templates.DYNAMIC_COMPONENTS[plan.intent]) {
-            components.push(templates.DYNAMIC_COMPONENTS[plan.intent]);
+        if (intentModules[plan.intent]) {
+            components.push(intentModules[plan.intent]);
         }
 
         // 4. Assemble Final System Prompt
-        let systemPrompt = components.join('\n\n');
-        systemPrompt += '\n\n# CONTEXTUAL DATA\n';
+        let systemPrompt = components.join('\n\n---\n\n');
+        systemPrompt += '\n\n# CONTEXTUAL DATA (GROUND TRUTH)\n';
 
         if (profileBlock) systemPrompt += `\n${profileBlock}\n`;
         if (memoryBlock) systemPrompt += `\n${memoryBlock}\n`;
@@ -52,6 +67,7 @@ class PromptComposer {
             filtered.qualification = profile.qualification;
             filtered.category = profile.category;
             filtered.state = profile.state;
+            filtered.age = profile.age;
         }
         return `[USER PROFILE]: ${JSON.stringify(filtered)}`;
     }
