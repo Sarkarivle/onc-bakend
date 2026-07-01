@@ -1,96 +1,23 @@
 /**
- * PromptComposer Module (Architectural Version 6.0 - Dynamic Prompt Builder)
- * Responsibility: Intelligent context injection, compression, and deduplication.
+ * PromptComposer Module (Architectural Version 7.0 - Dynamic Builder)
+ * Responsibility: Intelligent context collection, compression, and deduplication.
  */
 const templates = require('./promptTemplates');
-const TokenManager = require('./tokenManager');
 
 class PromptComposer {
     /**
      * Builds a production-grade prompt system.
      */
     static async build(priorityModules, userData, liveData, meta) {
-        const { plan, currentDate, turnCount } = meta;
+        const { plan, currentDate } = meta;
 
-        // 1. Context Compression (Saliency Logic)
-        const compressedProfile = this._compressProfile(userData, plan);
-        const compressedMemory = this._compressMemory(userData.insights, plan);
-        const compressedHistory = this._compressHistory(userData.state?.history || []);
+        // 1. Context Collection & Compression
+        const profileBlock = this._formatProfile(userData, plan);
+        const memoryBlock = this._formatMemory(liveData.memory, plan);
+        const historyBlock = this._formatHistory(liveData.memory?.recentHistory || []);
+        const ragBlock = this._formatRAG(liveData.jobs);
 
-        // 2. Component Selection (Dynamic Context)
-        const components = this._selectComponents(plan, priorityModules, currentDate);
-
-        // 3. Build Data Blocks with Priorities
-        let dataBlocks = [
-            { name: 'PROFILE', content: compressedProfile, priority: 1 },
-            { name: 'MEMORY', content: compressedMemory, priority: 2 },
-            { name: 'HISTORY', content: compressedHistory, priority: 3 },
-            { name: 'RAG', content: liveData.jobs || "", priority: 4 }
-        ].filter(b => b.content);
-
-        // 4. Token Budgeting & Pruning
-        const prunedBlocks = TokenManager.prune(dataBlocks, TokenManager.BUDGETS.SYSTEM);
-
-        // 5. Assemble System Prompt
-        let systemPrompt = this._assemble(components, prunedBlocks);
-
-        // 6. Deduplication & Final Polish
-        systemPrompt = this._deduplicate(systemPrompt);
-
-        // 7. Structure Output
-        const metadata = {
-            intent: plan.intent,
-            turnCount: turnCount,
-            blocksIncluded: prunedBlocks.map(b => b.name)
-        };
-
-        return {
-            systemPrompt,
-            messages: [], // Can be used for few-shot injection
-            metadata,
-            tokenEstimate: TokenManager.estimate(systemPrompt)
-        };
-    }
-
-    /**
-     * Injects only the profile fields relevant to the current plan.
-     */
-    static _compressProfile(profile, plan) {
-        if (!profile) return "";
-        const relevantFields = ['name'];
-
-        if (['JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS'].includes(plan.intent)) {
-            relevantFields.push('qualification', 'category', 'state');
-        } else if (plan.intent === 'CAREER_GUIDANCE') {
-            relevantFields.push('qualification', 'dob', 'state');
-        }
-
-        const filtered = {};
-        relevantFields.forEach(f => { if (profile[f]) filtered[f] = profile[f]; });
-        return Object.keys(filtered).length > 1 ? `[USER PROFILE]: ${JSON.stringify(filtered)}` : "";
-    }
-
-    /**
-     * Summarizes memory or filters for relevance.
-     */
-    static _compressMemory(insights, plan) {
-        if (!insights) return "";
-        // If it's a greeting, we don't need deep memory insights
-        if (plan.intent === 'GREETING') return "";
-
-        return typeof insights === 'string' ? insights : JSON.stringify(insights);
-    }
-
-    /**
-     * Sliding window history compression.
-     */
-    static _compressHistory(history) {
-        if (!history || history.length === 0) return "";
-        const window = history.slice(-3); // Only last 3 turns
-        return window.map(h => `User: ${h.user}\nAI: ${h.assistant}`).join('\n---\n');
-    }
-
-    static _selectComponents(plan, priorityModules, currentDate) {
+        // 2. Build Component List
         const components = [
             templates.CORE,
             templates.STYLE,
@@ -99,27 +26,47 @@ class PromptComposer {
             templates.OUTPUT_FORMAT(currentDate)
         ];
 
-        // Dynamic Intent Specific Module
+        // 3. Dynamic Intent Components
         if (templates.DYNAMIC_COMPONENTS[plan.intent]) {
             components.push(templates.DYNAMIC_COMPONENTS[plan.intent]);
         }
 
-        return components;
+        // 4. Assemble Final System Prompt
+        let systemPrompt = components.join('\n\n');
+        systemPrompt += '\n\n# CONTEXTUAL DATA\n';
+
+        if (profileBlock) systemPrompt += `\n${profileBlock}\n`;
+        if (memoryBlock) systemPrompt += `\n${memoryBlock}\n`;
+        if (historyBlock) systemPrompt += `\n[CONVERSATION HISTORY]:\n${historyBlock}\n`;
+        if (ragBlock) systemPrompt += `\n[RETRIEVED DATABASE]:\n${ragBlock}\n`;
+
+        return { systemPrompt };
     }
 
-    static _assemble(components, blocks) {
-        let prompt = components.join('\n\n');
-        prompt += '\n\n# CONTEXTUAL DATA\n';
-        blocks.forEach(b => {
-            prompt += `\n[${b.name}]:\n${b.content}\n`;
-        });
-        return prompt;
+    static _formatProfile(profile, plan) {
+        if (!profile) return "";
+        const filtered = { name: profile.name };
+        if (['JOB_SEARCH', 'FIELD_DETAILS', 'CAREER_GUIDANCE'].includes(plan.intent)) {
+            filtered.qualification = profile.qualification;
+            filtered.category = profile.category;
+            filtered.state = profile.state;
+        }
+        return `[USER PROFILE]: ${JSON.stringify(filtered)}`;
     }
 
-    static _deduplicate(text) {
-        const lines = text.split('\n');
-        const uniqueLines = [...new Set(lines)];
-        return uniqueLines.join('\n');
+    static _formatMemory(memory, plan) {
+        if (!memory || !memory.facts || memory.facts.length === 0) return "";
+        return `[LONG-TERM MEMORY]: ${memory.facts.join('. ')}`;
+    }
+
+    static _formatHistory(history) {
+        if (!history || history.length === 0) return "";
+        return history.map(h => `User: ${h.user}\nAI: ${h.assistant}`).join('\n---\n');
+    }
+
+    static _formatRAG(jobs) {
+        if (!jobs) return "";
+        return jobs;
     }
 }
 
