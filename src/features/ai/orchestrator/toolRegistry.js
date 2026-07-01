@@ -81,9 +81,19 @@ registry.register('CALCULATOR', {
 // 5. LLM Tool
 const LLMProvider = require('../generation/llmProvider');
 registry.register('LLM', {
-    timeout: 30000,
-    validate: (input) => { if (!input || !input.messages) throw new Error("LLM requires messages"); },
-    execute: async (input) => LLMProvider.chat(input.messages)
+    timeout: 35000,
+    validate: (input) => {
+        if (!input) throw new Error("LLM requires input");
+    },
+    execute: async (input, context) => {
+        // If input is a string, wrap it in a message format
+        const messages = (typeof input === 'string')
+            ? [{ role: 'user', content: input }]
+            : (input.messages || []);
+
+        if (messages.length === 0) throw new Error("LLM requires messages");
+        return LLMProvider.chat(messages);
+    }
 });
 
 module.exports = registry;

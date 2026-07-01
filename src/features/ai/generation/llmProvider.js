@@ -6,6 +6,17 @@ class LLMProvider {
     static async getBaseUrl() {
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
         let url = setting?.value || constants.DEFAULT_RUNPOD_URL;
+        if (!url) return constants.DEFAULT_RUNPOD_URL;
+
+        // Clean the URL: trim whitespace
+        url = url.trim();
+
+        // Ensure protocol exists
+        if (!url.startsWith('http')) {
+            url = `https://${url}`;
+        }
+
+        // Remove trailing slashes/api paths
         return url.replace(/\/api\/(chat|generate)\/?$/, '').replace(/\/$/, '');
     }
 
@@ -23,7 +34,7 @@ class LLMProvider {
                 ],
                 stream: false, // CRITICAL: Ensure non-streaming response
                 options: { temperature: 0.1 }
-            }, { timeout: 25000 });
+            }, { timeout: 45000 }); // Increased from 25s for slow tunnels
 
             // Robust extraction: Check multiple potential response paths
             let raw = "";
@@ -61,7 +72,7 @@ class LLMProvider {
                 messages: messages,
                 stream: false,
                 options: { temperature: 0.7 }
-            }, { timeout: 35000 });
+            }, { timeout: 60000 }); // Increased from 35s
 
             let content = "";
             if (response.data.message) content = response.data.message.content;
@@ -82,7 +93,7 @@ class LLMProvider {
                 messages: messages,
                 stream: true,
                 options: { temperature: 0.7 }
-            }, { responseType: 'stream', timeout: 60000 });
+            }, { responseType: 'stream', timeout: 90000 }); // Increased from 60s for streaming
 
             return new Promise((resolve, reject) => {
                 let buffer = '';

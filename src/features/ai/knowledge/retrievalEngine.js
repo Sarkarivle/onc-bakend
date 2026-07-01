@@ -106,20 +106,37 @@ Output JSON: { "semanticQuery": "sentence with synonyms", "keywords": ["word1", 
      * Step 2B: Keyword Search (BM25 Equivalent)
      */
     static async _keywordSearch(keywords, profile) {
-        const searchString = keywords.join(' ');
-        const criteria = {
-            isActive: true,
-            $text: { $search: searchString }
-        };
+        try {
+            const searchString = keywords.join(' ');
+            const criteria = {
+                isActive: true,
+                $text: { $search: searchString }
+            };
 
-        if (profile.qualification) {
-            criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
+            if (profile.qualification) {
+                criteria['eligibility.education'] = { $regex: profile.qualification, $options: 'i' };
+            }
+
+            return await Job.find(criteria)
+                .sort({ score: { $meta: "textScore" } })
+                .limit(20)
+                .lean();
+        } catch (error) {
+            if (error.message.includes('text index required')) {
+                console.warn("⚠️ MongoDB Text Index missing. Falling back to Regex Search (Slower).");
+                // Fallback to regex search on title and organization
+                const regex = new RegExp(keywords.join('|'), 'i');
+                return await Job.find({
+                    isActive: true,
+                    $or: [
+                        { title: regex },
+                        { organization: regex },
+                        { "eligibility.education": regex }
+                    ]
+                }).limit(20).lean();
+            }
+            throw error;
         }
-
-        return await Job.find(criteria)
-            .sort({ score: { $meta: "textScore" } })
-            .limit(20)
-            .lean();
     }
 
     /**
