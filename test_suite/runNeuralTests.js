@@ -5,7 +5,6 @@ require('dotenv').config();
 
 // Load Orchestrator components
 const IntentEngine = require('../src/features/ai/intent/intentEngine');
-const DeterministicIntentResolver = require('../src/features/ai/intent/DeterministicIntentResolver');
 const AgenticPlanner = require('../src/features/ai/reasoning/agenticPlanner');
 const UserProfile = require('../src/features/ai/context/userProfile');
 
@@ -19,12 +18,7 @@ async function runTest(testCase) {
 
     try {
         // 1. Run Intent Detection
-        // SIMULATE: First try deterministic resolution, then fall back to semantic.
-        let resolvedIntent = DeterministicIntentResolver.resolve(query);
-        if (!resolvedIntent) {
-            resolvedIntent = await IntentEngine.classify(query, context, profile);
-        }
-
+        const resolvedIntent = await IntentEngine.classify(query, context, profile);
 
         // 2. Run Agentic Planning
         const plan = await AgenticPlanner.generatePlan(query, resolvedIntent.normalizedIntent, {
