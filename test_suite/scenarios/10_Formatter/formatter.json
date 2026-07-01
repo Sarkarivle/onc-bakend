@@ -1,0 +1,22 @@
+[
+  { "id": "FM_01", "aiAnswer": "Fees: **₹100**. Last Date: **20 Oct**.", "expectedFormat": "TABLE" },
+  { "id": "FM_02", "aiAnswer": "Total Post: **5000**. Apply: ssc.gov.in", "expectedFormat": "TABLE" },
+  { "id": "FM_03", "aiAnswer": "1. 10th. 2. 12th. 3. Graduate.", "expectedFormat": "ROADMAP" },
+  { "id": "FM_04", "aiAnswer": "- Skills. - Exp.", "expectedFormat": "CHECKLIST" },
+  { "id": "FM_05", "aiAnswer": "Fees is ₹100 and Last date 5 Nov.", "expectedFormat": "TABLE" },
+  { "id": "FM_06", "aiAnswer": "Exam on **15 Jan**.", "expectedFormat": "TABLE" },
+  { "id": "FM_07", "aiAnswer": "1. NEET. 2. MBBS. 3. MD.", "expectedFormat": "ROADMAP" },
+  { "id": "FM_08", "aiAnswer": "- Maths. - GK. - Reason.", "expectedFormat": "CHECKLIST" },
+  { "id": "FM_09", "aiAnswer": "Salary: **45k**. Grade: **B**.", "expectedFormat": "TABLE" },
+  { "id": "FM_10", "aiAnswer": "Height: **168cm**. Weight: **50kg**.", "expectedFormat": "TABLE" },
+  { "id": "FM_11", "aiAnswer": "1. Prelims. 2. Mains. 3. Interview.", "expectedFormat": "ROADMAP" },
+  { "id": "FM_12", "aiAnswer": "Fees: **₹0**. Salary: **30k**.", "expectedFormat": "TABLE" },
+  { "id": "FM_13", "aiAnswer": "Qualification: **10th Pass**.", "expectedFormat": "TABLE" },
+  { "id": "FM_14", "aiAnswer": "1. SPL. 2. PPL. 3. CPL.", "expectedFormat": "ROADMAP" },
+  { "id": "FM_15", "aiAnswer": "- Python. - SQL. - AI.", "expectedFormat": "CHECKLIST" },
+  { "id": "FM_16", "aiAnswer": "Last Date: **15 March 2025**.", "expectedFormat": "TABLE" },
+  { "id": "FM_17", "aiAnswer": "1. Registration 2. Payment 3. Print", "expectedFormat": "ROADMAP" },
+  { "id": "FM_18", "aiAnswer": "- Photo - Sign - ID", "expectedFormat": "CHECKLIST" },
+  { "id": "FM_19", "aiAnswer": "Vacancy: **60244**. Post: **Constable**.", "expectedFormat": "TABLE" },
+  { "id": "FM_20", "aiAnswer": "1. Application 2. Exam 3. Physical", "expectedFormat": "ROADMAP" }
+]

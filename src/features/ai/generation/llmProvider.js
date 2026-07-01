@@ -29,14 +29,17 @@ class LLMProvider {
 
             // Handle markdown code blocks if Llama includes them
             if (raw.includes('```')) {
-                const match = raw.match(/```(?:json)?\s*(\{.*?\})\s*```/s);
+                const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
                 if (match) raw = match[1];
             }
+
+            // Remove control characters that break JSON.parse
+            raw = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
 
             try {
                 return JSON.parse(raw);
             } catch (e) {
-                const match = raw.match(/\{.*\}/s);
+                const match = raw.match(/\{[\s\S]*\}/);
                 return match ? JSON.parse(match[0]) : null;
             }
         } catch (error) {
@@ -146,11 +149,23 @@ Return ONLY JSON:
                 options: { temperature: 0.1 }
             }, { timeout: 30000 });
 
-            return JSON.parse(response.data.response.match(/\{.*\}/s)[0]);
+            let raw = response.data.response.trim();
+            // Remove control characters
+            raw = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+
+            const match = raw.match(/\{[\s\S]*\}/);
+            return match ? JSON.parse(match[0]) : { isValid: true };
         } catch (error) {
             console.error("❌ Verification Engine Error:", error.message);
             return { isValid: true };
         }
+    }
+
+    /**
+     * Alias for generateLogic to support legacy/external calls
+     */
+    static async generate(prompt, options = {}) {
+        return this.generateLogic(prompt, options);
     }
 
     /**

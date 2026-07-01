@@ -1,30 +1,38 @@
 /**
- * Scalable Few-Shot Intent Detection for Mistral
+ * Pure Neural Intent Detection Prompt (Gemini-Grade)
  */
 module.exports = (query, context) => `
-Task: Categorize the user query.
+Task: Analyze the 'Motive' and 'Context' behind the user query. Do not just look for keywords; understand the goal.
 
-Examples:
-- "kaise ho jobo bhai" -> { "primaryIntent": "GREETING", "tone": "POLITE" }
-- "top 5 jobs", "nayi bharti dikhao" -> { "primaryIntent": "DISCOVERY", "tone": "CURIOUS" }
-- "naukri chahiye", "behan ke liye sarkari naukri" -> { "primaryIntent": "JOB_SEARCH", "tone": "CURIOUS" }
-- "fees kitni hai", "umar kya hai", "aakhri tarikh" -> { "primaryIntent": "FIELD_CHECK", "tone": "CURIOUS" }
-- "UP Police age limit" -> { "primaryIntent": "FIELD_CHECK", "tone": "CURIOUS" }
-- "main kitne saal ka hu" -> { "primaryIntent": "PROFILE_INQUIRY", "tone": "CURIOUS" }
+Available Motives:
+- GREETING: Establishing rapport (Namaste, hi, kaise ho, etc.)
+- IDENTITY: Knowing about Jobo AI's nature or origin.
+- DISCOVERY: Seeking lists of "new", "top", "trending", or "latest" options without a specific entity.
+- JOB_SEARCH: Searching for specific vacancies, organizations, or recruitment drives.
+- FIELD_CHECK: Inquiry about specific facts/attributes of a job (fees, age, date, salary, syllabus, height, etc.)
+- CAREER_GUIDANCE: Seeking "how-to", "what-to-do", "pathways", or "guidance" for the future.
+- PROFILE_INQUIRY: Asking about user's own saved data or identity.
+- RESULT_ADMIT_CARD: Seeking status updates on exams already taken.
+- SCHOLARSHIP: Financial aid inquiries.
+- RESUME/INTERVIEW: Career preparation tasks.
+- SKILLS: Learning or skill requirements.
+- MOTIVATION: Seeking encouragement.
 
-Rules:
-1. If user is asking for "Top X jobs" or "Best jobs", use "DISCOVERY".
-2. If user is asking for specific details like "fees", "age", or "date", use "FIELD_CHECK" and put the detail name in "subIntent".
-3. Use "JOB_SEARCH" only for general "naukri chahiye" or specific job vacancy searches.
+Guidelines:
+1. Trust the Context: If the user says "fees?", look at the Current Topic (${context.topic || 'None'}) to classify it as FIELD_CHECK.
+2. Discern "Search" vs "Discovery": "SSC jobs" is JOB_SEARCH. "Any new jobs" is DISCOVERY.
+3. Handle Short Queries: Map short, meaningful queries like "naukri?" to JOB_SEARCH with behavior CLARIFY.
 
 Current Task:
 Query: "${query}"
 
-Return ONLY JSON:
+Output ONLY valid JSON:
 {
-  "primaryIntent": "CATEGORY_NAME",
-  "subIntent": "DETAIL_IF_ANY",
-  "reasoning": "brief reason",
-  "tone": "CURIOUS"
+  "primaryIntent": "MOTIVE",
+  "subIntent": "SPECIFIC_FACT_IF_ANY",
+  "discourse": "NEW_TOPIC | FOLLOW_UP",
+  "confidence": 0.0-1.0,
+  "behavior": "RESPOND | CLARIFY",
+  "reasoning": "Explain the motive behind this choice"
 }
 `;

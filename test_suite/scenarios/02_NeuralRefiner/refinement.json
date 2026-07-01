@@ -1,0 +1,22 @@
+[
+  { "id": "RF_01", "query": "ssc", "expectedContains": ["ssc", "vacancy"] },
+  { "id": "RF_02", "query": "gd form", "expectedContains": ["ssc", "gd", "apply"] },
+  { "id": "RF_03", "query": "fees?", "context": { "topic": "Delhi Police" }, "expectedContains": ["delhi", "police", "fees"] },
+  { "id": "RF_04", "query": "kab aayega?", "context": { "topic": "SSC Result" }, "expectedContains": ["ssc", "result", "date"] },
+  { "id": "RF_05", "query": "police bharti", "expectedContains": ["police", "recruitment"] },
+  { "id": "RF_06", "query": "age limit", "context": { "topic": "UP Police" }, "expectedContains": ["up", "police", "age"] },
+  { "id": "RF_07", "query": "sarkari result", "expectedContains": ["latest", "jobs"] },
+  { "id": "RF_08", "query": "12th pass", "expectedContains": ["jobs", "after", "12th"] },
+  { "id": "RF_09", "query": "bank job", "expectedContains": ["banking", "vacancy"] },
+  { "id": "RF_10", "query": "syllabus", "context": { "topic": "MTS" }, "expectedContains": ["mts", "syllabus"] },
+  { "id": "RF_11", "query": "upsc", "expectedContains": ["ias", "civil", "services"] },
+  { "id": "RF_12", "query": "last date", "context": { "topic": "Agniveer" }, "expectedContains": ["agniveer", "last", "date"] },
+  { "id": "RF_13", "query": "railway group d", "expectedContains": ["railway", "bharti"] },
+  { "id": "RF_14", "query": "qualification", "context": { "topic": "Bank PO" }, "expectedContains": ["bank", "po", "eligibility"] },
+  { "id": "RF_15", "query": "ias kaise bane", "expectedContains": ["become", "ias"] },
+  { "id": "RF_16", "query": "nayi vacancy", "expectedContains": ["latest", "job"] },
+  { "id": "RF_17", "query": "form kaise bhare", "context": { "topic": "PET" }, "expectedContains": ["pet", "online", "form"] },
+  { "id": "RF_18", "query": "ssc cgl salary", "expectedContains": ["pay", "scale"] },
+  { "id": "RF_19", "query": "teacher job", "expectedContains": ["teaching", "vacancy"] },
+  { "id": "RF_20", "query": "army rally", "expectedContains": ["army", "bharti"] }
+]

@@ -9,7 +9,7 @@
   { "id": "RT_08", "query": "MTS Syllabus", "expectedFound": true },
   { "id": "RT_09", "query": "UPSSSC PET", "expectedFound": true },
   { "id": "RT_10", "query": "Agniveer Rally", "expectedFound": true },
-  { "id": "RT_11", "query": "Private Bareilly", "expectedFound": false },
+  { "id": "RT_11", "query": "Private Job Bareilly", "expectedFound": false },
   { "id": "RT_12", "query": "Teaching Delhi", "expectedFound": true },
   { "id": "RT_13", "query": "Medical Exam", "expectedFound": true },
   { "id": "RT_14", "query": "High Salary Job", "expectedFound": true },
@@ -18,5 +18,5 @@
   { "id": "RT_17", "query": "SSC CGL Post", "expectedFound": true },
   { "id": "RT_18", "query": "Sarkari Result", "expectedFound": true },
   { "id": "RT_19", "query": "Bank Clerk", "expectedFound": true },
-  { "id": "RT_20", "query": "Random 123456", "expectedFound": false }
+  { "id": "RT_20", "query": "Random query 12345", "expectedFound": false }
 ]

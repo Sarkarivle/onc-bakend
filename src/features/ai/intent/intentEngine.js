@@ -88,6 +88,13 @@ class IntentEngine {
         if (p === 'CAREER_ADVICE' || p === 'CAREER_GUIDANCE') return 'CAREER_GUIDANCE';
         if (p === 'STATUS_CHECK' || p === 'RESULT_ADMIT_CARD') return 'RESULT_ADMIT_CARD';
         if (p === 'PROFILE_INQUIRY' || p === 'PROFILE_INFO' || p === 'PROFILE_CHECK') return 'PROFILE_INQUIRY';
+        if (p === 'SCHOLARSHIP') return 'SCHOLARSHIP';
+        if (p === 'RESUME') return 'RESUME';
+        if (p === 'INTERVIEW') return 'INTERVIEW';
+        if (p === 'SKILLS') return 'SKILLS';
+        if (p === 'MOTIVATION') return 'MOTIVATION';
+        if (p === 'IDENTITY') return 'IDENTITY';
+        if (p === 'GREETING') return 'GREETING';
 
         return primary;
     }

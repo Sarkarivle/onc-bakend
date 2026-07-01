@@ -1,0 +1,22 @@
+[
+  { "id": "PL_01", "query": "ssc jobs", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_02", "query": "gd fees", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_03", "query": "how to be ias", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_04", "query": "naukri", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" } },
+  { "id": "PL_05", "query": "check my profile", "expected": { "needsDatabase": false, "mode": "PROFILE_CHECK" } },
+  { "id": "PL_06", "query": "scholarships", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_07", "query": "interview help", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_08", "query": "bank po salary", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_09", "query": "10th ke baad career", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_10", "query": "update my age", "expected": { "needsDatabase": false, "mode": "PROFILE_CHECK" } },
+  { "id": "PL_11", "query": "highest paying jobs", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_12", "query": "syllabus", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_13", "query": "last date?", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } },
+  { "id": "PL_14", "query": "motivation", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" } },
+  { "id": "PL_15", "query": "who made you", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" } },
+  { "id": "PL_16", "query": "army recruitment", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_17", "query": "skills for 2025", "expected": { "needsDatabase": false, "mode": "CAREER_GUIDANCE" } },
+  { "id": "PL_18", "query": "delhi police vacancy", "expected": { "needsDatabase": true, "mode": "JOB_SEARCH" } },
+  { "id": "PL_19", "query": "hi", "expected": { "needsDatabase": false, "mode": "GENERAL_HELP" } },
+  { "id": "PL_20", "query": "ssc gd details", "expected": { "needsDatabase": true, "mode": "JOB_DETAILS" } }
+]

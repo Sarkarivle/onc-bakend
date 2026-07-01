@@ -1,0 +1,22 @@
+[
+  { "id": "INT_01", "query": "Latest govt jobs", "expected": { "intent": "DISCOVERY" } },
+  { "id": "INT_02", "query": "SSC GD vacancy", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_03", "query": "UP Police fees", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_04", "query": "MTS salary", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_05", "query": "Doctor kaise bane?", "expected": { "intent": "CAREER_GUIDANCE" } },
+  { "id": "INT_06", "query": "Resume review", "expected": { "intent": "RESUME" } },
+  { "id": "INT_07", "query": "Mera naam kya hai?", "expected": { "intent": "PROFILE_INQUIRY" } },
+  { "id": "INT_08", "query": "Update my location", "expected": { "intent": "PROFILE_INQUIRY" } },
+  { "id": "INT_09", "query": "UP scholarship", "expected": { "intent": "SCHOLARSHIP" } },
+  { "id": "INT_10", "query": "Interview tips", "expected": { "intent": "INTERVIEW" } },
+  { "id": "INT_11", "query": "SSC MTS result", "expected": { "intent": "RESULT_ADMIT_CARD" } },
+  { "id": "INT_12", "query": "Admit card for GD", "expected": { "intent": "RESULT_ADMIT_CARD" } },
+  { "id": "INT_13", "query": "Who is Jobo AI?", "expected": { "intent": "IDENTITY" } },
+  { "id": "INT_14", "query": "Skills for 2025", "expected": { "intent": "SKILLS" } },
+  { "id": "INT_15", "query": "Bank jobs for graduate", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_16", "query": "Syllabus for Delhi Police", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_17", "query": "MTS last date", "expected": { "intent": "FIELD_DETAILS" } },
+  { "id": "INT_18", "query": "Top 10 highest paying jobs", "expected": { "intent": "DISCOVERY" } },
+  { "id": "INT_19", "query": "Agniveer bharti rally", "expected": { "intent": "JOB_SEARCH" } },
+  { "id": "INT_20", "query": "Motivation message", "expected": { "intent": "MOTIVATION" } }
+]

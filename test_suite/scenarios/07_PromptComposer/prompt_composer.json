@@ -1,0 +1,22 @@
+[
+  { "id": "PC_01", "query": "ssc job", "profile": { "qualification": "Graduate" }, "type": "CONTEXT" },
+  { "id": "PC_02", "query": "nayi vacancy", "profile": { "state": "UP" }, "type": "LOCATION" },
+  { "id": "PC_03", "query": "fees?", "context": { "topic": "GD" }, "type": "MEMORY" },
+  { "id": "PC_04", "query": "how to apply?", "context": { "topic": "MTS" }, "type": "MEMORY" },
+  { "id": "PC_05", "query": "last date?", "context": { "topic": "CGL" }, "type": "MEMORY" },
+  { "id": "PC_06", "query": "age limit?", "profile": { "category": "OBC" }, "type": "CATEGORY" },
+  { "id": "PC_07", "query": "merely qualification", "profile": { "qualification": "12th" }, "type": "PROFILE" },
+  { "id": "PC_08", "query": "resume help", "type": "MODULE" },
+  { "id": "PC_09", "query": "interview tips", "type": "MODULE" },
+  { "id": "PC_10", "query": "UP scholarship", "type": "MODULE" },
+  { "id": "PC_11", "query": "Mera profile summary", "profile": { "name": "Himanshu" }, "type": "USER_DATA" },
+  { "id": "PC_12", "query": "Bareilly army bharti", "type": "LOCALIZATION" },
+  { "id": "PC_13", "query": "SSC GD Syllabus", "type": "DATA" },
+  { "id": "PC_14", "query": "Bank exam for SC", "profile": { "category": "SC" }, "type": "CATEGORY" },
+  { "id": "PC_15", "query": "Motivation please", "type": "MODULE" },
+  { "id": "PC_16", "query": "Reset memory", "type": "RESET" },
+  { "id": "PC_17", "query": "Who made you?", "type": "IDENTITY" },
+  { "id": "PC_18", "query": "Is CGL open?", "liveData": { "jobs": "SSC CGL is active" }, "type": "LIVE" },
+  { "id": "PC_19", "query": "Apply link SSC", "liveData": { "jobs": "ssc.gov.in" }, "type": "LIVE" },
+  { "id": "PC_20", "query": "Top 10 jobs", "type": "MODULE" }
+]

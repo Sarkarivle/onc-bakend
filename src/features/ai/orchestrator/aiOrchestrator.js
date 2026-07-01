@@ -216,8 +216,9 @@ class AIOrchestrator {
 
     static async _persist(userName, sessionId, query, response, suggestions) {
         try {
-            await Chat.create({ userName, sessionId, role: 'user', content: query });
-            await Chat.create({ userName, sessionId, role: 'assistant', content: response, suggestions });
+            const name = userName || "User";
+            await Chat.create({ userName: name, sessionId, role: 'user', content: query });
+            await Chat.create({ userName: name, sessionId, role: 'assistant', content: response, suggestions });
         } catch (e) {
             console.error("❌ Persistence Error:", e.message);
         }

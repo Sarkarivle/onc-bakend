@@ -6,12 +6,12 @@
 class EliteFormatter {
     static format(text, meta = {}) {
         let formatted = text;
-        const intent = meta.intent || 'GENERAL';
+        const intent = String(meta.intent || 'GENERAL').toUpperCase();
 
         // 1. Intent-Based Visual Logic
-        if (['JOB_QUERY', 'JOB_DETAILS', 'SCHOLARSHIP'].includes(intent)) {
+        if (['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(intent)) {
             formatted = this._ensureTables(formatted);
-        } else if (intent === 'CAREER_GUIDANCE') {
+        } else if (['CAREER_GUIDANCE', 'SKILLS', 'INTERVIEW'].includes(intent)) {
             formatted = this._ensureRoadmap(formatted);
         } else if (intent === 'RESUME') {
             formatted = this._ensureChecklist(formatted);

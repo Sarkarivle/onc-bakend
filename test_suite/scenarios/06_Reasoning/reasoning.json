@@ -1,0 +1,22 @@
+[
+  { "id": "RS_01", "query": "10th ke baad career options?", "type": "PATHWAY" },
+  { "id": "RS_02", "query": "IAS vs IPS: Kaunsa better hai?", "type": "COMPARISON" },
+  { "id": "RS_03", "query": "Engineering me high salary kaise payein?", "type": "ADVICE" },
+  { "id": "RS_04", "query": "Doctor banne ka full kharcha kitna hai?", "type": "FINANCIAL" },
+  { "id": "RS_05", "query": "Can I do MBA after B.Sc?", "type": "ELIGIBILITY" },
+  { "id": "RS_06", "query": "SSC CGL vs Bank PO: Work life balance?", "type": "COMPARISON" },
+  { "id": "RS_07", "query": "Pilot kaise bane steps?", "type": "PATHWAY" },
+  { "id": "RS_08", "query": "Is government job better than IT?", "type": "CRITICAL" },
+  { "id": "RS_09", "query": "Software Engineer vs Data Scientist?", "type": "COMPARISON" },
+  { "id": "RS_10", "query": "How to handle exam stress?", "type": "MENTAL" },
+  { "id": "RS_11", "query": "Arts student can join Navy?", "type": "ELIGIBILITY" },
+  { "id": "RS_12", "query": "Best state for IAS coaching?", "type": "RESEARCH" },
+  { "id": "RS_13", "query": "Railway vs Banking: Growth?", "type": "COMPARISON" },
+  { "id": "RS_14", "query": "Highest paying job after 12th?", "type": "RESEARCH" },
+  { "id": "RS_15", "query": "Why people fail in UPSC?", "type": "ANALYSIS" },
+  { "id": "RS_16", "query": "How to crack SSC in 6 months?", "type": "STRATEGY" },
+  { "id": "RS_17", "query": "B.Com ke baad govt jobs list?", "type": "PATHWAY" },
+  { "id": "RS_18", "query": "Defense vs Police: Which is tough?", "type": "COMPARISON" },
+  { "id": "RS_19", "query": "Skills needed for 2025?", "type": "ADVICE" },
+  { "id": "RS_20", "query": "Future of AI in jobs?", "type": "TREND" }
+]

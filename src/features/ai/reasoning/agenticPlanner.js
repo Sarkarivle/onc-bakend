@@ -78,7 +78,7 @@ class AgenticPlanner {
           "reasoning": "Why this will work better"
         }`;
 
-        return await LLMProvider.generate(prompt);
+        return await LLMProvider.generateLogic(prompt);
     }
 
     static _fallbackPlan(resolvedIntent = {}) {
