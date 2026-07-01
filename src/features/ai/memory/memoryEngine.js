@@ -73,6 +73,10 @@ class MemoryEngine {
      * EXTRACTION: LLM-based fact extraction from conversation.
      */
     static async extractFacts(userId, userQuery, aiResponse) {
+        // FAST EXIT: Don't waste LLM calls on greetings or very short messages
+        const q = String(userQuery || "").toLowerCase();
+        if (q.length < 5 || q.includes("hi") || q.includes("hello") || q.includes("namaste")) return;
+
         const prompt = `
 Task: Extract long-term user facts from the conversation turn.
 Ignore: Small talk, greetings, temporary questions.

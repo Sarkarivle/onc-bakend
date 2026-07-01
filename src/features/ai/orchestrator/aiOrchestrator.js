@@ -136,6 +136,21 @@ class AIOrchestrator {
                 () => IntentEngine.classify(userMessage, state, profile)
             );
 
+            // FAST PATH: If it's a greeting, skip heavy tools
+            if (plan.intent === 'GREETING') {
+                const promptData = await PromptComposer.build(['GREETING'], profile, {}, { plan, currentDate: new Date().toLocaleDateString() });
+                await LLMProvider.chatStream([
+                    { role: 'system', content: promptData.systemPrompt },
+                    { role: 'user', content: userMessage }
+                ], async (chunk) => {
+                    await stream.pushChunk(chunk);
+                });
+                await stream.finishStream();
+                this._persist(userName, sessionId, userMessage, "Namaste! Jobo AI yahan hai.", {}).catch(() => {});
+                Telemetry.endTrace(traceId);
+                return;
+            }
+
             // STAGE 4: EXECUTION ENGINE
             stream.emit('stage', { stage: 'TOOL_EXECUTION', status: 'Data fetch ho raha hai...' });
             const execResult = await Telemetry.trackStage(traceId, 'TOOL_EXECUTION',

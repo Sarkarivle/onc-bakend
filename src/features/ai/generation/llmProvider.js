@@ -49,9 +49,13 @@ class LLMProvider {
                 if (!raw) throw new Error("Empty response from LLM");
 
                 let clean = raw.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-                const jsonMatch = clean.match(/\{[\s\S]*\}/);
+                const jsonMatch = clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
 
                 if (!jsonMatch) {
+                    // Fallback: If it's not JSON but we're in a logic task, try to see if it's just raw text that should be JSON
+                    if (clean.startsWith("{") || clean.startsWith("[")) {
+                         try { return JSON.parse(clean); } catch (e) {}
+                    }
                     throw new Error("Invalid JSON format in response");
                 }
 
