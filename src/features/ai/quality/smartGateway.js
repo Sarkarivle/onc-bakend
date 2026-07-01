@@ -62,30 +62,37 @@ class SmartGateway {
         const q = String(query || "").trim().toLowerCase();
         if (!q || q.length < 2) return { status: 'BLOCK', reason: 'EMPTY' };
 
-        // Hard Filter for extremely common gibberish/short trash
-        if (/^[a-z]{5,}$/.test(q) && !['hello', 'hiiii', 'namaste'].includes(q)) {
-             // Block strings like 'asdfghjkl' that aren't known words
+        // 1. HARD FILTERS (Regex based for speed)
+        // Block Repetitive Junk (e.g., zzzzz, aaaaa)
+        if (/(.)\1{4,}/.test(q)) return { status: 'BLOCK', reason: 'REPETITIVE_JUNK' };
+
+        // Block Non-Alphanumeric mess (e.g., !!! @@@ ###)
+        const alphaNumericChars = q.match(/[a-z0-9]/g) || [];
+        const alphaNumericRatio = alphaNumericChars.length / q.length;
+        if (q.length > 3 && alphaNumericRatio < 0.3) return { status: 'BLOCK', reason: 'SYMBOL_MESS' };
+
+        // Block Random long strings (e.g., asdfghjklqwerty)
+        if (/^[a-z]{8,}$/.test(q) && !['namaste', 'shukriya', 'goodmorning', 'helloooo'].includes(q)) {
              return { status: 'BLOCK', reason: 'GIBBERISH' };
         }
 
         const queryVector = await VectorService.generate(query);
         if (!queryVector) return { status: 'PROCEED' };
 
-        // 1. Check for Semantic Attacks (Prompt Injection)
+        // 2. SEMANTIC FILTERS (Vector based)
         const attackScore = this._getMaxSimilarity(queryVector, 'ATTACK');
-        if (attackScore > 0.80) { // Stricter threshold
+        const greetingScore = this._getMaxSimilarity(queryVector, 'GREETING');
+        const gibberishScore = this._getMaxSimilarity(queryVector, 'GIBBERISH');
+
+        if (attackScore > 0.75) {
             return { status: 'BLOCK', reason: 'MALICIOUS_INTENT', score: attackScore };
         }
 
-        // 2. Check for Greetings (Small Talk)
-        const greetingScore = this._getMaxSimilarity(queryVector, 'GREETING');
-        if (greetingScore > 0.75) {
+        if (greetingScore > 0.72) {
             return { status: 'GREET', score: greetingScore };
         }
 
-        // 3. Check for Gibberish (Semantic)
-        const gibberishScore = this._getMaxSimilarity(queryVector, 'GIBBERISH');
-        if (gibberishScore > 0.85) {
+        if (gibberishScore > 0.82) {
             return { status: 'BLOCK', reason: 'GIBBERISH' };
         }
 
