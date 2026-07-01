@@ -23,65 +23,75 @@ class LLMProvider {
     /**
      * ROBUST JSON LOGIC ENGINE (Handles multiple API standards)
      */
-    static async generateLogic(prompt) {
-        try {
-            const baseUrl = await this.getBaseUrl();
-            const response = await axios.post(`${baseUrl}/api/chat`, {
-                model: constants.AI_LOGIC_MODEL,
-                messages: [
-                    { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
-                    { role: 'user', content: prompt }
-                ],
-                stream: false, // CRITICAL: Ensure non-streaming response
-                options: { temperature: 0.1 }
-            }, { timeout: 45000 }); // Increased from 25s for slow tunnels
+    static async generateLogic(prompt, retries = 2) {
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const baseUrl = await this.getBaseUrl();
+                const response = await axios.post(`${baseUrl}/api/chat`, {
+                    model: constants.AI_LOGIC_MODEL,
+                    messages: [
+                        { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    stream: false,
+                    options: { temperature: 0.1 }
+                }, { timeout: 45000 });
 
-            // Robust extraction: Check multiple potential response paths
-            let raw = "";
-            if (response.data.message && response.data.message.content) {
-                raw = response.data.message.content;
-            } else if (response.data.choices && response.data.choices[0].message) {
-                raw = response.data.choices[0].message.content;
-            } else if (response.data.response) {
-                raw = response.data.response;
+                let raw = "";
+                if (response.data.message && response.data.message.content) {
+                    raw = response.data.message.content;
+                } else if (response.data.choices && response.data.choices[0].message) {
+                    raw = response.data.choices[0].message.content;
+                } else if (response.data.response) {
+                    raw = response.data.response;
+                }
+
+                if (!raw) throw new Error("Empty response from LLM");
+
+                let clean = raw.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+                const jsonMatch = clean.match(/\{[\s\S]*\}/);
+
+                if (!jsonMatch) {
+                    throw new Error("Invalid JSON format in response");
+                }
+
+                return JSON.parse(jsonMatch[0]);
+            } catch (error) {
+                console.warn(`⚠️ LLM Logic Attempt ${i + 1} failed: ${error.message}`);
+                if (i === retries) {
+                    console.error("❌ LLM Logic Engine Error after retries:", error.message);
+                    return null;
+                }
+                // Wait before retry
+                await new Promise(r => setTimeout(r, 1000 * (i + 1)));
             }
-
-            if (!raw) throw new Error("Empty response from LLM");
-
-            // Deep Clean JSON
-            let clean = raw.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-            const jsonMatch = clean.match(/\{[\s\S]*\}/);
-
-            if (!jsonMatch) {
-                console.error("❌ Invalid Response Format:", raw.substring(0, 100));
-                return null;
-            }
-
-            return JSON.parse(jsonMatch[0]);
-        } catch (error) {
-            console.error("❌ LLM Logic Engine Error:", error.message);
-            return null;
         }
     }
 
-    static async chat(messages) {
-        try {
-            const baseUrl = await this.getBaseUrl();
-            const response = await axios.post(`${baseUrl}/api/chat`, {
-                model: constants.AI_PERSONALITY_MODEL,
-                messages: messages,
-                stream: false,
-                options: { temperature: 0.7 }
-            }, { timeout: 60000 }); // Increased from 35s
+    static async chat(messages, retries = 1) {
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const baseUrl = await this.getBaseUrl();
+                const response = await axios.post(`${baseUrl}/api/chat`, {
+                    model: constants.AI_PERSONALITY_MODEL,
+                    messages: messages,
+                    stream: false,
+                    options: { temperature: 0.7 }
+                }, { timeout: 60000 });
 
-            let content = "";
-            if (response.data.message) content = response.data.message.content;
-            else if (response.data.choices) content = response.data.choices[0].message.content;
+                let content = "";
+                if (response.data.message) content = response.data.message.content;
+                else if (response.data.choices) content = response.data.choices[0].message.content;
 
-            return { content };
-        } catch (error) {
-            console.error("❌ Personality Engine Error:", error.message);
-            throw error;
+                return { content };
+            } catch (error) {
+                console.warn(`⚠️ Personality Engine Attempt ${i + 1} failed: ${error.message}`);
+                if (i === retries) {
+                    console.error("❌ Personality Engine Error after retries:", error.message);
+                    throw error;
+                }
+                await new Promise(r => setTimeout(r, 2000));
+            }
         }
     }
 

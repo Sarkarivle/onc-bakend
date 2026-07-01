@@ -4,6 +4,7 @@
  * This replaces legacy rule-based detection with a Gemini-style unified planning call.
  */
 const LLMProvider = require('../generation/llmProvider');
+const DeterministicIntentResolver = require('./DeterministicIntentResolver');
 
 class IntentEngine {
     /**
@@ -11,6 +12,18 @@ class IntentEngine {
      * Performs Intent Detection, Query Refinement, and Tool Planning in a single LLM call.
      */
     static async classify(query, state = {}, profile = {}) {
+        // 1. FAST PATH: Deterministic Check
+        const fastMatch = DeterministicIntentResolver.resolve(query);
+        if (fastMatch) {
+            console.log(`[INTENT] Fast path hit: ${fastMatch.intent}`);
+            return {
+                ...fastMatch,
+                refinedQuery: query,
+                parallel: false,
+                execution: [{ step: 1, tool: "LLM", purpose: "direct response" }]
+            };
+        }
+
         const prompt = `
 Task: Act as the Cognitive Controller for Jobo AI.
 Generate a high-precision Execution Plan for the following user request.
