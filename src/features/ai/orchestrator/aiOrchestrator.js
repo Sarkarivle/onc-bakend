@@ -146,24 +146,31 @@ class AIOrchestrator {
         }
     }
 
-    static async processRequestStream(input, onChunk) {
+    static async processRequestStream(input, onChunk, onStatus) {
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
 
         try {
             await this._ensureInitialized();
+            if (onStatus) onStatus('INPUT_PROCESSING', 'Message samajh raha hoon...');
 
             // Minimalist stream pipeline for speed
             const [state, profile] = await Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)]);
+
+            if (onStatus) onStatus('INTENT_DETECTION', 'Sawal ka intent samajh raha hoon...');
             const resolvedIntent = await IntentEngine.classify(userMessage, state, profile);
+
+            if (onStatus) onStatus('PLANNING', 'Best tareeka soch raha hoon...');
             const plan = await AgenticPlanner.generatePlan(userMessage, resolvedIntent, { topic: state.topic });
 
             let knowledge = "";
             if (plan.needsDatabase) {
+                if (onStatus) onStatus('DATABASE_CHECKING', 'Database check kar raha hoon...');
                 const dbResult = await RetrievalEngine.searchJobs(resolvedIntent.refinedQuery || userMessage, profile, plan);
                 knowledge = dbResult?.jobs || "";
             }
 
+            if (onStatus) onStatus('LLM_THINKING', 'Jawab soch raha hoon...');
             const priorityModules = [resolvedIntent.primaryIntent, plan.mode].filter(Boolean);
             const systemPrompt = await PromptComposer.build(
                 priorityModules,

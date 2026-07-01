@@ -117,9 +117,15 @@ router.post('/ask-stream', async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
 
     try {
-        await AIOrchestrator.processRequestStream(req.body, (chunk) => {
-            res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-        });
+        await AIOrchestrator.processRequestStream(
+            req.body,
+            (chunk) => {
+                res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+            },
+            (stage, message) => {
+                res.write(`data: ${JSON.stringify({ stage, status: message })}\n\n`);
+            }
+        );
         res.write('data: [DONE]\n\n');
         res.end();
     } catch (error) {
