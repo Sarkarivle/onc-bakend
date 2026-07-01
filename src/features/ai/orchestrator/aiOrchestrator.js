@@ -30,7 +30,7 @@ class AIOrchestrator {
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
 
         try {
-            // 1. API GATEWAY STAGE (SmartGateway)
+            // 1. API GATEWAY STAGE
             const gatewayStatus = await Telemetry.trackStage(traceId, 'GATEWAY_VALIDATION',
                 () => SmartGateway.validate(userMessage)
             );
@@ -43,12 +43,12 @@ class AIOrchestrator {
                 () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             );
 
-            // 3. COGNITIVE CONTROLLER (Intent, Planning, Rewrite)
+            // 3. COGNITIVE CONTROLLER
             const plan = await Telemetry.trackStage(traceId, 'COGNITIVE_CONTROLLER',
                 () => IntentEngine.classify(userMessage, state, profile)
             );
 
-            // 4. EXECUTION ENGINE & RETRIEVAL LAYER
+            // 4. EXECUTION ENGINE
             const execResult = await Telemetry.trackStage(traceId, 'EXECUTION_ENGINE',
                 () => ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan })
             );
@@ -85,11 +85,8 @@ class AIOrchestrator {
 
             await this._persist(userName, sessionId, userMessage, formatted, suggestions);
 
-            // FIRE BACKGROUND SERVICES
-            BackgroundServices.runAll({
-                traceId, userName, userMessage, finalContent: formatted,
-                plan, execResult, suggestions
-            });
+            BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: formatted, plan, execResult, suggestions });
+            Telemetry.endTrace(traceId);
 
             return { ...shapeResponse(formatted, { suggestions }), requestId: traceId };
 
@@ -126,8 +123,7 @@ class AIOrchestrator {
             // FAST PATH: Greetings skip execution
             if (plan.intent === 'GREETING') {
                 await this._handleGreeting(userMessage, profile, stream);
-                this._persist(userName, sessionId, userMessage, "Namaste! Jobo AI yahan hai.", {}).catch(() => {});
-                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Namaste! Jobo AI yahan hai.", plan });
+                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Namaste!", plan });
                 return;
             }
 
@@ -153,7 +149,7 @@ class AIOrchestrator {
                 { role: 'user', content: userMessage }
             ], async (chunk) => {
                 fullContent += chunk;
-                // Neural Tag Filtering
+                // Neural Tag Filtering & Clean Forwarding
                 if (fullContent.includes('<USER_MESSAGE>')) {
                     if (!isInsideUserMessage) {
                         isInsideUserMessage = true;
@@ -169,26 +165,25 @@ class AIOrchestrator {
                             await stream.pushChunk(chunk);
                         }
                     }
-                } else if (fullContent.length > 400) {
-                    await stream.pushChunk(chunk); // Fallback if tags missing
+                } else if (fullContent.length > 500) {
+                    await stream.pushChunk(chunk); // Fallback
                 }
             });
 
-            // 8. STREAMING ENGINE FINISH
+            // 8. FINALIZING & METADATA INJECTION (Crucial for Flutter)
             const match = fullContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
             const finalContent = (match ? match[1] : fullContent).replace(/<\/?USER_MESSAGE>/gi, '').trim();
-
             const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
 
+            // Send metadata in a format Flutter parser expects
+            const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions })}`;
+            await stream.pushChunk(metadataStr);
+
+            await stream.finishStream();
+
             await this._persist(userName, sessionId, userMessage, finalContent, suggestions);
-
-            // FIRE BACKGROUND SERVICES
-            BackgroundServices.runAll({
-                traceId, userName, userMessage, finalContent,
-                plan, execResult, suggestions
-            });
-
-            await stream.finishStream({ suggestions });
+            BackgroundServices.runAll({ traceId, userName, userMessage, finalContent, plan, execResult, suggestions });
+            Telemetry.endTrace(traceId);
 
         } catch (error) {
             console.error("❌ Stream Pipeline Error:", error);
@@ -202,6 +197,9 @@ class AIOrchestrator {
             { role: 'system', content: promptData.systemPrompt },
             { role: 'user', content: userMessage }
         ], async (chunk) => { await stream.pushChunk(chunk); });
+
+        const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions: ["Latest jobs", "Scholarships"] })}`;
+        await stream.pushChunk(metadataStr);
         await stream.finishStream();
     }
 
