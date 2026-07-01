@@ -98,48 +98,61 @@ class LLMProvider {
     static async chatStream(messages, onChunk) {
         try {
             const baseUrl = await this.getBaseUrl();
+            console.log(`📡 Starting Stream: ${baseUrl}/api/chat with model ${constants.AI_PERSONALITY_MODEL}`);
+
             const response = await axios.post(`${baseUrl}/api/chat`, {
                 model: constants.AI_PERSONALITY_MODEL,
                 messages: messages,
                 stream: true,
                 options: { temperature: 0.7 }
-            }, { responseType: 'stream', timeout: 90000 }); // Increased from 60s for streaming
+            }, { responseType: 'stream', timeout: 90000 });
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
+                let chunkCount = 0;
+
                 response.data.on('data', chunk => {
+                    chunkCount++;
                     buffer += chunk.toString();
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); // Keep partial line in buffer
+                    buffer = lines.pop();
 
                     for (const line of lines) {
                         if (!line.trim()) continue;
                         try {
                             const json = JSON.parse(line);
-                            if (json.message && json.message.content) {
-                                onChunk(json.message.content);
-                            } else if (json.response) {
-                                onChunk(json.response);
+                            const content = (json.message && json.message.content) || json.response;
+                            if (content) {
+                                onChunk(content);
                             }
-                            if (json.done) resolve();
+                            if (json.done) {
+                                console.log(`✅ Stream Finished. Chunks: ${chunkCount}`);
+                                resolve();
+                            }
                         } catch (e) {
-                            // JSON might be split across chunks
+                            // Partial JSON
                         }
                     }
                 });
-                response.data.on('error', reject);
+
+                response.data.on('error', (err) => {
+                    console.error("❌ Stream Data Error:", err.message);
+                    reject(err);
+                });
+
                 response.data.on('end', () => {
                     if (buffer.trim()) {
                         try {
                             const json = JSON.parse(buffer);
-                            if (json.message && json.message.content) onChunk(json.message.content);
+                            const content = (json.message && json.message.content) || json.response;
+                            if (content) onChunk(content);
                         } catch (e) {}
                     }
                     resolve();
                 });
             });
         } catch (error) {
-            console.error("❌ LLM Stream Error:", error.message);
+            console.error("❌ LLM Stream Connection Error:", error.message);
             throw error;
         }
     }

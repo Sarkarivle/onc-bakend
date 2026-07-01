@@ -162,6 +162,7 @@ class AIOrchestrator {
             stream.emit('stage', { stage: 'LLM_THINKING', status: 'Jawab likh raha hoon...' });
             let fullContent = "";
             let isInsideUserMessage = false;
+            let hasSeenTags = false;
 
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
@@ -169,13 +170,20 @@ class AIOrchestrator {
             ], async (chunk) => {
                 fullContent += chunk;
 
-                if (!isInsideUserMessage) {
-                    if (fullContent.includes('<USER_MESSAGE>')) {
+                if (fullContent.includes('<USER_MESSAGE>')) {
+                    hasSeenTags = true;
+                    if (!isInsideUserMessage) {
                         isInsideUserMessage = true;
-                        const firstPart = fullContent.split('<USER_MESSAGE>')[1];
+                        const parts = fullContent.split('<USER_MESSAGE>');
+                        const firstPart = parts[parts.length - 1];
                         if (firstPart) await stream.pushChunk(firstPart);
+                    } else {
+                        await stream.pushChunk(chunk);
                     }
-                } else {
+                } else if (!hasSeenTags && fullContent.length > 200) {
+                    // Fallback: If no tags after 200 chars, just stream everything
+                    await stream.pushChunk(chunk);
+                } else if (isInsideUserMessage) {
                     if (chunk.includes('</USER_MESSAGE>')) {
                         const finalPart = chunk.split('</USER_MESSAGE>')[0];
                         await stream.pushChunk(finalPart);
@@ -188,7 +196,13 @@ class AIOrchestrator {
 
             // FINAL STAGES: CLEANUP & PERSISTENCE
             const match = fullContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
-            const finalContent = match ? match[1].trim() : fullContent;
+            let finalContent = match ? match[1].trim() : fullContent;
+            finalContent = finalContent.replace(/<\/?USER_MESSAGE>/gi, '').trim();
+
+            // If nothing was pushed yet (e.g. no tags and short message), push it now
+            if (stream.metrics.tokenCount === 0 && finalContent) {
+                await stream.pushChunk(finalContent);
+            }
 
             MemoryEngine.extractFacts(userName || "User", userMessage, finalContent).catch(console.error);
             const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
