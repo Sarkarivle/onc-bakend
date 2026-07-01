@@ -58,23 +58,24 @@ class AIOrchestrator {
             ]);
 
             ProgressEmitter.emit(sessionId, 'INTENT_DETECTION');
-            const resolvedIntent = await IntentEngine.classify(userMessage, state, profile);
+            const contract = await IntentEngine.classify(userMessage, state, profile);
 
             // NEURAL MEMORY: Track topic evolution
-            if (resolvedIntent.entities?.job || resolvedIntent.subIntent) {
-                state.lastTopic = resolvedIntent.entities?.job || resolvedIntent.subIntent;
-                await SessionState.save(sessionId, state);
+            if (contract.entities?.job || contract.subIntent) {
+                state.lastTopic = contract.entities?.job || contract.subIntent;
+                await SessionState.update(sessionId, { query: userMessage, resolvedIntent: contract });
             }
 
             // PHASE 4: AGENTIC PLANNING
             ProgressEmitter.emit(sessionId, 'PLANNING');
-            const plan = await AgenticPlanner.generatePlan(userMessage, resolvedIntent, { topic: state.topic });
+            const plan = await AgenticPlanner.generatePlan(userMessage, contract, { topic: state.topic });
 
             // PHASE 5: RETRIEVAL (RAG)
             ProgressEmitter.emit(sessionId, 'DATABASE_CHECKING');
             let knowledge = "";
             if (plan.needsDatabase) {
-                const dbResult = await RetrievalEngine.searchJobs(resolvedIntent.refinedQuery || userMessage, profile, plan);
+                const queryToSearch = contract.refinedQuery || userMessage;
+                const dbResult = await RetrievalEngine.searchJobs(queryToSearch, profile, plan);
                 knowledge = dbResult?.jobs || "";
             }
 
@@ -87,9 +88,8 @@ class AIOrchestrator {
 
             // PHASE 7: PROMPT COMPOSITION
             ProgressEmitter.emit(sessionId, 'PROMPT_COMPOSING');
-            const priorityModules = [resolvedIntent.primaryIntent, plan.mode].filter(Boolean);
             const systemPrompt = await PromptComposer.build(
-                priorityModules,
+                plan.priorityModules,
                 { name: userName, ...profile, state },
                 { jobs: knowledge },
                 { sessionId, turnCount: state.turnCount, behavior: plan.behavior, plan, currentDate: new Date().toLocaleDateString() }
@@ -114,7 +114,7 @@ class AIOrchestrator {
             if (knowledge && knowledge.length > 50) {
                 ProgressEmitter.emit(sessionId, 'RESPONSE_VALIDATION');
                 const audit = await LLMProvider.verifyResponse(userMessage, finalContent, knowledge);
-                if (!audit.isValid && audit.correctedAnswer) {
+                if (audit && !audit.isValid && audit.correctedAnswer) {
                     console.log("🛠 Correcting Hallucination:", audit.reason);
                     finalContent = audit.correctedAnswer;
                 }
@@ -129,7 +129,7 @@ class AIOrchestrator {
             // PHASE 11: FORMATTING & UX
             ProgressEmitter.emit(sessionId, 'RESPONSE_FORMATTING');
             const formatted = EliteFormatter.format(finalContent, {
-                intent: resolvedIntent.primaryIntent,
+                intent: contract.normalizedIntent,
                 userProfile: profile
             });
             const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: knowledge });

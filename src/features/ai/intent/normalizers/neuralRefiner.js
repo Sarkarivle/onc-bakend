@@ -8,7 +8,12 @@ class NeuralRefiner {
     static async refine(rawQuery, context = {}) {
         const prompt = buildPrompt(rawQuery, context);
         const result = await LLMProvider.generateLogic(prompt);
-        return result?.refinedQuery || rawQuery;
+
+        return {
+            originalQuery: rawQuery,
+            refinedQuery: result?.refinedQuery || rawQuery,
+            isFollowUp: !!result?.isFollowUp
+        };
     }
 }
 
