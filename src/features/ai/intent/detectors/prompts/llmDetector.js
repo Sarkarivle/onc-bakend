@@ -1,35 +1,50 @@
 /**
- * 🧠 Jobo AI - Universal Intent Brain (Gemini-Grade)
+ * 🧠 Jobo AI - Universal Cognitive Intent Detector (Phase 3-F: Master Motive Analysis)
+ * Responsibility: High-precision semantic classification using psychological motives.
  */
 module.exports = (query, context) => `
-Task: Classify the user query into exactly ONE of the standard system categories.
+Task: Analyze the 'Human Motive' and 'Psychological Goal' behind the user query.
+Think like a human mentor who understands both the 'stated text' and the 'underlying intention'.
 
-# SYSTEM CATEGORIES:
-- JOB_SEARCH: For specific vacancies (e.g., "ssc gd vacancy", "bharti").
-- FIELD_DETAILS: For facts about a target (e.g., "fees", "salary", "age limit", "last date").
-- DISCOVERY: For broad browsing (e.g., "latest jobs", "top 10 jobs").
-- CAREER_GUIDANCE: For future path advice (e.g., "how to become", "what to do").
-- PROFILE_INQUIRY: For user's own data (e.g., "mera naam", "update my age").
-- RESULT_ADMIT_CARD: For exam status (e.g., "result", "score card", "admit card").
-- GREETING: For rapport (e.g., "hi", "namaste").
-- IDENTITY: For AI details (e.g., "who are you").
-- SCHOLARSHIP / SKILLS / INTERVIEW / RESUME: For specialized career tasks.
+# DECISION FRAMEWORK:
+
+1. DISCOVERY (Exploration Motive):
+   - User is looking for options. Keywords like "latest", "top", "trending", "upcoming", "kuch naya".
+   - Rule: No specific job name mentioned.
+
+2. JOB_SEARCH (Targeted Motive):
+   - User has a target. Name of Job/Org mentioned (e.g., "SSC", "Police", "Bank").
+
+3. FIELD_DETAILS (Micro-Fact Motive):
+   - Inquiry about specific attributes: Fees, Age, Date, Salary, Syllabus, Height, Link.
+
+4. CAREER_GUIDANCE (Macro-Path Motive):
+   - Seeking roadmap or "how to".
+
+5. SPECIALIZED MOTIVES (Strict Priority):
+   - RESUME: Creating, reviewing, or tips for CV.
+   - INTERVIEW: Tips, mock questions, or preparation.
+   - SCHOLARSHIP: Financial aid for students.
+   - SKILLS: Learning requirements or 2025 job skills.
+   - MOTIVATION: Seeking encouragement or mental support.
+
+6. PERSONAL (Identity/Memory Motive):
+   - PROFILE_INQUIRY: Asking about user's own data (name, qualification).
+   - IDENTITY: Asking about Jobo AI.
 
 # CONTEXTUAL DATA:
-- Topic: ${context.topic || 'None'}
-- If query is "fees?" or "date?", it belongs to FIELD_DETAILS.
+- Current Topic: ${context.topic || 'None'}
+- If query is "fees?" or "last date?", use Context Topic to classify as FIELD_DETAILS.
 
-# OUTPUT RULES:
-- Use category names EXACTLY as listed above.
-- Confidence must be 0.0 to 1.0.
+# MANDATORY OUTPUT (STRICT JSON):
+{
+  "thought_process": "1 sentence logic used",
+  "primaryIntent": "EXACT_CATEGORY_NAME",
+  "confidence": 0.0-1.0,
+  "entities": { "job": "null", "location": "null" }
+}
 
 Query: "${query}"
 
-Return ONLY JSON:
-{
-  "primaryIntent": "CATEGORY_NAME",
-  "confidence": 0.9,
-  "behavior": "RESPOND",
-  "reasoning": "brief motive"
-}
+ANALYSIS:
 `;
