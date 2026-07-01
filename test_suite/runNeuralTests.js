@@ -28,8 +28,8 @@ async function runTest(testCase) {
 
         const actual = {
             intent: resolvedIntent.normalizedIntent,
-            mode: plan.mode,
-            behavior: plan.behavior,
+            mode: resolvedIntent.mode,
+            behavior: resolvedIntent.behavior,
             tone: plan.emotionalTone || resolvedIntent.tone
         };
 

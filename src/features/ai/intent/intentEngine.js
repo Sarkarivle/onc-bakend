@@ -51,10 +51,16 @@ class IntentEngine {
             turnCount: state.turnCount
         });
 
+        // Determine the primary query signal based on refiner risk assessment
+        const primaryQuerySignal = refinerResult.refinerChangedMeaningRisk
+            ? refinerResult.originalQuery
+            : refinerResult.refinedQuery;
+
         // 2. COGNITIVE ANALYSIS (Motive & Entities)
-        const analysis = await LLMDetector.classify(refinerResult.refinedQuery, {
+        const analysis = await LLMDetector.classify(primaryQuerySignal, {
             topic: state.currentTopic || state.topic,
-            profileStr: JSON.stringify(profile)
+            profileStr: JSON.stringify(profile),
+            isHighRiskRefinement: !!refinerResult.refinerChangedMeaningRisk
         });
 
         // If LLM analysis fails, create a default contract but still resolve system values
@@ -68,7 +74,7 @@ class IntentEngine {
             rawIntent: baseAnalysis.primaryIntent,
             normalizedIntent,
             domain: baseAnalysis.domain || "GENERAL",
-            behavior: baseAnalysis.behavior || behavior, // Prefer analysis behavior if present, else use resolved
+            behavior: behavior, // Always use the system-resolved behavior for consistency
             mode,
             confidence: baseAnalysis.confidence || 0.5,
             entities: baseAnalysis.entities || {},
@@ -76,7 +82,13 @@ class IntentEngine {
         });
 
         if (process.env.DEBUG_AI_PIPELINE === 'true') {
-            console.log('[AI DEBUG] IntentEngine Output:', { ...finalContract, source: finalContract.reasoningShort });
+            console.log('[AI DEBUG] IntentEngine Output:', {
+                originalQuery: finalContract.originalQuery,
+                refinedQuery: finalContract.refinedQuery,
+                ...finalContract,
+                source: finalContract.reasoningShort,
+                refinerRisk: refinerResult.refinerChangedMeaningRisk
+            });
         }
         return finalContract;
     }
