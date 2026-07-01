@@ -10,7 +10,7 @@ class LLMProvider {
     }
 
     /**
-     * UNBREAKABLE JSON ENGINE (Gemini Style)
+     * ROBUST JSON LOGIC ENGINE (Handles multiple API standards)
      */
     static async generateLogic(prompt) {
         try {
@@ -18,20 +18,31 @@ class LLMProvider {
             const response = await axios.post(`${baseUrl}/api/chat`, {
                 model: constants.AI_LOGIC_MODEL,
                 messages: [
-                    { role: 'system', content: 'You are a Strict Intent Classifier. Respond ONLY with valid JSON. NO markdown. NO explanation.' },
+                    { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
                     { role: 'user', content: prompt }
                 ],
+                stream: false, // CRITICAL: Ensure non-streaming response
                 options: { temperature: 0.1 }
             }, { timeout: 25000 });
 
-            let raw = response.data.message.content.trim();
+            // Robust extraction: Check multiple potential response paths
+            let raw = "";
+            if (response.data.message && response.data.message.content) {
+                raw = response.data.message.content;
+            } else if (response.data.choices && response.data.choices[0].message) {
+                raw = response.data.choices[0].message.content;
+            } else if (response.data.response) {
+                raw = response.data.response;
+            }
 
-            // Clean control characters and markdown blocks
-            raw = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            if (!raw) throw new Error("Empty response from LLM");
+
+            // Deep Clean JSON
+            let clean = raw.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+            const jsonMatch = clean.match(/\{[\s\S]*\}/);
 
             if (!jsonMatch) {
-                console.error("❌ LLM failed to return JSON structure.");
+                console.error("❌ Invalid Response Format:", raw.substring(0, 100));
                 return null;
             }
 
@@ -48,9 +59,15 @@ class LLMProvider {
             const response = await axios.post(`${baseUrl}/api/chat`, {
                 model: constants.AI_PERSONALITY_MODEL,
                 messages: messages,
+                stream: false,
                 options: { temperature: 0.7 }
-            }, { timeout: 30000 });
-            return { content: response.data.message.content };
+            }, { timeout: 35000 });
+
+            let content = "";
+            if (response.data.message) content = response.data.message.content;
+            else if (response.data.choices) content = response.data.choices[0].message.content;
+
+            return { content };
         } catch (error) {
             console.error("❌ Personality Engine Error:", error.message);
             throw error;
@@ -58,14 +75,14 @@ class LLMProvider {
     }
 
     static async verifyResponse(query, answer, knowledge) {
-        const prompt = `Match the AI Answer with Fact Data.\nQuery: ${query}\nFact: ${knowledge}\nAnswer: ${answer}\nReturn JSON: {"isValid":true/false, "correctedAnswer": "..."}`;
+        const prompt = `Fact-Check Task:\nQuery: ${query}\nFact: ${knowledge}\nAI: ${answer}\nReturn JSON: {"isValid":bool, "reason":"why", "correctedAnswer":"..."}`;
         return await this.generateLogic(prompt);
     }
 
     static async guardResponse(query, answer) {
-        const prompt = `Check if safe: User: ${query}\nAI: ${answer}\nReturn "safe" or "unsafe"`;
+        const prompt = `Safety Task: Is this response safe? Query: ${query}\nAI: ${answer}\nReturn JSON: {"status":"safe" | "unsafe"}`;
         const res = await this.generateLogic(prompt);
-        return res?.status !== 'unsafe';
+        return res?.status === 'safe';
     }
 }
 
