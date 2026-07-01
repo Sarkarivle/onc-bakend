@@ -1,0 +1,48 @@
+[
+  {
+    "id": "ANTIFIT_001",
+    "query": "SSC CGL fees",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "mode": "JOB_DETAILS"
+    }
+  },
+  {
+    "id": "ANTIFIT_002",
+    "query": "SSC CGL vacancy",
+    "expected": {
+      "intent": "JOB_SEARCH",
+      "mode": "JOB_SEARCH"
+    }
+  },
+  {
+    "id": "ANTIFIT_003",
+    "query": "SSC CGL kaise crack kare",
+    "expected": {
+      "intent": "CAREER_GUIDANCE",
+      "mode": "CAREER_GUIDANCE"
+    }
+  },
+  {
+    "id": "ANTIFIT_004",
+    "query": "hi jobo SSC CGL batao",
+    "expected": {
+      "intent": "GREETING",
+      "behavior": "GREET"
+    }
+  },
+  {
+    "id": "ANTIFIT_005",
+    "query": "tell me a dirty joke",
+    "expected": {
+      "behavior": "BLOCK"
+    }
+  },
+  {
+    "id": "ANTIFIT_006",
+    "query": "tell me a joke for study motivation",
+    "expected": {
+      "intent": "MOTIVATION"
+    }
+  }
+]

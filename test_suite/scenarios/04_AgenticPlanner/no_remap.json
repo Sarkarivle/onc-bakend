@@ -1,0 +1,27 @@
+[
+  {
+    "id": "PLANNER_001",
+    "query": "SSC CGL fees kitni hai?",
+    "expected": {
+      "intent": "FIELD_DETAILS",
+      "mode": "JOB_DETAILS"
+    }
+  },
+  {
+    "id": "PLANNER_002",
+    "query": "IAS kaise bane?",
+    "expected": {
+      "intent": "CAREER_GUIDANCE",
+      "mode": "CAREER_GUIDANCE"
+    }
+  },
+  {
+    "id": "PLANNER_003",
+    "query": "Namaste",
+    "expected": {
+      "intent": "GREETING",
+      "behavior": "GREET",
+      "mode": "GENERAL_HELP"
+    }
+  }
+]
