@@ -19,6 +19,7 @@ class StreamingEngine {
         this.res.setHeader('Content-Type', 'text/event-stream');
         this.res.setHeader('Cache-Control', 'no-cache');
         this.res.setHeader('Connection', 'keep-alive');
+        this.res.setHeader('X-Accel-Buffering', 'no'); // Prevent Nginx buffering
         this.res.on('close', () => { this.cancelStream('Client disconnected'); });
     }
 

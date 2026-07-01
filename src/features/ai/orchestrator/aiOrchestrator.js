@@ -100,7 +100,7 @@ class AIOrchestrator {
      * Production-Grade Streaming Request
      */
     static async processRequestStream(input, res) {
-        const stream = new StreamingEngine(res);
+        const stream = new StreamingEngine(res, { bufferSize: 1 });
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
@@ -143,36 +143,51 @@ class AIOrchestrator {
             stream.startThinking('Jawab likh raha hoon...');
             let fullContent = "";
             let isInsideUserMessage = false;
+            let hasExitedUserMessage = false;
+            let hasPushedAnyContent = false;
 
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
                 { role: 'user', content: userMessage }
             ], async (chunk) => {
                 fullContent += chunk;
+
                 // Neural Tag Filtering & Clean Forwarding
-                if (fullContent.includes('<USER_MESSAGE>')) {
+                if (fullContent.includes('<USER_MESSAGE>') && !hasExitedUserMessage) {
                     if (!isInsideUserMessage) {
                         isInsideUserMessage = true;
                         const parts = fullContent.split('<USER_MESSAGE>');
                         const part = parts[parts.length - 1];
-                        if (part) await stream.pushChunk(part);
+                        if (part) {
+                            await stream.pushChunk(part);
+                            hasPushedAnyContent = true;
+                        }
                     } else {
                         if (chunk.includes('</USER_MESSAGE>')) {
                             const lastPart = chunk.split('</USER_MESSAGE>')[0];
-                            await stream.pushChunk(lastPart);
+                            if (lastPart) await stream.pushChunk(lastPart);
                             isInsideUserMessage = false;
+                            hasExitedUserMessage = true;
                         } else {
                             await stream.pushChunk(chunk);
+                            hasPushedAnyContent = true;
                         }
                     }
-                } else if (fullContent.length > 500) {
-                    await stream.pushChunk(chunk); // Fallback
+                } else if (!fullContent.includes('<AGENT_THOUGHT>') && (hasPushedAnyContent || fullContent.length > 150)) {
+                    await stream.pushChunk(chunk); // Fallback for models not using tags
+                    hasPushedAnyContent = true;
                 }
             });
 
             // 8. FINALIZING & METADATA INJECTION (Crucial for Flutter)
             const match = fullContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
             const finalContent = (match ? match[1] : fullContent).replace(/<\/?USER_MESSAGE>/gi, '').trim();
+
+            // If we never streamed during the loop (e.g. short response, no tags), stream it now
+            if (!hasPushedAnyContent && finalContent) {
+                await stream.pushChunk(finalContent);
+            }
+
             const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
 
             // Send metadata in a format Flutter parser expects
@@ -193,10 +208,21 @@ class AIOrchestrator {
 
     static async _handleGreeting(userMessage, profile, stream) {
         const promptData = await PromptComposer.build(['GREETING'], profile, {}, { plan: { intent: 'GREETING' }, currentDate: new Date().toLocaleDateString() });
+        let hasPushed = false;
         await LLMProvider.chatStream([
             { role: 'system', content: promptData.systemPrompt },
             { role: 'user', content: userMessage }
-        ], async (chunk) => { await stream.pushChunk(chunk); });
+        ], async (chunk) => {
+            if (chunk) {
+                await stream.pushChunk(chunk);
+                hasPushed = true;
+            }
+        });
+
+        // Fallback for greetings if stream was empty
+        if (!hasPushed) {
+            await stream.pushChunk("Namaste! Main aapka AI assistant hoon. Kaise madad karun?");
+        }
 
         const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions: ["Latest jobs", "Scholarships"] })}`;
         await stream.pushChunk(metadataStr);
