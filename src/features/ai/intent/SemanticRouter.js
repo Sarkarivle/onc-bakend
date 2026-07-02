@@ -36,6 +36,14 @@ class SemanticRouter {
 
     static async route(query, state = {}) {
         await this.init();
+        const normalizedQuery = query.toLowerCase().trim();
+
+        // Safety: If query contains personal pronouns or question words, skip neural bypass and go to Planner.
+        const complexKeywords = ['iska', 'usme', 'mera', 'meri', 'mein', 'kaun', 'kaise', 'kyun', 'kya', 'm '];
+        if (complexKeywords.some(word => normalizedQuery.includes(word))) {
+            return null;
+        }
+
         const queryVector = await VectorService.generate(query);
 
         let bestIntent = null;
@@ -50,7 +58,7 @@ class SemanticRouter {
         }
 
         // Only return if similarity is very high to avoid false positives
-        if (maxSimilarity > 0.85) {
+        if (maxSimilarity > 0.92) {
             logger.info(`⚡ Neural Route: ${bestIntent} | Confidence: ${maxSimilarity.toFixed(3)}`);
             return {
                 intent: bestIntent,
