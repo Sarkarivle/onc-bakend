@@ -50,8 +50,8 @@ class AIOrchestrator {
                     () => PromptComposer.build(['SAFETY'], {}, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
                 );
                 Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
-                Telemetry.endTrace(traceId);
                 traceFinalized = true;
+                Telemetry.endTrace(traceId);
                 return { ...shapeResponse(safeResponse), requestId: traceId };
             }
 
@@ -64,6 +64,25 @@ class AIOrchestrator {
             const cognitiveContract = await Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
                 () => IntentEngine.classify(userMessage, state, profile)
             );
+
+            // MODERN LLM PLANNER SUMMARY (Visual for Developer)
+            console.log('\n┌────────────── PLANNER DECISION ──────────────┐');
+            console.log(`Primary Goal  : ${cognitiveContract.primary_goal || 'N/A'}`);
+            console.log(`Goal Type     : ${cognitiveContract.goal_type || 'N/A'}`);
+            console.log(`Confidence    : ${cognitiveContract.confidence || '0.0'}`);
+            console.log(`Priority      : ${cognitiveContract.priority || 'medium'}`);
+            console.log(`Urgency       : ${cognitiveContract.urgency || 'normal'}`);
+            console.log(`Need Memory   : ${cognitiveContract.need_memory ? 'YES' : 'NO'}`);
+            console.log(`Need Search   : ${cognitiveContract.need_search ? 'YES' : 'NO'}`);
+            console.log(`Need Database : ${cognitiveContract.need_database ? 'YES' : 'NO'}`);
+            console.log(`Need Tools    : ${(cognitiveContract.need_tools || []).join(', ') || 'none'}`);
+            console.log(`Execution     : ${cognitiveContract.execution_mode || 'sequential'}`);
+            console.log(`Next Engines  :`);
+            (cognitiveContract.next_engines || []).forEach(eng => console.log(`• ${eng}`));
+            console.log(`Expected Output :`);
+            console.log(`${cognitiveContract.expected_output || 'N/A'}`);
+            console.log('└──────────────────────────────────────────────┘\n');
+
             Telemetry.setContext(traceId, {
                 intent: cognitiveContract.intent,
                 confidence: cognitiveContract.confidence,
@@ -83,8 +102,11 @@ class AIOrchestrator {
                 );
                 const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
                 await this._persist(userName, sessionId, userMessage, fixedResponse, suggestions);
-                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: fixedResponse, plan, execResult: null, suggestions });
+                await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
+                    () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: fixedResponse, plan, execResult: null, suggestions })
+                );
                 traceFinalized = true;
+                Telemetry.endTrace(traceId);
                 return { ...shapeResponse(fixedResponse, { suggestions }), requestId: traceId };
             }
 
@@ -127,9 +149,12 @@ class AIOrchestrator {
 
             await this._persist(userName, sessionId, userMessage, formatted, suggestions);
 
-            BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: formatted, plan, execResult, suggestions });
+            await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
+                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: formatted, plan, execResult, suggestions })
+            );
             traceFinalized = true;
 
+            Telemetry.endTrace(traceId);
             return { ...shapeResponse(formatted, { suggestions, cognitiveMap: plan.cognitiveMap }), requestId: traceId };
 
         } catch (error) {
@@ -172,8 +197,8 @@ class AIOrchestrator {
                     () => PromptComposer.build(['SAFETY'], profile, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
                 );
                 stream.error(new Error(this._safeGatewayResponse(gatewayStatus.reason)));
-                Telemetry.endTrace(traceId);
                 traceFinalized = true;
+                Telemetry.endTrace(traceId);
                 return;
             }
 
@@ -201,14 +226,23 @@ class AIOrchestrator {
             // Await Intent first as it's the brain
             const cognitiveContract = await intentPromise;
 
-            // LOG PLANNER V2 DECISION (Visual Summary for Developer)
-            console.log('\n┌──────────────── PLANNER V2 DECISION ────────────────┐');
-            console.log(`│ Goal: ${(cognitiveContract.primary_goal || 'N/A').substring(0, 45).padEnd(45)} │`);
-            console.log(`│ Intent: ${(cognitiveContract.intent || 'N/A').padEnd(43)} │`);
-            console.log(`│ Engines: ${(cognitiveContract.next_engines || []).join(', ').padEnd(42)} │`);
-            console.log(`│ Instant: ${String(cognitiveContract.canAnswerInstantly).padEnd(42)} │`);
-            console.log(`│ Strategy: ${(cognitiveContract.response_strategy || 'N/A').substring(0, 43).padEnd(42)} │`);
-            console.log('└─────────────────────────────────────────────────────┘\n');
+            // MODERN LLM PLANNER SUMMARY (Visual for Developer)
+            console.log('\n┌────────────── PLANNER DECISION ──────────────┐');
+            console.log(`Primary Goal  : ${cognitiveContract.primary_goal || 'N/A'}`);
+            console.log(`Goal Type     : ${cognitiveContract.goal_type || 'N/A'}`);
+            console.log(`Confidence    : ${cognitiveContract.confidence || '0.0'}`);
+            console.log(`Priority      : ${cognitiveContract.priority || 'medium'}`);
+            console.log(`Urgency       : ${cognitiveContract.urgency || 'normal'}`);
+            console.log(`Need Memory   : ${cognitiveContract.need_memory ? 'YES' : 'NO'}`);
+            console.log(`Need Search   : ${cognitiveContract.need_search ? 'YES' : 'NO'}`);
+            console.log(`Need Database : ${cognitiveContract.need_database ? 'YES' : 'NO'}`);
+            console.log(`Need Tools    : ${(cognitiveContract.need_tools || []).join(', ') || 'none'}`);
+            console.log(`Execution     : ${cognitiveContract.execution_mode || 'sequential'}`);
+            console.log(`Next Engines  :`);
+            (cognitiveContract.next_engines || []).forEach(eng => console.log(`• ${eng}`));
+            console.log(`Expected Output :`);
+            console.log(`${cognitiveContract.expected_output || 'N/A'}`);
+            console.log('└──────────────────────────────────────────────┘\n');
 
             Telemetry.setContext(traceId, {
                 intent: cognitiveContract.intent,
@@ -226,8 +260,11 @@ class AIOrchestrator {
                 await stream.pushChunk(plan.directResponse);
                 await stream.finishStream();
                 await this._persist(userName, sessionId, userMessage, plan.directResponse, suggestions);
-                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: plan.directResponse, plan });
+                await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
+                    () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: plan.directResponse, plan })
+                );
                 traceFinalized = true;
+                Telemetry.endTrace(traceId);
                 console.log(`⚡ Short-Circuit Response Total: ${Date.now() - overallStart}ms`);
                 return;
             }
@@ -311,6 +348,8 @@ class AIOrchestrator {
                 if (!hasPushedAnyContent) {
                     const ttft = Date.now() - llmStart;
                     console.log(`⏱️ Stage 5 (LLM TTFT - First Token): ${ttft}ms`);
+                    // Log TTFT for telemetry
+                    Telemetry.logStageManual(traceId, 'LLM_TTFT', ttft);
                     hasPushedAnyContent = true;
                 }
 
@@ -356,8 +395,12 @@ class AIOrchestrator {
             await stream.finishStream();
 
             await this._persist(userName, sessionId, userMessage, finalContent, suggestions);
-            BackgroundServices.runAll({ traceId, userName, userMessage, finalContent, plan, execResult, suggestions });
+            await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
+                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent, plan, execResult, suggestions })
+            );
             traceFinalized = true;
+
+            Telemetry.endTrace(traceId);
 
         } catch (error) {
             console.error("❌ Stream Pipeline Error:", error);

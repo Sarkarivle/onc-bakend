@@ -1,7 +1,6 @@
 /**
- * TelemetryEngine Module (Architectural Version 11.0)
- * Responsibility: Enterprise-grade observability, tracing, and metrics.
- * Built on OpenTelemetry standards for Google Cloud/Datadog/Grafana compatibility.
+ * TelemetryEngine Module (Architectural Version 12.0)
+ * Responsibility: Enterprise-grade observability, tracing, and bottleneck analysis.
  */
 const { randomUUID } = require('crypto');
 
@@ -10,9 +9,6 @@ class TelemetryEngine {
         this.traces = new Map();
     }
 
-    /**
-     * Initializes a new request trace.
-     */
     startTrace(userId, sessionId, initialInput, requestId = null) {
         const traceId = requestId || randomUUID();
         const trace = {
@@ -35,9 +31,6 @@ class TelemetryEngine {
         return traceId;
     }
 
-    /**
-     * Records the start and end of a specific module stage.
-     */
     async trackStage(traceId, moduleName, action) {
         const trace = this.traces.get(traceId);
         if (!trace) return await action();
@@ -64,17 +57,16 @@ class TelemetryEngine {
         }
     }
 
-    /**
-     * Logs specific event metadata (e.g., Intent, RAG Results).
-     */
-    logEvent(traceId, module, metadata) {
+    logStageManual(traceId, moduleName, duration, status = 'SUCCESS') {
         const trace = this.traces.get(traceId);
         if (!trace) return;
-
-        const stage = trace.stages.find(s => s.module === module && s.status === 'SUCCESS');
-        if (stage) {
-            stage.metadata = { ...stage.metadata, ...metadata };
-        }
+        trace.stages.push({
+            module: moduleName,
+            duration,
+            status,
+            startTime: Date.now() - duration,
+            endTime: Date.now()
+        });
     }
 
     setContext(traceId, metadata = {}) {
@@ -83,53 +75,82 @@ class TelemetryEngine {
         trace.context = { ...trace.context, ...metadata };
     }
 
-    /**
-     * Finalizes the trace and returns the full report.
-     */
     endTrace(traceId) {
         const trace = this.traces.get(traceId);
         if (!trace) return null;
 
         trace.endTime = Date.now();
         trace.totalDuration = trace.endTime - trace.startTime;
-        trace.summary = this._buildSummary(trace);
 
-        // Structured Logging for External Collectors (ELK/Splunk)
-        console.log(`[TELEMETRY_TRACE] ${JSON.stringify(trace)}`);
+        this._printModernReport(trace);
 
-        // Cleanup to prevent memory leaks
+        // Cleanup
         this.traces.delete(traceId);
         return trace;
     }
 
-    _buildSummary(trace) {
-        const durationFor = (...names) => trace.stages
-            .filter(stage => names.includes(stage.module))
-            .reduce((sum, stage) => sum + (stage.duration || 0), 0);
-
-        return {
-            requestId: trace.traceId,
-            sessionId: trace.sessionId,
-            userId: trace.userId,
-            latencyMs: trace.totalDuration,
-            plannerTimeMs: durationFor('QUERY_UNDERSTANDING_ENGINE', 'PLANNER_ENGINE', 'COGNITIVE_CONTROLLER'),
-            searchTimeMs: durationFor('SEARCH', 'RAG_RETRIEVER', 'EXECUTION_ENGINE'),
-            ragTimeMs: durationFor('RAG_RETRIEVER', 'EXECUTION_ENGINE'),
-            llmTimeMs: durationFor('FINAL_LLM'),
-            promptBuilderTimeMs: durationFor('PROMPT_BUILDER'),
-            safetyTimeMs: durationFor('GATEWAY_VALIDATION', 'SAFETY_GUARDRAILS', 'VALIDATION_ENGINE'),
-            errors: trace.stages.filter(stage => stage.status === 'FAILED').map(stage => ({
-                module: stage.module,
-                error: stage.error
-            })),
-            confidence: trace.context?.confidence || null,
-            intent: trace.context?.intent || null
+    _printModernReport(trace) {
+        const getDur = (mod) => {
+            const s = trace.stages.find(s => s.module === mod);
+            return s ? `${s.duration} ms` : 'SKIPPED';
         };
+
+        const getVal = (mod) => {
+            const s = trace.stages.find(s => s.module === mod);
+            return s ? s.duration || 0 : 0;
+        };
+
+        const total = trace.totalDuration;
+
+        console.log('\n--- PERFORMANCE TELEMETRY ---');
+        const telemetryRows = [
+            ['Gateway', 'GATEWAY_VALIDATION'],
+            ['Planner', 'QUERY_UNDERSTANDING_ENGINE'],
+            ['Memory Engine', 'CONTEXT_LOADING'],
+            ['Execution Engine', 'EXECUTION_ENGINE'],
+            ['Prompt Composer', 'PROMPT_BUILDER'],
+            ['Main LLM TTFT', 'LLM_TTFT'],
+            ['LLM Generation', 'FINAL_LLM'],
+            ['Post Processing', 'SAFETY_GUARDRAILS'],
+            ['Memory Update', 'BACKGROUND_SERVICES']
+        ];
+
+        telemetryRows.forEach(([label, mod]) => {
+            const val = getDur(mod);
+            console.log(`${label.padEnd(22, '.')} ${val}`);
+        });
+        console.log(`${'TOTAL'.padEnd(22, '.')} ${total} ms`);
+
+        // Bottleneck Analysis
+        const durations = telemetryRows.map(([label, mod]) => ({ label, dur: getVal(mod) }));
+        const max = durations.reduce((prev, curr) => (prev.dur > curr.dur) ? prev : curr);
+        const pct = total > 0 ? ((max.dur / total) * 100).toFixed(0) : 0;
+
+        console.log('\nBottleneck :');
+        console.log(max.label);
+        console.log(`${max.dur} ms`);
+        console.log(`${pct}% of total latency`);
+
+        // Pipeline Health
+        console.log('\nPipeline Health');
+        const healthCheck = [
+            ['Planner', 'QUERY_UNDERSTANDING_ENGINE'],
+            ['Memory', 'CONTEXT_LOADING'],
+            ['Search', 'EXECUTION_ENGINE'],
+            ['Database', 'EXECUTION_ENGINE'],
+            ['Prompt Composer', 'PROMPT_BUILDER'],
+            ['LLM', 'FINAL_LLM'],
+            ['Memory Update', 'BACKGROUND_SERVICES']
+        ];
+
+        healthCheck.forEach(([label, mod]) => {
+            const s = trace.stages.find(s => s.module === mod);
+            const status = s && s.status === 'SUCCESS' ? '✓' : (s && s.status === 'FAILED' ? '✗' : '—');
+            console.log(`${label.padEnd(16)} ${status}`);
+        });
+        console.log('------------------------------\n');
     }
 
-    /**
-     * Global Instance for singleton access.
-     */
     static getInstance() {
         if (!this.instance) this.instance = new TelemetryEngine();
         return this.instance;
