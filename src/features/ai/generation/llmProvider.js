@@ -9,9 +9,10 @@ class LLMProvider {
 
         if (!url) return constants.DEFAULT_RUNPOD_URL;
 
-        // CRITICAL FIX: Strip common copy-paste errors like "curl https://..."
-        url = url.replace(/^(curl|wget)\s+/i, '')
+        // ULTRA-ROBUST CLEANING: Strip "curl", "wget", extra "https://", and quotes from anywhere in the string
+        url = url.replace(/(curl|wget)\s+/i, '')
                  .replace(/['"\s]/g, '')
+                 .replace(/^(https?:\/\/)+/i, 'https://') // Fix double https://https://
                  .trim();
 
         // Ensure protocol exists
@@ -22,8 +23,12 @@ class LLMProvider {
         // Remove trailing slash
         url = url.replace(/\/+$/, '');
 
-        // If the URL already includes a standard path (/api/ or /v1/), use it as is
-        if (url.toLowerCase().includes('/api/') || url.toLowerCase().includes('/v1/')) {
+        // STRIP WRONG ENDPOINTS: If user pasted /api/tags or /api/generate by mistake, remove it
+        url = url.replace(/\/api\/(tags|generate|push|pull|show|copy|delete)\/?$/i, '');
+        url = url.replace(/\/+$/, ''); // Clean again
+
+        // If the URL includes a standard path (/api/chat or /v1/), use it
+        if (url.toLowerCase().includes('/api/chat') || url.toLowerCase().includes('/v1')) {
             return url;
         }
 
