@@ -21,11 +21,20 @@ const intentModules = {
 };
 
 class PromptComposer {
+    static basePromptCache = new Map();
+
     /**
      * Builds a production-grade prompt system.
      */
     static async build(priorityModules, userData, liveData, meta) {
         const { plan, currentDate } = meta;
+
+        // FAST PATH: Ultra-light prompt for simple conversational intents
+        if (['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT'].includes(plan.intent)) {
+            return {
+                systemPrompt: `${personality}\n\n# ROLE: Quick Response Mode\n- Speak in natural, brotherly Hinglish.\n- Be extremely brief and helpful.\n- No need for complex analysis.`
+            };
+        }
 
         // 1. Context Collection & Compression
         const profileBlock = this._formatProfile(userData, plan);
@@ -34,22 +43,7 @@ class PromptComposer {
         const ragBlock = this._formatRAG(liveData.jobs);
 
         // 2. Build Component List (Hierarchical Order)
-        const components = [
-            personality,        // Identity & Tone
-            core,               // System Mission
-            language,           // Hinglish & Brevity Rules
-            reasoning,          // Internal Thought Process
-            safety,             // Hallucination Guardrails
-            output(currentDate) // Final Formatting Rules
-        ];
-
-        // 3. Dynamic Intent Components
-        if (intentModules[plan.intent]) {
-            components.push(intentModules[plan.intent]);
-        }
-
-        // 4. Assemble Final System Prompt
-        let systemPrompt = components.join('\n\n---\n\n');
+        let systemPrompt = this._getBasePrompt(plan.intent, currentDate);
         systemPrompt += '\n\n# CONTEXTUAL DATA (GROUND TRUTH)\n';
 
         if (profileBlock) systemPrompt += `\n${profileBlock}\n`;
@@ -58,6 +52,30 @@ class PromptComposer {
         if (ragBlock) systemPrompt += `\n[RETRIEVED DATABASE]:\n${ragBlock}\n`;
 
         return { systemPrompt };
+    }
+
+    static _getBasePrompt(intent, currentDate) {
+        const cacheKey = `${intent || 'GENERAL'}:${currentDate || ''}`;
+        if (this.basePromptCache.has(cacheKey)) {
+            return this.basePromptCache.get(cacheKey);
+        }
+
+        const components = [
+            personality,
+            core,
+            language,
+            reasoning,
+            safety,
+            output(currentDate)
+        ];
+
+        if (intentModules[intent]) {
+            components.push(intentModules[intent]);
+        }
+
+        const basePrompt = components.join('\n\n---\n\n');
+        this.basePromptCache.set(cacheKey, basePrompt);
+        return basePrompt;
     }
 
     static _formatProfile(profile, plan) {

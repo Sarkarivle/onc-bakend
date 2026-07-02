@@ -42,4 +42,25 @@ const jobSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+jobSchema.index({ isActive: 1 });
+jobSchema.index({ category: 1 });
+jobSchema.index({ createdAt: -1 });
+jobSchema.index({ lastDate: 1 });
+jobSchema.index({ title: 1 });
+jobSchema.index({ organization: 1 });
+jobSchema.index({ 'eligibility.education': 1 });
+jobSchema.index({ isActive: 1, category: 1, createdAt: -1 });
+jobSchema.index({ isActive: 1, lastDate: 1 });
+jobSchema.index({ isActive: 1, createdAt: -1 });
+jobSchema.index({
+  title: 'text',
+  organization: 'text',
+  category: 'text',
+  'eligibility.education': 'text',
+  'eligibility.skills': 'text',
+  fullHtmlContent: 'text',
+  'aiCoreSummary.text': 'text',
+  'fullData.content': 'text'
+});
+
 module.exports = mongoose.model('Job', jobSchema);

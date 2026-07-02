@@ -16,11 +16,25 @@ class ToolRegistry {
     async execute(name, input, context) {
         const tool = this.tools.get(name.toUpperCase());
         if (!tool) throw new Error(`Tool ${name} not found.`);
+
         try {
             await tool.validate(input);
-            return await tool.execute(input, context);
+
+            // Timeout enforcement with Promise.race
+            const timeoutMs = tool.timeout || 10000;
+
+            return await Promise.race([
+                tool.execute(input, context),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout: Tool ${name} exceeded ${timeoutMs}ms`)), timeoutMs)
+                )
+            ]);
         } catch (error) {
             console.error(`❌ Tool Execution Error [${name}]:`, error.message);
+            if (tool.safeFallback) {
+                console.log(`ℹ️ Using safe fallback for [${name}]`);
+                return tool.safeFallback();
+            }
             throw error;
         }
     }
@@ -42,7 +56,8 @@ registry.register('RAG', {
     execute: async (input, context) => {
         const result = await RetrievalEngine.searchJobs(input, context.profile, context.plan);
         return { jobs: result?.jobs || "" };
-    }
+    },
+    safeFallback: () => ({ jobs: "", documents: [], confidence: 0 })
 });
 
 // 2. MEMORY Tool (RE-IMPLEMENTED FOR DUAL-MEMORY)
@@ -60,14 +75,16 @@ registry.register('MEMORY', {
             facts: longTerm.map(m => m.fact),
             recentHistory: shortTerm
         };
-    }
+    },
+    safeFallback: () => ({ facts: [], recentHistory: [] })
 });
 
 // 3. PROFILE Tool
 registry.register('PROFILE', {
     timeout: 2000,
     validate: () => {},
-    execute: async (_, context) => context.profile
+    execute: async (_, context) => context.profile,
+    safeFallback: () => ({})
 });
 
 // 4. CALCULATOR Tool
@@ -75,7 +92,8 @@ const Calculator = require('../tools/calculator');
 registry.register('CALCULATOR', {
     timeout: 1000,
     validate: (input) => { if (!input) throw new Error("Calculator requires input"); },
-    execute: async (input) => Calculator.execute(input)
+    execute: async (input) => Calculator.execute(input),
+    safeFallback: () => ({ result: "" })
 });
 
 // 5. LLM Tool

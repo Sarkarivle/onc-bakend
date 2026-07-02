@@ -16,17 +16,13 @@ class IntentEngine {
      * Performs Intent Detection, Query Refinement, and Tool Planning in a single LLM call.
      */
     static async classify(query, state = {}, profile = {}) {
-        // 1. FAST PATH: Deterministic Check (For Greetings/Safety/Garbage)
+        // 1. FAST PATH: Deterministic Check (For Greetings/Safety/Garbage/Common Jobs)
         const fastMatch = DeterministicIntentResolver.resolve(query);
         if (fastMatch) {
             return {
-                intent: fastMatch.intent,
-                confidence: 1.0,
-                refinedQuery: query,
-                needsPlanning: false,
-                parallel: false,
-                execution: fastMatch.intent === 'GREETING' ? [] : [{ step: 1, tool: "LLM", purpose: "direct response" }],
-                behavior: fastMatch.behavior || "RESPOND"
+                ...fastMatch,
+                refinedQuery: fastMatch.refinedQuery || query,
+                execution: fastMatch.execution || (fastMatch.intent === 'GREETING' ? [] : [{ step: 1, tool: "LLM", purpose: "direct response" }])
             };
         }
 

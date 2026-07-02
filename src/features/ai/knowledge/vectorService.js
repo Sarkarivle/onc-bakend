@@ -6,6 +6,9 @@
 class VectorService {
     static extractor = null;
     static initializing = null;
+    static cache = new Map();
+    static CACHE_TTL_MS = Number(process.env.EMBEDDING_CACHE_TTL_MS || 10 * 60 * 1000);
+    static CACHE_MAX = Number(process.env.EMBEDDING_CACHE_MAX || 500);
 
     /**
      * Loads the model into local server memory.
@@ -32,17 +35,35 @@ class VectorService {
      * Generates a vector using local CPU/RAM.
      */
     static async generate(text) {
+        const normalizedText = String(text || "").trim().toLowerCase();
+        if (!normalizedText) return null;
+
+        const cached = this.cache.get(normalizedText);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.vector;
+        }
+
         try {
             await this.init();
             const output = await this.extractor(text, {
                 pooling: 'mean',
                 normalize: true
             });
-            return Array.from(output.data);
+            const vector = Array.from(output.data);
+            this._setCache(normalizedText, vector);
+            return vector;
         } catch (error) {
             console.error("❌ Local Vector Error:", error.message);
             return null;
         }
+    }
+
+    static _setCache(key, vector) {
+        if (this.cache.size >= this.CACHE_MAX) {
+            const oldestKey = this.cache.keys().next().value;
+            if (oldestKey) this.cache.delete(oldestKey);
+        }
+        this.cache.set(key, { vector, expiresAt: Date.now() + this.CACHE_TTL_MS });
     }
 
     static createJobText(job) {

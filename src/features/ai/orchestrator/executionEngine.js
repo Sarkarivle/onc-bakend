@@ -41,7 +41,7 @@ class ExecutionEngine {
                         results.outputs[toolName] = res.value;
                         results.metrics.stepsExecuted++;
                     } else {
-                        results.errors.push({ tool: step.tool, error: res.reason.message });
+                        results.errors.push({ tool: step.tool, error: res.reason.message, critical: step.critical !== false });
                         // If a critical tool fails, we mark success as false but continue where possible
                         if (step.critical !== false) results.success = false;
                     }
@@ -94,7 +94,12 @@ class ExecutionEngine {
         try {
             // Map plan input or use default from context
             const input = step.input || context.userMessage;
-            return await ToolRegistry.execute(step.tool, input, context);
+            const timeoutMs = step.timeout || tool?.timeout || 10_000;
+            return await this._withTimeout(
+                ToolRegistry.execute(step.tool, input, context),
+                timeoutMs,
+                `${step.tool} timed out after ${timeoutMs}ms`
+            );
         } catch (error) {
             if (attempt < retryLimit) {
                 metrics.retries++;
@@ -102,8 +107,30 @@ class ExecutionEngine {
                 await new Promise(r => setTimeout(r, delay));
                 return await this._executeStepWithRetry(step, context, metrics, attempt + 1);
             }
+            if (step.critical === false || tool?.safeFallback) {
+                return this._safeFallback(step.tool, tool);
+            }
             throw error;
         }
+    }
+
+    static _withTimeout(promise, timeoutMs, message) {
+        let timeoutId;
+        const timeout = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+        });
+
+        return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+    }
+
+    static _safeFallback(toolName, tool) {
+        if (typeof tool?.safeFallback === 'function') return tool.safeFallback();
+        const name = String(toolName || "").toUpperCase();
+        if (name === 'RAG') return { jobs: "", documents: [], confidence: 0 };
+        if (name === 'MEMORY') return { facts: [], recentHistory: [] };
+        if (name === 'PROFILE') return {};
+        if (name === 'CALCULATOR') return { result: "" };
+        return {};
     }
 }
 

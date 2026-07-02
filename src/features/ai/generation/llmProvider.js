@@ -3,11 +3,42 @@ const Settings = require('../../settings/settingsModel');
 const constants = require('../../../config/constants');
 
 class LLMProvider {
+    static settingsCache = {
+        baseUrl: null,
+        expiresAt: 0
+    };
+    static SETTINGS_TTL_MS = Number(process.env.LLM_SETTINGS_TTL_MS || 60_000);
+
+    static callStats = {
+        logic: 0,
+        chat: 0,
+        stream: 0,
+        total: 0
+    };
+
+    static resetStats() {
+        this.callStats = { logic: 0, chat: 0, stream: 0, total: 0 };
+    }
+
+    static getStats() {
+        return { ...this.callStats };
+    }
+
     static async getBaseUrl() {
-        const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
+        const now = Date.now();
+        if (this.settingsCache.baseUrl && this.settingsCache.expiresAt > now) {
+            return this.settingsCache.baseUrl;
+        }
+
+        const setting = Settings.db?.readyState === 1
+            ? await Settings.findOne({ key: 'RUNPOD_URL' })
+            : null;
         let url = (setting?.value || constants.DEFAULT_RUNPOD_URL).trim();
 
-        if (!url) return constants.DEFAULT_RUNPOD_URL;
+        if (!url) {
+            this.settingsCache = { baseUrl: constants.DEFAULT_RUNPOD_URL, expiresAt: now + this.SETTINGS_TTL_MS };
+            return constants.DEFAULT_RUNPOD_URL;
+        }
 
         // ULTRA-ROBUST CLEANING: Strip "curl", "wget", extra "https://", and quotes from anywhere in the string
         url = url.replace(/(curl|wget)\s+/i, '')
@@ -29,17 +60,22 @@ class LLMProvider {
 
         // If the URL includes a standard path (/api/chat or /v1/), use it
         if (url.toLowerCase().includes('/api/chat') || url.toLowerCase().includes('/v1')) {
+            this.settingsCache = { baseUrl: url, expiresAt: now + this.SETTINGS_TTL_MS };
             return url;
         }
 
         // Otherwise, assume it's just a domain and add default Ollama path
-        return `${url}/api/chat`;
+        const baseUrl = `${url}/api/chat`;
+        this.settingsCache = { baseUrl, expiresAt: now + this.SETTINGS_TTL_MS };
+        return baseUrl;
     }
 
     /**
      * ROBUST JSON LOGIC ENGINE (Handles multiple API standards)
      */
     static async generateLogic(prompt, retries = 2) {
+        this.callStats.logic++;
+        this.callStats.total++;
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
@@ -91,6 +127,8 @@ class LLMProvider {
     }
 
     static async chat(messages, retries = 1) {
+        this.callStats.chat++;
+        this.callStats.total++;
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
@@ -118,6 +156,8 @@ class LLMProvider {
     }
 
     static async chatStream(messages, onChunk) {
+        this.callStats.stream++;
+        this.callStats.total++;
         let fullUrl = "";
         try {
             fullUrl = await this.getBaseUrl();

@@ -60,14 +60,14 @@ class ValidationEngine {
      * STAGE 4: OUTPUT VALIDATION (Neural Fact-Check)
      * Verifies grounding against retrieved context.
      */
-    static async validateOutput(query, answer, contextData) {
+    static async validateOutput(query, answer, contextData, options = {}) {
         // Lightweight check for broken markdown or formatting
         if (answer.includes('|') && !answer.includes('---')) {
             return { status: 'FIX', reason: 'BROKEN_TABLE' };
         }
 
         // Deep Neural Fact Check (Only for factual queries)
-        if (contextData.jobs) {
+        if (contextData.jobs && options.allowLlm !== false) {
             const prompt = `
 Task: Fact-Check AI Response.
 [CONTEXT]: ${contextData.jobs}
