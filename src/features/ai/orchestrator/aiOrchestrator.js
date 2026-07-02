@@ -177,21 +177,8 @@ class AIOrchestrator {
                 return;
             }
 
-            // SPECULATIVE RAG (Turbo)
-            let speculativeRagPromise = null;
-            const lastMsg = state.history?.length > 0 ? state.history[state.history.length-1].assistant : "";
-
-            if (gatewayStatus.likelyIntent === 'JOB_SEARCH' || (userMessage.length < 10 && lastMsg.toLowerCase().includes('job'))) {
-                stream.startThinking(`${firstName} bhai, tumhare liye sateek vacancy dhund raha hoon...`);
-                speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
-            }
-
-            // 2. QUERY UNDERSTANDING ENGINE + PLANNER ENGINE
             // 2. PARALLEL INTENT DETECTION + SPECULATIVE RETRIEVAL
-            // This is how Big Players achieve near-zero latency.
             const intentStart = Date.now();
-            const firstName = userName.split(' ')[0] || "Dost";
-            stream.startThinking(`${firstName} bhai, bas ek minute, sab check kar loon...`);
 
             // Start Intent Detection (Neural Architect)
             const intentPromise = Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
@@ -200,7 +187,14 @@ class AIOrchestrator {
 
             // Speculatively start RAG if it looks like a job query (Zero-Wait Path)
             let speculativeRagPromise = null;
+            const lastMsg = state.history?.length > 0 ? state.history[state.history.length-1].assistant : "";
+
             if (userMessage.length > 5 && !['hi', 'hello', 'ok'].includes(userMessage.toLowerCase())) {
+                if (gatewayStatus.likelyIntent === 'JOB_SEARCH' || lastMsg.toLowerCase().includes('job')) {
+                    stream.startThinking(`${firstName} bhai, tumhare liye sateek vacancy dhund raha hoon...`);
+                } else {
+                    stream.startThinking(`${firstName} bhai, tumhare sawal par gaur kar raha hoon...`);
+                }
                 speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
             }
 
@@ -230,10 +224,28 @@ class AIOrchestrator {
             }
 
             const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
+            console.log(`⏱️ Stage 2 (Intent/Planner): ${Date.now() - intentStart}ms | Turbo: ${isTurbo} | Intent: ${plan.intent}`);
+
+            // Update stream with Turbo setting if changed
+            if (isTurbo) stream.skipValidation = true;
+
+            // FAST PATH: Conversation starters and simple intents skip complex execution
+            if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
+                await this._handleFastResponse(userMessage, plan, profile, stream);
+                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Fast Response", plan });
+                traceFinalized = true;
+                console.log(`🚀 Fast Response Total: ${Date.now() - overallStart}ms`);
+                return;
+            }
 
             // 4. EXECUTION ENGINE (Reuse speculative results if available)
             const execStart = Date.now();
             let execResult;
+
+            if (!isTurbo) {
+                const actionText = plan.intent === 'JOB_SEARCH' ? "sarkari database scan kar raha hoon" : "best jankari nikal raha hoon";
+                stream.startThinking(`${firstName} bhai, ab ${actionText}...`);
+            }
 
             if (plan.needsRAG && speculativeRagPromise) {
                 const ragOutput = await speculativeRagPromise;
@@ -243,7 +255,6 @@ class AIOrchestrator {
                 execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
             }
             console.log(`⏱️ Stage 3 (Parallel Execution): ${Date.now() - execStart}ms`);
-            console.log(`⏱️ Stage 3 (Execution/RAG): ${Date.now() - execStart}ms`);
 
             const liveData = {
                 jobs: execResult.outputs.rag?.jobs || "",
