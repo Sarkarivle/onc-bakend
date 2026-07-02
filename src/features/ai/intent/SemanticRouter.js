@@ -23,6 +23,10 @@ const INTENT_ANCHORS = {
         "meri age kya h", "m abhi kitne sal ka hu", "meri qualification kya hai",
         "mera naam kya hai", "meri profile dikhao", "my age and category"
     ],
+    CONTINUE: [
+        "karo bhai", "haan dikhao", "yes please", "zaroor", "theek hai karo",
+        "aage batao", "process karo", "show me", "continue"
+    ],
     CAREER_GUIDANCE: [
         "10th ke baad kya kare", "best career after 12th commerce", "ias kaise bane",
         "software engineer ki padhai", "government vs private job guide",
@@ -61,49 +65,76 @@ class SemanticRouter {
     static async route(query, state = {}) {
         await this.init();
 
-        // CONTEXT ENRICHMENT: Prepend current topic to query to prevent confusion
+        const history = state.history || [];
+        const lastAssistantMessage = history.length > 0 ? history[history.length - 1].assistant : "";
         const currentTopic = state.currentTopic || state.topic || "GENERAL";
+
+        const queryWords = query.trim().split(/\s+/);
+        const isShortQuery = queryWords.length <= 3;
+        const lastAiAskedQuestion = lastAssistantMessage.includes('?') || lastAssistantMessage.includes('karu') || lastAssistantMessage.includes('dikhau');
+
+        // --- STEP 1: PIVOT CHECK (Priority to New Clear Intents) ---
+        // We check the original query FIRST without context to see if user is changing topic
+        const rawQueryVector = await VectorService.generate(query);
+        const topRawIntent = this._getBestMatch(rawQueryVector);
+
+        if (topRawIntent && topRawIntent.score > 0.88) {
+            console.log(`🔀 Intent Pivot Detected: Switching to ${topRawIntent.intent}`);
+            return this._buildMatch(topRawIntent.intent, topRawIntent.score, "Intent Pivot");
+        }
+
+        // --- STEP 2: CONTEXTUAL STATE MACHINE (Affirmations) ---
+        if (isShortQuery && lastAiAskedQuestion) {
+            const lowerQuery = query.toLowerCase();
+            const affirmative = ["karo", "haan", "yes", "dikhao", "ok", "theek h", "zaroor", "karo bhai", "show", "btao"];
+
+            if (affirmative.some(a => lowerQuery.includes(a))) {
+                const likelyIntent = (currentTopic === 'JOB_SEARCH' || lastAssistantMessage.toLowerCase().includes('job')) ? 'JOB_SEARCH' : 'CONTINUE';
+                return this._buildMatch(likelyIntent, 0.99, "State Transition");
+            }
+        }
+
+        // --- STEP 3: CONTEXT-ENRICHED MATCHING (Follow-ups) ---
         const enrichedQuery = `[Topic: ${currentTopic}] ${query}`;
+        const enrichedVector = await VectorService.generate(enrichedQuery);
+        const topEnrichedIntent = this._getBestMatch(enrichedVector);
 
-        const queryVector = await VectorService.generate(enrichedQuery);
-        if (!queryVector) return null;
+        if (topEnrichedIntent && topEnrichedIntent.score > 0.80) {
+            return this._buildMatch(topEnrichedIntent.intent, topEnrichedIntent.score, "Enriched Match");
+        }
 
+        return null;
+    }
+
+    static _getBestMatch(vector) {
+        if (!vector) return null;
         let bestIntent = null;
         let highestScore = 0;
 
         for (const [intent, anchors] of this.anchorVectors.entries()) {
-            const score = this._getMaxSimilarity(queryVector, anchors);
+            const score = this._getMaxSimilarity(vector, anchors);
             if (score > highestScore) {
                 highestScore = score;
                 bestIntent = intent;
             }
         }
+        return { intent: bestIntent, score: highestScore };
+    }
 
-        // Manual override for common profile confusion (Age vs Result)
-        const q = query.toLowerCase();
-        if (q.includes('age') || q.includes('kitne saal') || q.includes('umar')) {
-            bestIntent = 'PROFILE_INQUIRY';
-            highestScore = Math.max(highestScore, 0.9);
-        }
-
-        // High confidence threshold for bypassing LLM
-        if (highestScore > 0.8) {
-            console.log(`⚡ Semantic Route: ${bestIntent} (Score: ${highestScore.toFixed(3)}) | Context: ${currentTopic}`);
-            return {
-                intent: bestIntent,
-                confidence: highestScore,
-                needsPlanning: false,
-                execution: this._getDefaultExecution(bestIntent),
-                mode: this._getMode(bestIntent),
-                searchStrategy: {
-                    skipLlmExpansion: true,
-                    skipLlmRerank: true,
-                    reason: "Fast Semantic Route"
-                }
-            };
-        }
-
-        return null;
+    static _buildMatch(intent, score, reasoning) {
+        console.log(`⚡ Semantic Route: ${intent} (${reasoning}) | Score: ${score.toFixed(3)}`);
+        return {
+            intent: intent,
+            confidence: score,
+            needsPlanning: false,
+            execution: this._getDefaultExecution(intent),
+            mode: this._getMode(intent),
+            searchStrategy: {
+                skipLlmExpansion: true,
+                skipLlmRerank: true,
+                reason: reasoning
+            }
+        };
     }
 
     static _getMaxSimilarity(queryVec, anchors) {
@@ -131,6 +162,7 @@ class SemanticRouter {
             'FIELD_DETAILS': 'JOB_DETAILS',
             'ORDINAL_FOLLOWUP': 'JOB_DETAILS',
             'PROFILE_INQUIRY': 'PROFILE_HELP',
+            'CONTINUE': 'JOB_SEARCH', // Map affirmative to job search by default
             'CAREER_GUIDANCE': 'CAREER_GUIDANCE',
             'MOTIVATION': 'CAREER_GUIDANCE',
             'RESUME': 'RESUME_HELP'
@@ -142,7 +174,7 @@ class SemanticRouter {
         // ALWAYS include MEMORY tool to ensure follow-up context is never lost
         const base = [{ step: 1, tool: "MEMORY", purpose: "load history" }];
 
-        if (intent === 'JOB_SEARCH' || intent === 'ORDINAL_FOLLOWUP') {
+        if (intent === 'JOB_SEARCH' || intent === 'ORDINAL_FOLLOWUP' || intent === 'CONTINUE') {
             return [...base, { step: 2, tool: "RAG", purpose: "search" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
         }
         if (intent === 'FIELD_DETAILS') {

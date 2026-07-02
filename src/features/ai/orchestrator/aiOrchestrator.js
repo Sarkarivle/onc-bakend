@@ -140,7 +140,9 @@ class AIOrchestrator {
 
             // SPECULATIVE RAG (Turbo)
             let speculativeRagPromise = null;
-            if (gatewayStatus.likelyIntent === 'JOB_SEARCH') {
+            const lastMsg = state.history?.length > 0 ? state.history[state.history.length-1].assistant : "";
+
+            if (gatewayStatus.likelyIntent === 'JOB_SEARCH' || (userMessage.length < 10 && lastMsg.toLowerCase().includes('job'))) {
                 speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
             }
 
