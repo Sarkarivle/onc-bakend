@@ -201,6 +201,15 @@ class AIOrchestrator {
             // Await Intent first as it's the brain
             const cognitiveContract = await intentPromise;
 
+            // LOG PLANNER V2 DECISION (Visual Summary for Developer)
+            console.log('\n┌──────────────── PLANNER V2 DECISION ────────────────┐');
+            console.log(`│ Goal: ${(cognitiveContract.primary_goal || 'N/A').substring(0, 45).padEnd(45)} │`);
+            console.log(`│ Intent: ${(cognitiveContract.intent || 'N/A').padEnd(43)} │`);
+            console.log(`│ Engines: ${(cognitiveContract.next_engines || []).join(', ').padEnd(42)} │`);
+            console.log(`│ Instant: ${String(cognitiveContract.canAnswerInstantly).padEnd(42)} │`);
+            console.log(`│ Strategy: ${(cognitiveContract.response_strategy || 'N/A').substring(0, 43).padEnd(42)} │`);
+            console.log('└─────────────────────────────────────────────────────┘\n');
+
             Telemetry.setContext(traceId, {
                 intent: cognitiveContract.intent,
                 confidence: cognitiveContract.confidence,
