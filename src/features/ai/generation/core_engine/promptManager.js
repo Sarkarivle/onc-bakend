@@ -2,7 +2,7 @@
  * PromptManager Module
  * Responsibility: Manages system prompt modules, versioning, and caching.
  */
-const PromptModule = require('../memory/promptModel');
+const PromptModule = require('../../memory/promptModel');
 const localRegistry = require('./moduleRegistry');
 
 class PromptManager {

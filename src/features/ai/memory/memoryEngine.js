@@ -4,7 +4,7 @@
  */
 const Fact = require('./factModel');
 const State = require('./stateModel');
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 
 class MemoryEngine {
     /**

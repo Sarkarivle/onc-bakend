@@ -3,7 +3,7 @@
  * Responsibility: Seeds default prompt modules into the database.
  */
 const mongoose = require('mongoose');
-const PromptModule = require('../memory/promptModel');
+const PromptModule = require('../../memory/promptModel');
 const localRegistry = require('./moduleRegistry');
 
 const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://himanshu:himanshu@cluster0.zwtv3.mongodb.net/onc?retryWrites=true&w=majority";

@@ -2,22 +2,32 @@
  * PromptComposer Module (Architectural Version 8.0 - Modular Prompt Engine)
  * Responsibility: Intelligent context collection and dynamic assembly of professional prompt modules.
  */
-const personality = require('./prompts/personality');
-const core = require('./prompts/core');
-const reasoning = require('./prompts/reasoning_engine');
-const safety = require('./prompts/hallucination_prevention');
-const output = require('./prompts/output');
-const language = require('./prompts/language');
+const personality = require('./prompts/Brainprompt/personality');
+const core = require('./prompts/Brainprompt/core');
+const reasoning = require('./prompts/Brainprompt/reasoning_engine');
+const safety = require('./prompts/Brainprompt/hallucination_prevention');
+const language = require('./prompts/Brainprompt/language');
 
-// Specialized Intent Modules
+// New Intent-Based Output Modules
+const outputModules = {
+    JOB_SEARCH: require('./prompts/output/output_jobs'),
+    CAREER_GUIDANCE: require('./prompts/output/output_career'),
+    SKILLS: require('./prompts/output/output_career'),
+    COLLEGE: require('./prompts/output/output_career'),
+    GENERAL: require('./prompts/output/output_general'),
+    GREETING: require('./prompts/output/output_general'),
+    IDENTITY: require('./prompts/output/output_general')
+};
+
+// Specialized Intent Modules (Organized by Feature)
 const intentModules = {
-    JOB_SEARCH: require('./prompts/govt_jobs'),
-    CAREER_GUIDANCE: require('./prompts/career_guidance'),
-    RESUME: require('./prompts/resume'),
-    SKILLS: require('./prompts/skills'),
-    COLLEGE: require('./prompts/college'),
-    SCHOLARSHIP: require('./prompts/scholarship'),
-    INTERVIEW: require('./prompts/interview')
+    JOB_SEARCH: require('./prompts/specialists/govt_jobs'),
+    CAREER_GUIDANCE: require('./prompts/specialists/career_guidance'),
+    RESUME: require('./prompts/specialists/resume'),
+    SKILLS: require('./prompts/specialists/skills'),
+    COLLEGE: require('./prompts/specialists/college'),
+    SCHOLARSHIP: require('./prompts/specialists/scholarship'),
+    INTERVIEW: require('./prompts/specialists/interview')
 };
 
 class PromptComposer {
@@ -37,7 +47,7 @@ class PromptComposer {
                 Tone: Helpful, brotherly Hinglish.
                 Task: Answer extremely concisely (max 2 sentences).
                 Context: ${liveData.jobs ? "Jobs: " + liveData.jobs : "General conversation"}.
-                Rule: Use <USER_MESSAGE> tags and stop yapping.`
+                Rule: Do NOT use any tags like <USER_MESSAGE> or <AGENT_THOUGHT> in the final output.`
             };
         }
 
@@ -71,6 +81,9 @@ class PromptComposer {
         if (this.basePromptCache.has(cacheKey)) {
             return this.basePromptCache.get(cacheKey);
         }
+
+        // Dynamically select the output module based on intent
+        const output = outputModules[intent] || outputModules.GENERAL;
 
         const components = [
             personality,

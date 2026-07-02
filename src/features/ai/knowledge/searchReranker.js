@@ -2,7 +2,7 @@
  * SearchReranker Module (Architectural Version 8.0)
  * Responsibility: Multi-Factor Neural Reranking.
  */
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 
 class SearchReranker {
     /**

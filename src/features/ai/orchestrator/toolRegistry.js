@@ -162,7 +162,7 @@ registry.register('ELIGIBILITY_CHECKER', {
 });
 
 // 7. LLM Tool retained for registry completeness; ExecutionEngine keeps final LLM after PromptBuilder.
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 registry.register('LLM', {
     timeout: 35000,
     validate: (input) => {

@@ -7,7 +7,7 @@
  * IntentEngine Module (Architectural Version 5.0 - Cognitive Controller)
  * Responsibility: SINGLE SOURCE OF TRUTH for Intent, Planning, and Execution Strategy.
  */
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 const DeterministicIntentResolver = require('./DeterministicIntentResolver');
 const SemanticRouter = require('./SemanticRouter');
 

@@ -10,7 +10,7 @@ const SmartGateway = require('../src/features/ai/quality/smartGateway');
 const Formatter = require('../src/features/ai/quality/eliteFormatter');
 const AgenticPlanner = require('../src/features/ai/reasoning/agenticPlanner');
 const UserProfile = require('../src/features/ai/context/userProfile');
-const LLMProvider = require('../src/features/ai/generation/llmProvider');
+const LLMProvider = require('../src/features/ai/generation/core_engine/llmProvider');
 
 const SCENARIOS_DIR = path.join(__dirname, 'scenarios');
 const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/onc_db";

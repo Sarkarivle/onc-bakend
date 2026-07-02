@@ -1,8 +1,8 @@
 const axios = require('axios');
 const http = require('http');
 const https = require('https');
-const Settings = require('../../settings/settingsModel');
-const constants = require('../../../config/constants');
+const Settings = require('../../../settings/settingsModel');
+const constants = require('../../../../config/constants');
 
 // Connection pooling for Turbo Speed
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50 });

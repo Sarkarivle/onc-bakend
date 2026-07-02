@@ -16,5 +16,5 @@ FOLLOW THIS STRUCTURE:
 
 Output Rule:
 - All internal reasoning MUST be strictly contained within <AGENT_THOUGHT> tags.
-- The final response for the user MUST be outside these tags, wrapped in <USER_MESSAGE>.
+- After the closing </AGENT_THOUGHT> tag, provide the final response for the user directly. Do NOT use any other tags for the final response.
 `;

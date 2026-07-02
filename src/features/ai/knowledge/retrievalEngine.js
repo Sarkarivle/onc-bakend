@@ -4,7 +4,7 @@
  */
 const Job = require('../../jobs/jobModel');
 const SearchReranker = require('./searchReranker');
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 
 class RetrievalEngine {
     /**

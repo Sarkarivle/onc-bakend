@@ -3,7 +3,7 @@ const assert = require('assert');
 const IntentEngine = require('../src/features/ai/intent/intentEngine');
 const RetrievalEngine = require('../src/features/ai/knowledge/retrievalEngine');
 const SearchReranker = require('../src/features/ai/knowledge/searchReranker');
-const LLMProvider = require('../src/features/ai/generation/llmProvider');
+const LLMProvider = require('../src/features/ai/generation/core_engine/llmProvider');
 const ValidationEngine = require('../src/features/ai/quality/validationEngine');
 
 async function test(name, fn) {

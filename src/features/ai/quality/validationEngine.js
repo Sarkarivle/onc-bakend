@@ -3,7 +3,7 @@
  * Responsibility: Multi-stage validation (Input, Execution, Context, Output, Stream).
  * Designed for enterprise-grade grounding and safety (Gemini/Claude standard).
  */
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 
 class ValidationEngine {
     /**

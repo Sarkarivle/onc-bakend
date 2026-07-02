@@ -10,7 +10,7 @@ const IntentEngine = require('../intent/intentEngine');
 const AgenticPlanner = require('../reasoning/agenticPlanner');
 const ExecutionEngine = require('./executionEngine');
 const PromptComposer = require('../generation/promptComposer');
-const LLMProvider = require('../generation/llmProvider');
+const LLMProvider = require('../generation/core_engine/llmProvider');
 const ValidationEngine = require('../quality/validationEngine');
 const SmartGateway = require('../quality/smartGateway');
 const EliteFormatter = require('../quality/eliteFormatter');
@@ -239,11 +239,12 @@ class AIOrchestrator {
             const llmStart = Date.now();
             let fullContent = "";
             let hasPushedAnyContent = false;
+            let totalPushedLength = 0;
 
             // In Turbo mode, we tell the model to be direct
             const reinforcedUserMessage = isTurbo
                 ? `${userMessage} (Direct jawab do, no tags needed)`
-                : `${userMessage}\n\n(Note: Jawab Hinglish में दें और <USER_MESSAGE> टैग्स का इस्तेमाल करें)`;
+                : `${userMessage}\n\n(Note: Jawab Hinglish में दें)`;
 
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
@@ -257,29 +258,30 @@ class AIOrchestrator {
 
                 fullContent += chunk;
 
-                // Turbo Mode: Push immediately but strip common LLM artifacts
-                if (isTurbo) {
-                    const cleanChunk = chunk.replace(/<\/?USER_MESSAGE>/gi, '').replace(/<\/?AGENT_THOUGHT>/gi, '');
-                    if (cleanChunk) await stream.pushChunk(cleanChunk);
-                } else {
-                    // Standard filtering for complex queries
-                    if (fullContent.includes('<USER_MESSAGE>')) {
-                        const parts = fullContent.split('<USER_MESSAGE>');
-                        const part = parts[parts.length - 1];
-                        if (part && !part.includes('</USER_MESSAGE>')) {
-                            await stream.pushChunk(chunk);
-                        }
-                    } else if (fullContent.length > 50) {
-                        await stream.pushChunk(chunk);
-                    }
+                // Improved Filtering: Strip AGENT_THOUGHT and USER_MESSAGE tags
+                // We only stream content that is NOT inside <AGENT_THOUGHT> tags
+                let displayableContent = fullContent
+                    .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '') // Remove completed thought blocks
+                    .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '') // Remove ongoing thought blocks
+                    .replace(/<\/?USER_MESSAGE>/gi, '') // Strip USER_MESSAGE tags if they exist
+                    .trimStart();
+
+                // Calculate what's new to push
+                const newToPush = displayableContent.substring(totalPushedLength);
+
+                if (newToPush) {
+                    await stream.pushChunk(newToPush);
+                    totalPushedLength += newToPush.length;
                 }
             });
             console.log(`⏱️ Stage 6 (LLM Finish): ${Date.now() - llmStart}ms`);
             console.log(`🚀 Overall Pipeline Total: ${Date.now() - overallStart}ms\n`);
 
             // 8. FINALIZING & METADATA INJECTION (Crucial for Flutter)
-            const match = fullContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
-            const finalContent = (match ? match[1] : fullContent).replace(/<\/?USER_MESSAGE>/gi, '').trim();
+            const finalContent = fullContent
+                .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
+                .replace(/<\/?USER_MESSAGE>/gi, '')
+                .trim();
 
             // If we never streamed during the loop (e.g. short response, no tags), stream it now
             if (!hasPushedAnyContent && finalContent) {
