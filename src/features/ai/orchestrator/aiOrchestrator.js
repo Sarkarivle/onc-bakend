@@ -256,6 +256,13 @@ class AIOrchestrator {
             let hasPushedAnyContent = false;
             let totalPushedLength = 0;
 
+            // INSTANT ACKNOWLEDGEMENT: Send a friendly starter while LLM warms up
+            const firstName = userName.split(' ')[0] || "Dost";
+            const initialAck = isTurbo ? `Zaroor ${firstName} bhai, ye rahi info...\n\n` : `Haan ${firstName} bhai, ek minute dhoond raha hoon...\n\n`;
+            await stream.pushChunk(initialAck);
+            totalPushedLength = initialAck.length;
+            hasPushedAnyContent = true;
+
             // In Turbo mode, we tell the model to be direct
             const reinforcedUserMessage = isTurbo
                 ? `${userMessage} (Direct jawab do, no tags needed)`
