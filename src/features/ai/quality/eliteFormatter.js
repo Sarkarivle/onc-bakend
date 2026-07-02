@@ -42,38 +42,18 @@ class EliteFormatter {
     }
 
     /**
-     * Converts bullet-point job facts into a clean Markdown Table.
+     * Converts raw text or messy tables into a clean Elite Card format.
      */
     static _ensureTables(text) {
-        // If text already has a table, just fix spacing
-        if (text.includes('|') && text.includes('---')) {
-            return text.replace(/\n\|/g, '\n\n|');
-        }
+        // Remove markdown table artifacts (pipes and dashes) that look bad on mobile
+        let cleaned = text.replace(/^[|]| [|] |[|]$/gm, '').replace(/^[-\s|]+$/gm, '');
 
-        // Search for patterns like "Fees: **100**", "Last Date: **20 July**"
-        // Also handling cases where labels are bolded: "**Last Date**: 15 July"
-        const feeMatch = text.match(/(?:Fees?|paisa):\s*\*\*(.*?)\*\*/i) || text.match(/\*\*(?:Fees?|paisa)\*\*:\s*(.*?)(?:\n|$)/i);
-        const dateMatch = text.match(/(?:Last Date|अंतिम तिथि):\s*\*\*(.*?)\*\*/i) || text.match(/\*\*(?:Last Date|अंतिम तिथि)\*\*:\s*(.*?)(?:\n|$)/i);
-        const vacancyMatch = text.match(/(?:Vacancy|Post|seat):\s*\*\*(.*?)\*\*/i) || text.match(/\*\*(?:Vacancy|Post|seat)\*\*:\s*(.*?)(?:\n|$)/i);
-
-        if (feeMatch || dateMatch || vacancyMatch) {
-            const table = `
-| Detail | Information |
-| :--- | :--- |
-| 📋 **Vacancy** | **${vacancyMatch ? vacancyMatch[1].trim() : 'Check details'}** |
-| 📅 **Last Date** | **${dateMatch ? dateMatch[1].trim() : 'Check Official Site'}** |
-| 💰 **Fees** | **${feeMatch ? feeMatch[1].trim() : 'As per notification'}** |
-`;
-            // Remove the old lines/sentences that contained these facts to avoid duplication
-            let cleaned = text;
-            if (dateMatch) cleaned = cleaned.replace(/.*Last Date.*/gi, '').replace(/.*अंतिम तिथि.*/gi, '');
-            if (feeMatch) cleaned = cleaned.replace(/.*Fees?.*/gi, '').replace(/.*paisa.*/gi, '');
-            if (vacancyMatch) cleaned = cleaned.replace(/.*Vacancy.*/gi, '').replace(/.*Post.*/gi, '');
-
-            return cleaned.trim() + "\n" + table;
-        }
-
-        return text;
+        // Ensure proper spacing and emojis for a "Card Look"
+        return cleaned
+            .replace(/(Vacancy|Post|seat):/gi, '📋 **Vacancy**:')
+            .replace(/(Last Date|अंतिम तिथि):/gi, '📅 **Last Date**:')
+            .replace(/(Fees?|paisa):/gi, '💰 **Fees**:')
+            .replace(/\n{3,}/g, '\n\n');
     }
 
     static _highlightDatesAndLinks(text) {

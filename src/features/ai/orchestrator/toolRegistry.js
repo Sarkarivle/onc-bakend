@@ -179,17 +179,35 @@ registry.register('LLM', {
     }
 });
 
-// 8. DATE_DIFF Tool
+// 8. DATE_DIFF Tool (Improved for IST and multi-format)
 registry.register('DATE_DIFF', {
     timeout: 1000,
     validate: (input) => { if (!input || !input.date1 || !input.date2) throw new Error("DATE_DIFF requires date1 and date2"); },
     execute: async (input) => {
-        const d1 = new Date(input.date1);
-        const d2 = new Date(input.date2);
+        const parseDate = (d) => {
+            if (d.toLowerCase() === 'today') {
+                return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+            }
+            // Handle DD/MM/YYYY
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) {
+                const [day, month, year] = d.split('/');
+                return new Date(year, month - 1, day);
+            }
+            return new Date(d);
+        };
+
+        const d1 = parseDate(input.date1);
+        const d2 = parseDate(input.date2);
+
         if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) {
-            return { success: false, error: "Invalid date format" };
+            return { success: false, error: "Invalid date format. Use DD/MM/YYYY" };
         }
-        const diffTime = Math.abs(d2 - d1);
+
+        // Reset hours for pure day difference
+        d1.setHours(0, 0, 0, 0);
+        d2.setHours(0, 0, 0, 0);
+
+        const diffTime = d2 - d1;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return { success: true, days: diffDays };
     },

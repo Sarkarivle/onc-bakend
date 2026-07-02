@@ -45,8 +45,9 @@ class AIOrchestrator {
             );
             if (gatewayStatus.status === 'BLOCK') {
                 const safeResponse = this._safeGatewayResponse(gatewayStatus.reason);
+                const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
                 await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                    () => PromptComposer.build(['SAFETY'], {}, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: new Date().toLocaleDateString() })
+                    () => PromptComposer.build(['SAFETY'], {}, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
                 );
                 Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
                 Telemetry.endTrace(traceId);
@@ -76,8 +77,9 @@ class AIOrchestrator {
 
             const fixedResponse = this._fixedSimpleResponse(plan.intent);
             if (fixedResponse) {
+                const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
                 await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                    () => PromptComposer.build([plan.intent], profile, {}, { plan, currentDate: new Date().toLocaleDateString() })
+                    () => PromptComposer.build([plan.intent], profile, {}, { plan, currentDate: istDate })
                 );
                 const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
                 await this._persist(userName, sessionId, userMessage, fixedResponse, suggestions);
@@ -98,8 +100,9 @@ class AIOrchestrator {
             };
 
             // 6. PROMPT BUILDER
+            const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
             const promptData = await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                () => PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: new Date().toLocaleDateString() })
+                () => PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: istDate })
             );
 
             // 7. FINAL LLM (Synthesis)
@@ -160,8 +163,9 @@ class AIOrchestrator {
 
             if (gatewayStatus.status === 'BLOCK') {
                 stream = new StreamingEngine(res);
+                const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
                 await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                    () => PromptComposer.build(['SAFETY'], profile, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: new Date().toLocaleDateString() })
+                    () => PromptComposer.build(['SAFETY'], profile, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
                 );
                 stream.error(new Error(this._safeGatewayResponse(gatewayStatus.reason)));
                 Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
@@ -232,7 +236,8 @@ class AIOrchestrator {
 
             // 5. PROMPT BUILDER
             const promptStart = Date.now();
-            const promptData = await PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: new Date().toLocaleDateString() });
+            const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+            const promptData = await PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: istDate });
             console.log(`⏱️ Stage 4 (Prompt Builder): ${Date.now() - promptStart}ms`);
 
             // 6. FINAL LLM (Streaming)
@@ -329,7 +334,8 @@ class AIOrchestrator {
         }
 
         const intent = plan.intent;
-        const promptData = await PromptComposer.build([intent], profile, {}, { plan, currentDate: new Date().toLocaleDateString() });
+        const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+        const promptData = await PromptComposer.build([intent], profile, {}, { plan, currentDate: istDate });
         let hasPushed = false;
 
         await LLMProvider.chatStream([
