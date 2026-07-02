@@ -16,8 +16,13 @@ class LLMProvider {
             url = `https://${url}`;
         }
 
-        // Remove trailing slashes/api paths
-        return url.replace(/\/api\/(chat|generate)\/?$/, '').replace(/\/$/, '');
+        // Extremely Robust Cleaning: Remove any trailing paths like /api/chat, /v1, etc.
+        // We only want the base: https://domain.com
+        return url
+            .replace(/\/api\/(chat|generate)\/?$/i, '')
+            .replace(/\/api\/?$/i, '')
+            .replace(/\/v1\/?$/i, '')
+            .replace(/\/+$/, ''); // Remove trailing slashes
     }
 
     /**
