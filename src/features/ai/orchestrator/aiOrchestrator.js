@@ -279,20 +279,21 @@ class AIOrchestrator {
 
                 fullContent += chunk;
 
-                // Improved Filtering: Strip AGENT_THOUGHT and USER_MESSAGE tags
-                // We only stream content that is NOT inside <AGENT_THOUGHT> tags
-                let displayableContent = fullContent
-                    .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '') // Remove completed thought blocks
-                    .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '') // Remove ongoing thought blocks
-                    .replace(/<\/?USER_MESSAGE>/gi, '') // Strip USER_MESSAGE tags if they exist
+                // Robust Streaming Filter:
+                // 1. Remove finalized thought blocks
+                // 2. Hide ongoing thought blocks
+                // 3. Strip all internal tags
+                let cleanDisplay = fullContent
+                    .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
+                    .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '')
+                    .replace(/<\/?USER_MESSAGE>/gi, '')
                     .trimStart();
 
-                // Calculate what's new to push
-                const newToPush = displayableContent.substring(totalPushedLength);
-
-                if (newToPush) {
-                    await stream.pushChunk(newToPush);
-                    totalPushedLength += newToPush.length;
+                // To prevent repetition, we only push if the clean content has actually grown
+                if (cleanDisplay.length > totalPushedLength) {
+                    const newChunk = cleanDisplay.substring(totalPushedLength);
+                    await stream.pushChunk(newChunk);
+                    totalPushedLength = cleanDisplay.length;
                 }
             });
             console.log(`⏱️ Stage 6 (LLM Finish): ${Date.now() - llmStart}ms`);

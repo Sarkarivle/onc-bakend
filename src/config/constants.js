@@ -6,6 +6,7 @@ module.exports = {
     AI_LOGIC_MODEL: "qwen2.5:0.5b",
 
     // 2. PERSONALITY ENGINE (Heavy Synthesis)
+    // Use 14b for high-quality Hinglish and instruction following
     AI_PERSONALITY_MODEL: "qwen3:14b",
 
     // 3. REASONING ENGINE (Complex Career Guidance)
