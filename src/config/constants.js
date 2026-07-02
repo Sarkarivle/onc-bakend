@@ -1,15 +1,14 @@
 module.exports = {
     DEFAULT_RUNPOD_URL: "http://127.0.0.1:11434/api/chat",
 
-    // 1. ULTRA-FAST LOGIC ENGINE (Intent & Planning)
-    // Best: qwen2.5:0.5b (Fastest, <500ms response)
-    AI_LOGIC_MODEL: "qwen2.5:0.5b",
+    // 1. INTENT & PLANNER ENGINE (Fast & Logical Architect)
+    // qwen2.5:7b is the sweet spot for logic and direct responses (< 1s)
+    AI_LOGIC_MODEL: "qwen2.5:7b",
 
-    // 2. PERSONALITY ENGINE (Heavy Synthesis)
-    // Use 14b for high-quality Hinglish and instruction following
+    // 2. PERSONALITY ENGINE (Heavy Synthesis & High-Impact Voice)
     AI_PERSONALITY_MODEL: "qwen3:14b",
 
-    // 3. REASONING ENGINE (Complex Career Guidance)
+    // 3. REASONING ENGINE (Deep Career Analysis)
     AI_REASONING_MODEL: "qwen3:14b",
 
     // 4. VERIFICATION ENGINE

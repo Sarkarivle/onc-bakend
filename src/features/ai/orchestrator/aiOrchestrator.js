@@ -202,6 +202,21 @@ class AIOrchestrator {
             const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
                 () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
             );
+
+            // SHORT-CIRCUIT: If Architect (7B) already answered simple queries, return instantly
+            if (plan.canAnswerInstantly && plan.directResponse) {
+                const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
+                await stream.pushChunk(plan.directResponse);
+                const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions })}`;
+                await stream.pushChunk(metadataStr);
+                await stream.finishStream();
+                await this._persist(userName, sessionId, userMessage, plan.directResponse, suggestions);
+                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: plan.directResponse, plan });
+                traceFinalized = true;
+                console.log(`⚡ Short-Circuit Response Total: ${Date.now() - overallStart}ms`);
+                return;
+            }
+
             const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
             console.log(`⏱️ Stage 2 (Intent/Planner): ${Date.now() - intentStart}ms | Turbo: ${isTurbo} | Intent: ${plan.intent}`);
 

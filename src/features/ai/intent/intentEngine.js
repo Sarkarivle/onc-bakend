@@ -1,68 +1,66 @@
 /**
- * IntentEngine Module (Architectural Version 6.0 - Scalable Neural Controller)
- * Responsibility: Using Micro-LLMs (0.5B) for millisecond intent detection.
+ * IntentEngine Module (Architectural Version 8.0 - Master Architect)
+ * Responsibility: Routing queries to either Instant Response or Full Execution Path.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const DeterministicIntentResolver = require('./DeterministicIntentResolver');
-const SemanticRouter = require('./SemanticRouter');
 
 class IntentEngine {
     /**
-     * Neural Intent Controller
-     * Uses qwen2.5:0.5b for ultra-fast, scalable classification.
+     * The Master Architect call.
+     * Decides if the query needs external data or can be answered instantly.
      */
     static async classify(query, state = {}, profile = {}) {
         const normalized = this._normalizeQuery(query);
         const workingQuery = normalized.cleanedQuery;
 
-        // 1. FAST PATH: Deterministic Check (Exact match) - < 5ms
+        // 1. HARDCODED SAFETY (1ms)
         const fastMatch = DeterministicIntentResolver.resolve(workingQuery);
-        if (fastMatch) {
-            return this._attachCognitiveMap({
-                ...fastMatch,
-                ...normalized,
-                refinedQuery: fastMatch.refinedQuery || normalized.canonicalQuery,
-                execution: fastMatch.execution || (fastMatch.intent === 'GREETING' ? [] : [{ step: 1, tool: "LLM", purpose: "direct response" }])
-            }, state);
-        }
+        if (fastMatch) return this._attachCognitiveMap({ ...fastMatch, ...normalized }, state);
 
-        // 2. NEURAL ROUTER: Using Micro-LLM (0.5B) for Scalable Intelligence - < 500ms
-        // This replaces Regex and provides Gemini-like flexibility.
+        // 2. NEURAL ARCHITECT (Hits qwen2.5:7b for Intelligence + Speed)
+        const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+
         const prompt = `
-Task: Detect Intent and Plan Tools.
-Query: "${workingQuery}"
-Context: Topic=${state.currentTopic || 'General'}
-Profile: ${JSON.stringify(profile)}
+Task: Act as the Master Architect for Jobo AI.
+Date: ${istDate} (Today)
+User Profile: ${JSON.stringify(profile)}
+History: ${JSON.stringify((state.history || []).slice(-2))}
 
-Intents: JOB_SEARCH, FIELD_DETAILS, CAREER_GUIDANCE, RESUME, SCHOLARSHIP, CONTINUE.
+Goal: Decide if this needs Database Search (RAG) or can be answered INSTANTLY.
+
+Intents:
+- JOB_SEARCH: Factual data needed from database.
+- PROFILE_QUERY: Asking about user's own data.
+- GENERAL_TALK: Greetings, personality questions, feelings.
+- CAREER_ADVICE: High-level guidance.
+
+# LOGIC RULES:
+1. If user says "Hi", "Hello", "Kaise ho", "Who are you" -> Respond INSTANTLY in 'directResponse'.
+2. If user asks about their profile (Age, Qual) -> Respond INSTANTLY using provided Profile.
+3. If user wants jobs or specific facts -> Plan 'RAG' tool.
 
 JSON ONLY:
 {
   "intent": "STRING",
-  "confidence": 0.0-1.0,
-  "refinedQuery": "Optimized search query",
-  "execution": [{ "step": 1, "tool": "RAG|PROFILE|CALCULATOR|DATE_DIFF", "purpose": "reason" }],
-  "reasoning": "Short logic"
+  "canAnswerInstantly": BOOLEAN,
+  "directResponse": "Provide answer ONLY if canAnswerInstantly is true (In Brotherly Hinglish)",
+  "execution": [
+    { "step": 1, "tool": "RAG|DATE_DIFF|CALCULATOR", "purpose": "needed for complex queries" }
+  ],
+  "reasoning": "Why this path?"
 }`;
 
         try {
-            // This call now hits qwen2.5:0.5b (Fastest Neural Path)
             const plan = await LLMProvider.generateLogic(prompt);
             if (plan && plan.intent) {
                 return this._attachCognitiveMap({
                     ...plan,
-                    ...normalized,
-                    behavior: plan.confidence < 0.6 ? "CLARIFY" : "RESPOND"
+                    ...normalized
                 }, state);
             }
         } catch (error) {
-            console.error("❌ Neural Controller Failure:", error.message);
-        }
-
-        // 3. FALLBACK: Semantic Router (Vector Matching)
-        const semanticMatch = await SemanticRouter.route(workingQuery, state);
-        if (semanticMatch) {
-            return this._attachCognitiveMap({ ...semanticMatch, ...normalized }, state);
+            console.error("❌ Architect Logic Failure:", error.message);
         }
 
         return this._fallbackPlan(workingQuery, normalized, state);
@@ -71,39 +69,25 @@ JSON ONLY:
     static _fallbackPlan(query, normalized = {}, state = {}) {
         return this._attachCognitiveMap({
             intent: "GENERAL_QUERY",
-            confidence: 0.5,
-            ...normalized,
-            refinedQuery: normalized.canonicalQuery || query,
-            behavior: "RESPOND",
+            canAnswerInstantly: false,
             execution: [{ step: 1, tool: "LLM", purpose: "fallback" }]
         }, state);
     }
 
     static _normalizeQuery(query) {
-        const originalQuery = String(query || "");
-        const cleanedQuery = originalQuery.replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").replace(/\s+/g, " ").trim();
-        const canonicalQuery = cleanedQuery.toLowerCase().replace(/\bgovt\b/g, "government").trim();
-        return { originalQuery, cleanedQuery, canonicalQuery, language: this._detectLanguage(cleanedQuery) };
-    }
-
-    static _detectLanguage(query) {
-        if (/[\u0900-\u097F]/.test(query)) return "hi";
-        if (/\b(kya|kaise|naukri|sarkari|hindi|hinglish)\b/i.test(query)) return "hi-en";
-        return "en";
+        return {
+            cleanedQuery: String(query || "").replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").trim()
+        };
     }
 
     static _attachCognitiveMap(contract, state = {}) {
-        const intent = contract.intent || "GENERAL_QUERY";
-        const execution = Array.isArray(contract.execution) ? contract.execution : [];
         return {
             ...contract,
             cognitiveMap: {
-                Intent: intent,
-                Goal: contract.reasoning || `Handle ${intent}`,
-                Context: { currentTopic: state.currentTopic || "GENERAL", turnCount: state.turnCount || 0 },
-                Confidence: Number(contract.confidence || 0.5),
-                NeedsRAG: execution.some(step => step.tool === 'RAG'),
-                CanonicalQuery: contract.refinedQuery || contract.cleanedQuery
+                Intent: contract.intent || "GENERAL",
+                CanAnswerInstantly: Boolean(contract.canAnswerInstantly),
+                NeedsRAG: (contract.execution || []).some(s => s.tool === 'RAG'),
+                CanonicalQuery: contract.cleanedQuery
             }
         };
     }
