@@ -15,12 +15,10 @@ class LLMProvider {
         }
 
         // Remove trailing slash
-        url = url.replace(/\/$/, '');
+        url = url.replace(/\/+$/, '');
 
-        // Logic: If there is a path after the domain (e.g., domain.com/something), use it as is.
-        // Standard URL: https://domain.com (3 slashes: https://, domain.com/)
-        const slashCount = (url.match(/\//g) || []).length;
-        if (slashCount > 2) {
+        // If the URL already includes a standard path (/api/ or /v1/), use it as is
+        if (url.toLowerCase().includes('/api/') || url.toLowerCase().includes('/v1/')) {
             return url;
         }
 
