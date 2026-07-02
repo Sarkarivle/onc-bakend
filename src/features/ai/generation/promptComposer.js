@@ -85,14 +85,28 @@ class PromptComposer {
 
     static _formatProfile(profile, plan) {
         if (!profile) return "";
-        const filtered = { name: profile.name };
-        if (['JOB_SEARCH', 'FIELD_DETAILS', 'CAREER_GUIDANCE'].includes(plan.intent)) {
-            filtered.qualification = profile.qualification;
-            filtered.category = profile.category;
-            filtered.state = profile.state;
-            filtered.age = profile.age;
+
+        // Priority fields for the LLM to know who the user is
+        const fullProfileIntents = [
+            'JOB_SEARCH', 'FIELD_DETAILS', 'CAREER_GUIDANCE',
+            'PROFILE_INQUIRY', 'ORDINAL_FOLLOWUP', 'DISCOVERY',
+            'RESUME', 'INTERVIEW', 'SKILLS'
+        ];
+
+        const intent = String(plan.intent || '').toUpperCase();
+
+        if (fullProfileIntents.includes(intent)) {
+            return `[USER PROFILE - CRITICAL CONTEXT]:
+            - Name: ${profile.name}
+            - Qualification: ${profile.qualification || 'Not provided'}
+            - Category: ${profile.category || 'General'}
+            - State/Location: ${profile.state || 'Not provided'}
+            - DOB/Age: ${profile.dob || profile.age || 'Not provided'}
+            - Gender: ${profile.gender || 'Not provided'}
+            - Insights: ${profile.insights || ''}`;
         }
-        return `[USER PROFILE]: ${JSON.stringify(filtered)}`;
+
+        return `[USER NAME]: ${profile.name}`;
     }
 
     static _formatMemory(memory, plan) {
