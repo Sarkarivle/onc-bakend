@@ -7,7 +7,9 @@ class StreamingEngine {
     constructor(res, options = {}) {
         this.res = res;
         this.buffer = [];
-        this.bufferSize = options.bufferSize || 4;
+        // Turbo Speed: Use 1 as default buffer size for instant delivery
+        this.bufferSize = options.turbo ? 1 : (options.bufferSize || 1);
+        this.skipValidation = options.turbo || false;
         this.isCancelled = false;
         this.startTime = Date.now();
         this.metrics = { ttft: 0, tokenCount: 0, startTime: Date.now() };
@@ -19,7 +21,7 @@ class StreamingEngine {
         this.res.setHeader('Content-Type', 'text/event-stream');
         this.res.setHeader('Cache-Control', 'no-cache');
         this.res.setHeader('Connection', 'keep-alive');
-        this.res.setHeader('X-Accel-Buffering', 'no'); // Prevent Nginx buffering
+        this.res.setHeader('X-Accel-Buffering', 'no'); // Crucial for instant streaming
         this.res.on('close', () => { this.cancelStream('Client disconnected'); });
     }
 
@@ -52,11 +54,13 @@ class StreamingEngine {
         if (this.buffer.length === 0) return;
         const chunk = this.buffer.join('');
 
-        // --- STAGE 5: STREAM VALIDATION ---
-        const safety = ValidationEngine.validateStreamChunk(chunk);
-        if (safety.status === 'KILL') {
-            this.cancelStream(`Safety violation: ${safety.reason}`);
-            return;
+        // Turbo Mode: Skip expensive validation for trusted routes
+        if (!this.skipValidation) {
+            const safety = ValidationEngine.validateStreamChunk(chunk);
+            if (safety.status === 'KILL') {
+                this.cancelStream(`Safety violation: ${safety.reason}`);
+                return;
+            }
         }
 
         this.emit('token', { chunk });

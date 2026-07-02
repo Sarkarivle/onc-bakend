@@ -29,10 +29,15 @@ class PromptComposer {
     static async build(priorityModules, userData, liveData, meta) {
         const { plan, currentDate } = meta;
 
-        // FAST PATH: Ultra-light prompt for simple conversational intents
-        if (['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT'].includes(plan.intent)) {
+        // TURBO PATH: Ultra-light prompt for Semantic Router matches
+        // This reduces prompt size by 80%, making first-token generation much faster.
+        if (plan.reasoning === "⚡ Fast Semantic Intelligence" || ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT'].includes(plan.intent)) {
             return {
-                systemPrompt: `${personality}\n\n# ROLE: Quick Response Mode\n- Speak in natural, brotherly Hinglish.\n- Be extremely brief and helpful.\n- No need for complex analysis.`
+                systemPrompt: `Role: Career Assistant (Jobo AI).
+                Tone: Helpful, brotherly Hinglish.
+                Task: Answer concisely based on context.
+                Context: ${liveData.jobs ? "Jobs: " + liveData.jobs : "General conversation"}.
+                Rule: Use <USER_MESSAGE> tags.`
             };
         }
 

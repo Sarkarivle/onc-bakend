@@ -109,38 +109,35 @@ class AIOrchestrator {
      * Production-Grade Streaming Request
      */
     static async processRequestStream(input, res) {
-        const stream = new StreamingEngine(res, { bufferSize: 1 });
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
 
         try {
-            // 1. FAST PATH & PRE-FETCH
-            // Start local safety and context loading immediately
+            // 1. FAST PRE-FETCH
             const [gatewayStatus, [state, profile]] = await Promise.all([
                 SmartGateway.validate(userMessage),
                 Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             ]);
 
             if (gatewayStatus.status === 'BLOCK') {
+                const stream = new StreamingEngine(res);
                 stream.error(new Error(gatewayStatus.reason));
                 return;
             }
 
-            // SPECULATIVE RAG: Start searching jobs if likely a job query, while Planner thinks
+            // SPECULATIVE RAG (Turbo)
             let speculativeRagPromise = null;
             if (gatewayStatus.likelyIntent === 'JOB_SEARCH') {
                 speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
             }
 
             // 2. COGNITIVE CONTROLLER
-            stream.startThinking('Sawal samajh raha hoon...');
             const plan = await IntentEngine.classify(userMessage, state, profile);
+            const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
 
-            // LOGIC SPEED BOOST: If intent is already high confidence, don't wait for thinking message update
-            if (plan.confidence > 0.82) {
-                stream.emit('intent_resolved', { intent: plan.intent, fast: true });
-            }
+            // Initialize stream with Turbo setting
+            const stream = new StreamingEngine(res, { turbo: isTurbo });
 
             // FAST PATH: Conversation starters and simple intents skip complex execution
             if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
@@ -150,7 +147,7 @@ class AIOrchestrator {
             }
 
             // 3. EXECUTION ENGINE (With Speculative Reuse)
-            stream.startThinking('Data fetch ho raha hai...');
+            if (!isTurbo) stream.startThinking('Data fetch ho raha hai...');
 
             let execResult;
             const needsRag = plan.execution?.some(e => e.tool === 'RAG');
@@ -175,7 +172,7 @@ class AIOrchestrator {
             const promptData = await PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: new Date().toLocaleDateString() });
 
             // 6. FINAL LLM (Streaming)
-            stream.startThinking('Jawab likh raha hoon...');
+            if (!isTurbo) stream.startThinking('Jawab likh raha hoon...');
             let fullContent = "";
             let isInsideUserMessage = false;
             let hasExitedUserMessage = false;
