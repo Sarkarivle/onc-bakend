@@ -153,10 +153,17 @@ class AIOrchestrator {
             // Initialize stream with Turbo setting
             const stream = new StreamingEngine(res, { turbo: isTurbo });
 
-            // NEVER show "Thinking" for Turbo routes. For non-turbo, only show if it takes too long.
-            // stream.startThinking(...) removed to avoid boring "Dost soch raha hai" bubble
-
             // FAST PATH: Conversation starters and simple intents skip complex execution
+            if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
+                await this._handleFastResponse(userMessage, plan, profile, stream);
+                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Fast Response", plan });
+                console.log(`🚀 Fast Response Total: ${Date.now() - overallStart}ms`);
+                return;
+            }
+
+            // 3. EXECUTION ENGINE (With Speculative Reuse)
+            const execStart = Date.now();
+            if (!isTurbo) stream.startThinking('Data fetch ho raha hai...');
 
             let execResult;
             const needsRag = plan.execution?.some(e => e.tool === 'RAG');
