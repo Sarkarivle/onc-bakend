@@ -5,26 +5,26 @@ const constants = require('../../../config/constants');
 class LLMProvider {
     static async getBaseUrl() {
         const setting = await Settings.findOne({ key: 'RUNPOD_URL' });
-        let url = setting?.value || constants.DEFAULT_RUNPOD_URL;
+        let url = (setting?.value || constants.DEFAULT_RUNPOD_URL).trim();
+
         if (!url) return constants.DEFAULT_RUNPOD_URL;
 
-        // Clean whitespace
-        url = url.trim();
-
-        // Ensure protocol
+        // Ensure protocol exists
         if (!url.startsWith('http')) {
             url = `https://${url}`;
         }
 
         // Remove trailing slash
-        url = url.replace(/\/+$/, '');
+        url = url.replace(/\/$/, '');
 
-        // If the URL already contains a path like /api/chat or /v1, use it as is
-        if (url.toLowerCase().includes('/api/') || url.toLowerCase().includes('/v1/')) {
+        // Logic: If there is a path after the domain (e.g., domain.com/something), use it as is.
+        // Standard URL: https://domain.com (3 slashes: https://, domain.com/)
+        const slashCount = (url.match(/\//g) || []).length;
+        if (slashCount > 2) {
             return url;
         }
 
-        // Otherwise, append the default Ollama path
+        // Otherwise, assume it's just a domain and add default Ollama path
         return `${url}/api/chat`;
     }
 
@@ -44,6 +44,7 @@ class LLMProvider {
                     stream: false,
                     options: { temperature: 0.1 }
                 }, { timeout: 45000 });
+// ... (rest of the code stays same)
 // ... (rest of the code stays same)
 
                 let raw = "";
@@ -109,8 +110,9 @@ class LLMProvider {
     }
 
     static async chatStream(messages, onChunk) {
+        let fullUrl = "";
         try {
-            const fullUrl = await this.getBaseUrl();
+            fullUrl = await this.getBaseUrl();
             console.log(`📡 Starting Stream: ${fullUrl} with model ${constants.AI_PERSONALITY_MODEL}`);
 
             const response = await axios.post(fullUrl, {
@@ -119,6 +121,7 @@ class LLMProvider {
                 stream: true,
                 options: { temperature: 0.7 }
             }, { responseType: 'stream', timeout: 90000 });
+// ... (rest of standard stream logic)
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
@@ -165,7 +168,11 @@ class LLMProvider {
                 });
             });
         } catch (error) {
-            console.error("❌ LLM Stream Connection Error:", error.message);
+            console.error(`❌ LLM Stream Connection Error (${fullUrl}):`, error.message);
+            if (error.response) {
+                console.error("❌ Server Response Data:", error.response.data);
+                console.error("❌ Server Status:", error.response.status);
+            }
             throw error;
         }
     }
