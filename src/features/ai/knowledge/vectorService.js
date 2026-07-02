@@ -20,9 +20,9 @@ class VectorService {
         this.initializing = (async () => {
             try {
                 const { pipeline } = await import('@xenova/transformers');
-                console.log("⏳ Loading Local Search Model (all-MiniLM-L6-v2)...");
-                this.extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-                console.log("✅ Local Search Model Ready.");
+                console.log("⏳ Loading Smarter Search Model (bge-small-en-v1.5)...");
+                this.extractor = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5');
+                console.log("✅ Local Search Model Upgraded.");
             } finally {
                 this.initializing = null;
             }

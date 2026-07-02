@@ -11,12 +11,17 @@ const INTENT_ANCHORS = {
         "sarkari bharti list", "bank exams notification", "police job apply link",
         "army agniveer vacancy", "high court jobs", "upsc civil services",
         "nayi bharti kab aayegi", "jobs for graduates", "part time jobs",
-        "female candidate vacancies", "bihar police vacancy"
+        "female candidate vacancies", "bihar police vacancy", "running me mere liye jobs",
+        "kuch aur h kya mere liye", "iske alaba jobs"
     ],
     FIELD_DETAILS: [
         "exam syllabus kya hai", "application fees kitni hai", "last date kab hai",
         "eligibility criteria", "age limit kitni hai", "salary kitni milegi",
         "physical standard for police", "how to apply online", "selection process"
+    ],
+    PROFILE_INQUIRY: [
+        "meri age kya h", "m abhi kitne sal ka hu", "meri qualification kya hai",
+        "mera naam kya hai", "meri profile dikhao", "my age and category"
     ],
     CAREER_GUIDANCE: [
         "10th ke baad kya kare", "best career after 12th commerce", "ias kaise bane",
@@ -48,9 +53,14 @@ class SemanticRouter {
         this.isInitialized = true;
     }
 
-    static async route(query) {
+    static async route(query, state = {}) {
         await this.init();
-        const queryVector = await VectorService.generate(query);
+
+        // CONTEXT ENRICHMENT: Prepend current topic to query to prevent confusion
+        const currentTopic = state.currentTopic || state.topic || "GENERAL";
+        const enrichedQuery = `[Topic: ${currentTopic}] ${query}`;
+
+        const queryVector = await VectorService.generate(enrichedQuery);
         if (!queryVector) return null;
 
         let bestIntent = null;
@@ -64,9 +74,16 @@ class SemanticRouter {
             }
         }
 
+        // Manual override for common profile confusion (Age vs Result)
+        const q = query.toLowerCase();
+        if (q.includes('age') || q.includes('kitne saal') || q.includes('umar')) {
+            bestIntent = 'PROFILE_INQUIRY';
+            highestScore = Math.max(highestScore, 0.9);
+        }
+
         // High confidence threshold for bypassing LLM
-        if (highestScore > 0.82) {
-            console.log(`⚡ Semantic Route: ${bestIntent} (Score: ${highestScore.toFixed(3)})`);
+        if (highestScore > 0.8) {
+            console.log(`⚡ Semantic Route: ${bestIntent} (Score: ${highestScore.toFixed(3)}) | Context: ${currentTopic}`);
             return {
                 intent: bestIntent,
                 confidence: highestScore,
@@ -113,6 +130,9 @@ class SemanticRouter {
         if (intent === 'FIELD_DETAILS') {
             return [...base, { step: 2, tool: "RAG", purpose: "details" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
         }
+        if (intent === 'PROFILE_INQUIRY') {
+            return [...base, { step: 2, tool: "PROFILE", purpose: "fetch user profile" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
+        }
         return [...base, { step: 2, tool: "LLM", purpose: "direct response" }];
     }
 
@@ -121,6 +141,7 @@ class SemanticRouter {
             'JOB_SEARCH': 'JOB_SEARCH',
             'FIELD_DETAILS': 'JOB_DETAILS',
             'ORDINAL_FOLLOWUP': 'JOB_DETAILS',
+            'PROFILE_INQUIRY': 'PROFILE_HELP',
             'CAREER_GUIDANCE': 'CAREER_GUIDANCE',
             'RESUME': 'RESUME_HELP'
         };

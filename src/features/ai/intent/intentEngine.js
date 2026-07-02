@@ -29,7 +29,7 @@ class IntentEngine {
 
         // 2. TURBO PATH: Semantic Router (Local Vector Matching)
         // This bypasses the Intent LLM Call (Saves 2-3 seconds)
-        const semanticMatch = await SemanticRouter.route(query);
+        const semanticMatch = await SemanticRouter.route(query, state);
         if (semanticMatch) {
             return {
                 ...semanticMatch,

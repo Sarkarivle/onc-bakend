@@ -4,10 +4,10 @@
  * before attempting more expensive semantic or LLM-based classification.
  */
 
-const GREETINGS = ['hi', 'hello', 'kaise ho', 'namaste', 'ram ram', 'hey', 'good morning', 'good afternoon', 'good evening', 'suprabhat', 'kya haal hai', 'suno', 'help', 'salaam', 'oye jobo', 'ek help chahiye'];
-const IDENTITY_QUERIES = ['who are you', 'tum kaun ho', 'aapka naam kya hai', 'tell me about yourself', 'kya kaam karte ho', 'jobo', 'what is your name', 'kon ho tum', 'tum kya kar sakte ho', 'what are your capabilities'];
+const GREETINGS = ['hi', 'hello', 'kaise ho', 'namaste', 'ram ram', 'hey', 'good morning', 'good afternoon', 'good evening', 'suprabhat', 'kya haal hai', 'suno', 'help', 'salaam', 'oye jobo', 'ek help chahiye', 'bolo'];
+const IDENTITY_QUERIES = ['who are you', 'tum kaun ho', 'aapka naam kya hai', 'tell me about yourself', 'kya kaam karte ho', 'jobo', 'what is your name', 'kon ho tum', 'tum kya kar sakte ho', 'what are your capabilities', 'kya bata sakte ho tum', 'kya kya kar sakte ho'];
 const THANKS_OK = ['theek hai', 'shukriya', 'ok thanks', 'acha ji', 'thank you', 'ok', 'good', 'nice', 'dhanyawad', 'thanks', 'samajh gaya'];
-const AMBIGUOUS_SHORT = ['naukri', 'fees?', 'form?', 'apply?', 'form kaise bharein?', 'details', 'yojna', 'form', 'apply', "don't know"];
+const AMBIGUOUS_SHORT = ['naukri', 'fees?', 'form?', 'apply?', 'form kaise bharein?', 'details', 'yojna', 'form', 'apply', "don't know", 'kuch aur', 'batao'];
 
 const EXAMS = [
     'ssc', 'upsc', 'railway', 'ntpc', 'group d', 'up police', 'delhi police', 'cgl', 'chsl', 'mts',
