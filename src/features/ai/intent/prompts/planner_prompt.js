@@ -57,7 +57,10 @@ JSON Schema
 
 ⸻
 Planning Rules
-- Memory: Set need_memory=true and include 'memory_engine' in 'next_engines' if the current request uses pronouns (it, iska, usme) or is a follow-up that depends on the previous topic (e.g., asking for documents, eligibility, or vacancies for a job mentioned earlier).
+- Memory: Set need_memory=true AND include 'memory_engine' in 'next_engines' if:
+    * The request is personal ("mai", "mera", "mere liye", "who am i").
+    * The request uses pronouns or context-dependent words ("iska", "usme", "wahan", "it", "they").
+    * The request is a follow-up to a previous topic.
 - Search: Set need_search=true for fresh, live, or internet info (Latest jobs, news, exams, dates).
 - Database: Enable if structured internal data (e.g., jobs table) is required.
 - Clarification: If required info is missing, set "need_clarification": true and ask.
