@@ -187,28 +187,40 @@ class AIOrchestrator {
             }
 
             // 2. QUERY UNDERSTANDING ENGINE + PLANNER ENGINE
-            stream.startThinking(`${firstName} bhai, tumhare sawal par gaur kar raha hoon...`);
+            // 2. PARALLEL INTENT DETECTION + SPECULATIVE RETRIEVAL
+            // This is how Big Players achieve near-zero latency.
             const intentStart = Date.now();
-            const cognitiveContract = await Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
+            const firstName = userName.split(' ')[0] || "Dost";
+            stream.startThinking(`${firstName} bhai, bas ek minute, sab check kar loon...`);
+
+            // Start Intent Detection (Neural Architect)
+            const intentPromise = Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
                 () => IntentEngine.classify(userMessage, state, profile)
             );
+
+            // Speculatively start RAG if it looks like a job query (Zero-Wait Path)
+            let speculativeRagPromise = null;
+            if (userMessage.length > 5 && !['hi', 'hello', 'ok'].includes(userMessage.toLowerCase())) {
+                speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
+            }
+
+            // Await Intent first as it's the brain
+            const cognitiveContract = await intentPromise;
+
             Telemetry.setContext(traceId, {
                 intent: cognitiveContract.intent,
                 confidence: cognitiveContract.confidence,
                 cognitiveMap: cognitiveContract.cognitiveMap
             });
 
-            stream.startThinking(`${firstName} bhai, ab best rasta plan kar raha hoon...`);
             const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
                 () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
             );
 
-            // SHORT-CIRCUIT: If Architect (7B) already answered simple queries, return instantly
+            // 3. SHORT-CIRCUIT / DYNAMIC FUSION
             if (plan.canAnswerInstantly && plan.directResponse) {
                 const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
                 await stream.pushChunk(plan.directResponse);
-                const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions })}`;
-                await stream.pushChunk(metadataStr);
                 await stream.finishStream();
                 await this._persist(userName, sessionId, userMessage, plan.directResponse, suggestions);
                 BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: plan.directResponse, plan });
@@ -218,39 +230,19 @@ class AIOrchestrator {
             }
 
             const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
-            console.log(`⏱️ Stage 2 (Intent/Planner): ${Date.now() - intentStart}ms | Turbo: ${isTurbo} | Intent: ${plan.intent}`);
 
-            // Update stream with Turbo setting if changed
-            if (isTurbo) stream.skipValidation = true;
-
-            // FAST PATH: Conversation starters and simple intents skip complex execution
-            if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
-                await this._handleFastResponse(userMessage, plan, profile, stream);
-                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Fast Response", plan });
-                traceFinalized = true;
-                console.log(`🚀 Fast Response Total: ${Date.now() - overallStart}ms`);
-                return;
-            }
-
-            // 3. EXECUTION ENGINE (With Speculative Reuse)
+            // 4. EXECUTION ENGINE (Reuse speculative results if available)
             const execStart = Date.now();
-            if (!isTurbo) {
-                const actionText = plan.intent === 'JOB_SEARCH' ? "sarkari database scan kar raha hoon" : "best jankari nikal raha hoon";
-                stream.startThinking(`${firstName} bhai, ab ${actionText}...`);
-            }
-
             let execResult;
-            const needsRag = plan.execution?.some(e => e.tool === 'RAG');
 
-            if (needsRag && speculativeRagPromise) {
-                // Reuse the speculative search result
+            if (plan.needsRAG && speculativeRagPromise) {
                 const ragOutput = await speculativeRagPromise;
                 execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
-                // Merge/Override with speculative result if it was faster
-                execResult.outputs.rag = ragOutput;
+                execResult.outputs.rag = ragOutput; // Fusion
             } else {
                 execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
             }
+            console.log(`⏱️ Stage 3 (Parallel Execution): ${Date.now() - execStart}ms`);
             console.log(`⏱️ Stage 3 (Execution/RAG): ${Date.now() - execStart}ms`);
 
             const liveData = {
