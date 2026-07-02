@@ -257,7 +257,6 @@ class AIOrchestrator {
             let totalPushedLength = 0;
 
             // INSTANT ACKNOWLEDGEMENT: Send a friendly starter while LLM warms up
-            const firstName = userName.split(' ')[0] || "Dost";
             const initialAck = isTurbo ? `Zaroor ${firstName} bhai, ye rahi info...\n\n` : `Haan ${firstName} bhai, ek minute dhoond raha hoon...\n\n`;
             await stream.pushChunk(initialAck);
             totalPushedLength = initialAck.length;
