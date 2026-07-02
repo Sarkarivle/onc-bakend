@@ -1,61 +1,36 @@
 /**
- * IntentEngine Module (Architectural Version 15.0 - Expert Action Planner)
- * Responsibility: Sateek Goal identification with strict tool planning.
+ * IntentEngine Module (Architectural Version 16.0 - Zero-Wait Neural Architect)
+ * Responsibility: High-precision planning without keyword-based jugad.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const SemanticRouter = require('./SemanticRouter');
+const plannerPrompt = require('../generation/prompts/engine/intent_planner');
 
 class IntentEngine {
     static async classify(query, state = {}, profile = {}) {
         const normalized = this._normalizeQuery(query);
         const workingQuery = normalized.cleanedQuery;
 
-        // 1. NEURAL ROUTING (Near-Instant)
+        // 1. NEURAL ROUTING (Concept-based Match)
         const semanticMatch = await SemanticRouter.route(workingQuery, state);
         if (semanticMatch && semanticMatch.confidence > 0.98) {
             return this._attachCognitiveMap({ ...semanticMatch, ...normalized }, state);
         }
 
-        // 2. MASTER AI PLANNER (Hits qwen2.5:7b)
-        const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+        // 2. MASTER AI PLANNER (qwen2.5:7b)
+        const istDate = new Intl.DateTimeFormat('en-IN', {
+            timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric'
+        }).format(new Date());
 
-        const prompt = `
-You are an AI Planner for Jobo AI. Analyze the user request and determine the actions needed.
-Today's Date: ${istDate} | User: ${profile.name || 'User'}
-
-# RULES:
-- Never rely on keyword matching.
-- Identify the Primary Goal (e.g., Find Jobs, Career Advice, Profile Info, Greeting).
-- If fresh/factual info is needed, enable need_database.
-- Use need_tools ONLY if specific calculations or job searches are required.
-
-# EXAMPLES:
-User: "top 5 sarkari job"
-Output: {"primary_goal": "Retrieve latest top 5 government jobs", "need_database": true, "need_tools": ["job_search"]}
-
-User: "hi"
-Output: {"primary_goal": "Greet user and start conversation", "need_database": false, "directResponse": "Namaste! Kaise madad karun?"}
-
-JSON ONLY:
-{
-  "primary_goal": "STRING",
-  "need_memory": BOOLEAN,
-  "need_search": BOOLEAN,
-  "need_database": BOOLEAN,
-  "need_tools": ["job_search" | "college_search" | "profile"],
-  "need_clarification": BOOLEAN,
-  "priority": "low|medium|high",
-  "response_strategy": "Direct Answer | Search Database | Retrieve Memory",
-  "directResponse": "Short Hinglish response (ONLY for Greetings/Profile)"
-}`;
+        const prompt = plannerPrompt(istDate, profile.name || 'Dost');
 
         try {
-            const plan = await LLMProvider.generateLogic(prompt);
+            const plan = await LLMProvider.generateLogic(prompt + `\n\nUser: "${workingQuery}"\nOutput:`);
             if (plan) {
-                // Map goals back to system intents
+                // Map goals back to system intents for EliteFormatter routing
                 plan.intent = this._inferIntentFromGoal(plan, workingQuery);
                 plan.execution = this._buildExecutionPlan(plan);
-                plan.canAnswerInstantly = !plan.need_database && !plan.need_search && plan.directResponse;
+                plan.canAnswerInstantly = !plan.need_database && !plan.need_search && Boolean(plan.directResponse);
 
                 return this._attachCognitiveMap({ ...plan, ...normalized }, state);
             }
@@ -70,10 +45,12 @@ JSON ONLY:
         const goal = (plan.primary_goal || "").toLowerCase();
         const q = query.toLowerCase();
 
-        if (q.includes('job') || q.includes('naukri') || q.includes('vacancy') || goal.includes('job')) return 'JOB_SEARCH';
-        if (q.includes('college') || goal.includes('college')) return 'COLLEGE';
-        if (q.includes('resume') || goal.includes('resume')) return 'RESUME';
-        if (q.includes('advice') || goal.includes('career') || goal.includes('roadmap')) return 'CAREER_GUIDANCE';
+        // High-precision goal-based mapping
+        if (goal.includes('job') || goal.includes('hiring') || goal.includes('vacancy') || q.includes('naukri')) return 'JOB_SEARCH';
+        if (goal.includes('college') || goal.includes('university') || q.includes('collage')) return 'COLLEGE';
+        if (goal.includes('profile') || goal.includes('who am i') || goal.includes('qualification')) return 'PROFILE_QUERY';
+        if (goal.includes('career') || goal.includes('roadmap') || goal.includes('advice')) return 'CAREER_GUIDANCE';
+        if (goal.includes('resume') || goal.includes('cv')) return 'RESUME';
 
         return 'GENERAL';
     }
@@ -96,7 +73,9 @@ JSON ONLY:
     }
 
     static _normalizeQuery(query) {
-        return { cleanedQuery: String(query || "").trim() };
+        return {
+            cleanedQuery: String(query || "").replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").trim()
+        };
     }
 
     static _attachCognitiveMap(contract, state = {}) {
@@ -106,7 +85,8 @@ JSON ONLY:
                 Intent: contract.intent || "GENERAL",
                 Goal: contract.primary_goal,
                 NeedsRAG: contract.need_database || contract.need_search,
-                Confidence: contract.confidence || 0.9
+                Confidence: contract.confidence || 0.9,
+                IsInstant: Boolean(contract.canAnswerInstantly)
             }
         };
     }
