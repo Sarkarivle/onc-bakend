@@ -242,7 +242,7 @@ class DeterministicIntentResolver {
         }
 
         // 3. Identity Queries
-        if (IDENTITY_QUERIES.some(q => normalizedQuery.includes(q))) {
+        if (IDENTITY_QUERIES.some(q => normalizedQuery.includes(q) || q.includes(normalizedQuery))) {
             return this._createResponse({
                 intent: 'IDENTITY',
                 behavior: 'RESPOND',

@@ -19,9 +19,16 @@ const StreamingEngine = require('./streamingEngine');
 const Telemetry = require('./telemetryEngine');
 const BackgroundServices = require('./backgroundServices');
 const RetrievalEngine = require('../knowledge/retrievalEngine');
+const SemanticRouter = require('../intent/SemanticRouter');
 const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/safetyGuard');
 
 class AIOrchestrator {
+    // Eagerly initialize components on startup
+    static {
+        console.log("🧠 Warming up Neural Engines...");
+        SemanticRouter.init().catch(e => console.error("Router Warmup Error:", e));
+    }
+
     /**
      * Standard Synchronous Request
      */
@@ -146,17 +153,10 @@ class AIOrchestrator {
             // Initialize stream with Turbo setting
             const stream = new StreamingEngine(res, { turbo: isTurbo });
 
-            // FAST PATH: Conversation starters and simple intents skip complex execution
-            if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
-                await this._handleFastResponse(userMessage, plan, profile, stream);
-                BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Fast Response", plan });
-                console.log(`🚀 Fast Response Total: ${Date.now() - overallStart}ms`);
-                return;
-            }
+            // NEVER show "Thinking" for Turbo routes. For non-turbo, only show if it takes too long.
+            // stream.startThinking(...) removed to avoid boring "Dost soch raha hai" bubble
 
-            // 3. EXECUTION ENGINE (With Speculative Reuse)
-            const execStart = Date.now();
-            if (!isTurbo) stream.startThinking('Data fetch ho raha hai...');
+            // FAST PATH: Conversation starters and simple intents skip complex execution
 
             let execResult;
             const needsRag = plan.execution?.some(e => e.tool === 'RAG');
