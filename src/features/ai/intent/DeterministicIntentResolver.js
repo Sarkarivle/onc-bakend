@@ -294,6 +294,7 @@ class DeterministicIntentResolver {
             behavior: behavior,
             confidence: 1.0,
             slots: {},
+            needsPlanning: false, // CRUCIAL: Bypasses LLM planning
             needsClarification: behavior === 'CLARIFY',
             reasoningShort: `Deterministic: ${reasoning}`
         };

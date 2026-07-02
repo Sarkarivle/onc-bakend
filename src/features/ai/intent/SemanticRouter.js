@@ -99,9 +99,16 @@ class SemanticRouter {
     }
 
     static _getDefaultExecution(intent) {
-        if (intent === 'JOB_SEARCH') return [{ step: 1, tool: "RAG", purpose: "search jobs" }, { step: 2, tool: "LLM", purpose: "synthesis" }];
-        if (intent === 'FIELD_DETAILS') return [{ step: 1, tool: "RAG", purpose: "fetch details" }, { step: 2, tool: "LLM", purpose: "synthesis" }];
-        return [{ step: 1, tool: "LLM", purpose: "direct response" }];
+        // ALWAYS include MEMORY tool to ensure follow-up context is never lost
+        const base = [{ step: 1, tool: "MEMORY", purpose: "load conversation history" }];
+
+        if (intent === 'JOB_SEARCH') {
+            return [...base, { step: 2, tool: "RAG", purpose: "search jobs" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
+        }
+        if (intent === 'FIELD_DETAILS') {
+            return [...base, { step: 2, tool: "RAG", purpose: "fetch details" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
+        }
+        return [...base, { step: 2, tool: "LLM", purpose: "direct response" }];
     }
 
     static _getMode(intent) {

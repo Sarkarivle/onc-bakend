@@ -112,13 +112,18 @@ class AIOrchestrator {
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
+        const overallStart = Date.now();
+
+        console.log(`\n[PIPELINE_START] User: ${userName} | Query: "${userMessage}"`);
 
         try {
             // 1. FAST PRE-FETCH
+            const prefetchStart = Date.now();
             const [gatewayStatus, [state, profile]] = await Promise.all([
                 SmartGateway.validate(userMessage),
                 Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             ]);
+            console.log(`⏱️ Stage 1 (Gateway+Context): ${Date.now() - prefetchStart}ms`);
 
             if (gatewayStatus.status === 'BLOCK') {
                 const stream = new StreamingEngine(res);
@@ -133,8 +138,10 @@ class AIOrchestrator {
             }
 
             // 2. COGNITIVE CONTROLLER
+            const intentStart = Date.now();
             const plan = await IntentEngine.classify(userMessage, state, profile);
             const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
+            console.log(`⏱️ Stage 2 (Intent/Planner): ${Date.now() - intentStart}ms | Turbo: ${isTurbo} | Intent: ${plan.intent}`);
 
             // Initialize stream with Turbo setting
             const stream = new StreamingEngine(res, { turbo: isTurbo });
@@ -143,10 +150,12 @@ class AIOrchestrator {
             if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
                 await this._handleFastResponse(userMessage, plan, profile, stream);
                 BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Fast Response", plan });
+                console.log(`🚀 Fast Response Total: ${Date.now() - overallStart}ms`);
                 return;
             }
 
             // 3. EXECUTION ENGINE (With Speculative Reuse)
+            const execStart = Date.now();
             if (!isTurbo) stream.startThinking('Data fetch ho raha hai...');
 
             let execResult;
@@ -161,6 +170,7 @@ class AIOrchestrator {
             } else {
                 execResult = await ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan });
             }
+            console.log(`⏱️ Stage 3 (Execution/RAG): ${Date.now() - execStart}ms`);
 
             const liveData = {
                 jobs: execResult.outputs.rag?.jobs || "",
@@ -169,9 +179,12 @@ class AIOrchestrator {
             };
 
             // 5. PROMPT BUILDER
+            const promptStart = Date.now();
             const promptData = await PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: new Date().toLocaleDateString() });
+            console.log(`⏱️ Stage 4 (Prompt Builder): ${Date.now() - promptStart}ms`);
 
             // 6. FINAL LLM (Streaming)
+            const llmStart = Date.now();
             let fullContent = "";
             let hasPushedAnyContent = false;
 
@@ -180,21 +193,22 @@ class AIOrchestrator {
                 ? `${userMessage} (Direct jawab do, no tags needed)`
                 : `${userMessage}\n\n(Note: Jawab Hinglish में दें और <USER_MESSAGE> टैग्स का इस्तेमाल करें)`;
 
-            const startTimeLLM = Date.now();
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
                 { role: 'user', content: reinforcedUserMessage }
             ], async (chunk) => {
                 if (!hasPushedAnyContent) {
-                    console.log(`⏱️ TTFT (First Token): ${Date.now() - startTimeLLM}ms`);
+                    const ttft = Date.now() - llmStart;
+                    console.log(`⏱️ Stage 5 (LLM TTFT - First Token): ${ttft}ms`);
+                    hasPushedAnyContent = true;
                 }
 
                 fullContent += chunk;
 
-                // Turbo Mode: Skip all filtering logic and push immediately
+                // Turbo Mode: Push immediately but strip common LLM artifacts
                 if (isTurbo) {
-                    await stream.pushChunk(chunk);
-                    hasPushedAnyContent = true;
+                    const cleanChunk = chunk.replace(/<\/?USER_MESSAGE>/gi, '').replace(/<\/?AGENT_THOUGHT>/gi, '');
+                    if (cleanChunk) await stream.pushChunk(cleanChunk);
                 } else {
                     // Standard filtering for complex queries
                     if (fullContent.includes('<USER_MESSAGE>')) {
@@ -202,14 +216,14 @@ class AIOrchestrator {
                         const part = parts[parts.length - 1];
                         if (part && !part.includes('</USER_MESSAGE>')) {
                             await stream.pushChunk(chunk);
-                            hasPushedAnyContent = true;
                         }
                     } else if (fullContent.length > 50) {
                         await stream.pushChunk(chunk);
-                        hasPushedAnyContent = true;
                     }
                 }
             });
+            console.log(`⏱️ Stage 6 (LLM Finish): ${Date.now() - llmStart}ms`);
+            console.log(`🚀 Overall Pipeline Total: ${Date.now() - overallStart}ms\n`);
 
             // 8. FINALIZING & METADATA INJECTION (Crucial for Flutter)
             const match = fullContent.match(/<USER_MESSAGE>([\s\S]*?)<\/USER_MESSAGE>/i);
