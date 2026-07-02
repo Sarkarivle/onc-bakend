@@ -1,6 +1,7 @@
 /**
- * IntentEngine Module (Architectural Version 19.0 - Planner V2 Controller)
+ * IntentEngine Module (Architectural Version 20.0 - Planner V2 High-Precision Controller)
  * Responsibility: Processing Planner V2 JSON schema and orchestrating multi-engine execution.
+ * Preserves all business logic while adopting modern LLM Planner behavior.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const DeterministicIntentResolver = require('./DeterministicIntentResolver');
@@ -20,10 +21,20 @@ class IntentEngine {
         // --- TIER 1: DETERMINISTIC ---
         const fastMatch = DeterministicIntentResolver.resolve(workingQuery);
         if (fastMatch) {
-            return this._attachCognitiveMap({ ...fastMatch, ...normalized }, state);
+            // Map legacy response to V2 schema for consistency
+            return this._attachCognitiveMap({
+                version: "2.0",
+                primary_goal: `Execute deterministic command: ${fastMatch.intent}`,
+                goal_type: "task_execution",
+                confidence: 1.0,
+                priority: "medium",
+                urgency: "normal",
+                ...fastMatch,
+                ...normalized
+            }, state);
         }
 
-        // --- TIER 2: AI PLANNER V2 (Version 2.0 Upgrade) ---
+        // --- TIER 2: AI PLANNER V2 (Modern Planner Architecture) ---
         const istDate = new Intl.DateTimeFormat('en-IN', {
             timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric'
         }).format(new Date());
@@ -33,7 +44,7 @@ class IntentEngine {
         try {
             const plan = await LLMProvider.generateLogic(prompt + `\n\nUser: "${workingQuery}"\nOutput:`);
             if (plan) {
-                // Ensure backward compatibility with system intents for formatting
+                // Backward compatibility: Map Planner Goal/Type back to system intent for formatting
                 plan.intent = this._inferDownstreamIntent(plan, workingQuery);
 
                 // Map V2 schema to internal execution steps
@@ -56,7 +67,7 @@ class IntentEngine {
 
         // Tier 3: Semantic Fallback
         const semanticMatch = await SemanticRouter.route(workingQuery, state);
-        if (semanticMatch) return this._attachCognitiveMap({ ...semanticMatch, ...normalized }, state);
+        if (semanticMatch) return this._attachCognitiveMap({ version: "2.0", ...semanticMatch, ...normalized }, state);
 
         return this._fallbackPlan(workingQuery, normalized, state);
     }
@@ -111,6 +122,7 @@ class IntentEngine {
     static _fallbackPlan(query, normalized = {}, state = {}) {
         return this._attachCognitiveMap({
             version: "2.0",
+            primary_goal: "Fallback response",
             intent: "GENERAL",
             canAnswerInstantly: false,
             execution: [{ step: 1, tool: "LLM", purpose: "Fallback" }]

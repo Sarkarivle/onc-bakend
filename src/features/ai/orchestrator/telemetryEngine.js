@@ -1,5 +1,5 @@
 /**
- * TelemetryEngine Module (Architectural Version 12.0)
+ * TelemetryEngine Module (Architectural Version 13.0)
  * Responsibility: Enterprise-grade observability, tracing, and bottleneck analysis.
  */
 const { randomUUID } = require('crypto');
@@ -107,6 +107,9 @@ class TelemetryEngine {
             ['Gateway', 'GATEWAY_VALIDATION'],
             ['Planner', 'QUERY_UNDERSTANDING_ENGINE'],
             ['Memory Engine', 'CONTEXT_LOADING'],
+            ['Search Engine', 'SEARCH_ENGINE'], // Assuming tracked separately if possible
+            ['Database Engine', 'DATABASE_ENGINE'], // Assuming tracked separately if possible
+            ['Ranking Engine', 'RANKING_ENGINE'], // Assuming tracked separately if possible
             ['Execution Engine', 'EXECUTION_ENGINE'],
             ['Prompt Composer', 'PROMPT_BUILDER'],
             ['Main LLM TTFT', 'LLM_TTFT'],
@@ -123,21 +126,24 @@ class TelemetryEngine {
 
         // Bottleneck Analysis
         const durations = telemetryRows.map(([label, mod]) => ({ label, dur: getVal(mod) }));
-        const max = durations.reduce((prev, curr) => (prev.dur > curr.dur) ? prev : curr);
+        const max = durations.reduce((prev, curr) => (prev.dur > curr.dur) ? prev : curr, { label: 'N/A', dur: 0 });
         const pct = total > 0 ? ((max.dur / total) * 100).toFixed(0) : 0;
 
-        console.log('\nBottleneck :');
-        console.log(max.label);
-        console.log(`${max.dur} ms`);
-        console.log(`${pct}% of total latency`);
+        if (max.dur > 0) {
+            console.log('\nBottleneck :');
+            console.log(max.label);
+            console.log(`${max.dur} ms`);
+            console.log(`${pct}% of total latency`);
+        }
 
         // Pipeline Health
         console.log('\nPipeline Health');
         const healthCheck = [
             ['Planner', 'QUERY_UNDERSTANDING_ENGINE'],
             ['Memory', 'CONTEXT_LOADING'],
-            ['Search', 'EXECUTION_ENGINE'],
-            ['Database', 'EXECUTION_ENGINE'],
+            ['Search', 'SEARCH_ENGINE'],
+            ['Database', 'DATABASE_ENGINE'],
+            ['Ranking', 'RANKING_ENGINE'],
             ['Prompt Composer', 'PROMPT_BUILDER'],
             ['LLM', 'FINAL_LLM'],
             ['Memory Update', 'BACKGROUND_SERVICES']
@@ -145,7 +151,10 @@ class TelemetryEngine {
 
         healthCheck.forEach(([label, mod]) => {
             const s = trace.stages.find(s => s.module === mod);
-            const status = s && s.status === 'SUCCESS' ? '✓' : (s && s.status === 'FAILED' ? '✗' : '—');
+            let status = '—';
+            if (s) {
+                status = s.status === 'SUCCESS' ? '✓' : (s.status === 'FAILED' ? '✗' : '—');
+            }
             console.log(`${label.padEnd(16)} ${status}`);
         });
         console.log('------------------------------\n');
