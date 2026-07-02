@@ -8,21 +8,24 @@ class LLMProvider {
         let url = setting?.value || constants.DEFAULT_RUNPOD_URL;
         if (!url) return constants.DEFAULT_RUNPOD_URL;
 
-        // Clean the URL: trim whitespace
+        // Clean whitespace
         url = url.trim();
 
-        // Ensure protocol exists
+        // Ensure protocol
         if (!url.startsWith('http')) {
             url = `https://${url}`;
         }
 
-        // Extremely Robust Cleaning: Remove any trailing paths like /api/chat, /v1, etc.
-        // We only want the base: https://domain.com
-        return url
-            .replace(/\/api\/(chat|generate)\/?$/i, '')
-            .replace(/\/api\/?$/i, '')
-            .replace(/\/v1\/?$/i, '')
-            .replace(/\/+$/, ''); // Remove trailing slashes
+        // Remove trailing slash
+        url = url.replace(/\/+$/, '');
+
+        // If the URL already contains a path like /api/chat or /v1, use it as is
+        if (url.toLowerCase().includes('/api/') || url.toLowerCase().includes('/v1/')) {
+            return url;
+        }
+
+        // Otherwise, append the default Ollama path
+        return `${url}/api/chat`;
     }
 
     /**
@@ -31,8 +34,8 @@ class LLMProvider {
     static async generateLogic(prompt, retries = 2) {
         for (let i = 0; i <= retries; i++) {
             try {
-                const baseUrl = await this.getBaseUrl();
-                const response = await axios.post(`${baseUrl}/api/chat`, {
+                const fullUrl = await this.getBaseUrl();
+                const response = await axios.post(fullUrl, {
                     model: constants.AI_LOGIC_MODEL,
                     messages: [
                         { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
@@ -41,6 +44,7 @@ class LLMProvider {
                     stream: false,
                     options: { temperature: 0.1 }
                 }, { timeout: 45000 });
+// ... (rest of the code stays same)
 
                 let raw = "";
                 if (response.data.message && response.data.message.content) {
@@ -80,8 +84,8 @@ class LLMProvider {
     static async chat(messages, retries = 1) {
         for (let i = 0; i <= retries; i++) {
             try {
-                const baseUrl = await this.getBaseUrl();
-                const response = await axios.post(`${baseUrl}/api/chat`, {
+                const fullUrl = await this.getBaseUrl();
+                const response = await axios.post(fullUrl, {
                     model: constants.AI_PERSONALITY_MODEL,
                     messages: messages,
                     stream: false,
@@ -106,10 +110,10 @@ class LLMProvider {
 
     static async chatStream(messages, onChunk) {
         try {
-            const baseUrl = await this.getBaseUrl();
-            console.log(`📡 Starting Stream: ${baseUrl}/api/chat with model ${constants.AI_PERSONALITY_MODEL}`);
+            const fullUrl = await this.getBaseUrl();
+            console.log(`📡 Starting Stream: ${fullUrl} with model ${constants.AI_PERSONALITY_MODEL}`);
 
-            const response = await axios.post(`${baseUrl}/api/chat`, {
+            const response = await axios.post(fullUrl, {
                 model: constants.AI_PERSONALITY_MODEL,
                 messages: messages,
                 stream: true,
