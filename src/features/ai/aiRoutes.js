@@ -73,12 +73,16 @@ router.get('/history/:userName', async (req, res) => {
 // AI assistant route.
 router.post('/ask', async (req, res) => {
     try {
-        const response = await AIOrchestrator.processRequest(req.body);
+        if (!req.body || typeof req.body !== 'object') {
+            return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
+        }
+        const response = await AIOrchestrator.processRequest({ ...req.body, requestId: req.requestId });
         res.json(response);
     } catch (error) {
         console.error("AI Error:", error.message);
         res.status(200).json({
             success: false,
+            requestId: req.requestId,
             message: "Bhai, server thoda slow hai. Ek baar check karo net ya thodi der me try karo.",
             answer: ""
         });
@@ -88,7 +92,10 @@ router.post('/ask', async (req, res) => {
 // REDESIGNED Streaming AI route.
 router.post('/ask-stream', async (req, res) => {
     try {
-        await AIOrchestrator.processRequestStream(req.body, res);
+        if (!req.body || typeof req.body !== 'object') {
+            return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
+        }
+        await AIOrchestrator.processRequestStream({ ...req.body, requestId: req.requestId }, res);
     } catch (error) {
         console.error("Streaming Route Error:", error);
         res.end();

@@ -7,7 +7,7 @@ class UserProfile {
         const User = require('../../auth/userModel');
         let dbUser = null;
 
-        if (userName && userName !== 'User') {
+        if (User.db?.readyState === 1 && userName && userName !== 'User') {
             dbUser = await User.findOne({ name: userName }).lean();
         }
 
@@ -59,6 +59,7 @@ class UserProfile {
     static async syncToDb(userName, profileUpdates) {
         const User = require('../../auth/userModel');
         if (!userName || userName === 'User' || !profileUpdates) return;
+        if (User.db?.readyState !== 1) return;
 
         // Fetch current data to avoid overwriting authoritative profile with AI extraction guesses
         const existing = await User.findOne({ name: userName }).select('education domicileState category dob gender').lean();

@@ -32,6 +32,7 @@ class LearningEngine {
      */
     static async processTrace(trace) {
         try {
+            if (Insight.db?.readyState !== 1) return;
             const analysis = await this._analyze(trace);
 
             await Insight.create({
@@ -45,8 +46,8 @@ class LearningEngine {
                     tokens: trace.metrics?.totalTokens || 0,
                     retries: trace.metrics?.retries || 0
                 },
-                intent: this._getStageMetadata(trace, 'UCC_PLANNING', 'intent') || trace.intent,
-                plannerPlan: this._getStageMetadata(trace, 'UCC_PLANNING', 'plan')
+                intent: this._getStageMetadata(trace, 'QUERY_UNDERSTANDING_ENGINE', 'intent') || trace.intent,
+                plannerPlan: this._getStageMetadata(trace, 'PLANNER_ENGINE', 'plan')
             });
 
             // If a severe failure is detected, trigger an immediate internal alert
@@ -70,9 +71,9 @@ class LearningEngine {
 
         if (!trace.stages) return { score, failureCategory, rootCause, recommendation };
 
-        const ucc = trace.stages.find(s => s.module === 'UCC_PLANNING');
-        const outputVal = trace.stages.find(s => s.module === 'OUTPUT_VALIDATION');
-        const exec = trace.stages.find(s => s.module === 'TOOL_EXECUTION');
+        const ucc = trace.stages.find(s => s.module === 'PLANNER_ENGINE' || s.module === 'QUERY_UNDERSTANDING_ENGINE');
+        const outputVal = trace.stages.find(s => s.module === 'SAFETY_GUARDRAILS' || s.module === 'VALIDATION_ENGINE');
+        const exec = trace.stages.find(s => s.module === 'EXECUTION_ENGINE');
 
         // 1. Detect Hallucination (Highest Penalty)
         if (outputVal?.metadata?.autoCorrected) {
@@ -125,6 +126,7 @@ class LearningEngine {
      * Generates a summary report for the dashboard.
      */
     static async generateOptimizationReport() {
+        if (Insight.db?.readyState !== 1) return [];
         const report = await Insight.aggregate([
             {
                 $group: {

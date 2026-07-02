@@ -7,8 +7,8 @@ const Chat = require('../../chat/chatModel');
 const SessionState = require('../context/sessionState');
 const UserProfile = require('../context/userProfile');
 const IntentEngine = require('../intent/intentEngine');
+const AgenticPlanner = require('../reasoning/agenticPlanner');
 const ExecutionEngine = require('./executionEngine');
-const MemoryEngine = require('../memory/memoryEngine');
 const PromptComposer = require('../generation/promptComposer');
 const LLMProvider = require('../generation/llmProvider');
 const ValidationEngine = require('../quality/validationEngine');
@@ -35,7 +35,8 @@ class AIOrchestrator {
     static async processRequest(input) {
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
-        const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
+        const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage, input.requestId);
+        let traceFinalized = false;
 
         try {
             // 1. API GATEWAY STAGE
@@ -43,7 +44,14 @@ class AIOrchestrator {
                 () => SmartGateway.validate(userMessage)
             );
             if (gatewayStatus.status === 'BLOCK') {
-                return { ...shapeResponse(SAFE_RESPONSES[gatewayStatus.reason || 'UNSAFE_OUTPUT']), requestId: traceId };
+                const safeResponse = this._safeGatewayResponse(gatewayStatus.reason);
+                await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
+                    () => PromptComposer.build(['SAFETY'], {}, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: new Date().toLocaleDateString() })
+                );
+                Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
+                Telemetry.endTrace(traceId);
+                traceFinalized = true;
+                return { ...shapeResponse(safeResponse), requestId: traceId };
             }
 
             // 2. CONTEXT LOADING
@@ -51,22 +59,36 @@ class AIOrchestrator {
                 () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             );
 
-            // 3. COGNITIVE CONTROLLER
-            const plan = await Telemetry.trackStage(traceId, 'COGNITIVE_CONTROLLER',
+            // 3. QUERY UNDERSTANDING ENGINE
+            const cognitiveContract = await Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
                 () => IntentEngine.classify(userMessage, state, profile)
+            );
+            Telemetry.setContext(traceId, {
+                intent: cognitiveContract.intent,
+                confidence: cognitiveContract.confidence,
+                cognitiveMap: cognitiveContract.cognitiveMap
+            });
+
+            // 4. PLANNER ENGINE
+            const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
+                () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
             );
 
             const fixedResponse = this._fixedSimpleResponse(plan.intent);
             if (fixedResponse) {
+                await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
+                    () => PromptComposer.build([plan.intent], profile, {}, { plan, currentDate: new Date().toLocaleDateString() })
+                );
                 const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
                 await this._persist(userName, sessionId, userMessage, fixedResponse, suggestions);
                 BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: fixedResponse, plan, execResult: null, suggestions });
+                traceFinalized = true;
                 return { ...shapeResponse(fixedResponse, { suggestions }), requestId: traceId };
             }
 
-            // 4. EXECUTION ENGINE
+            // 5. EXECUTION ENGINE
             const execResult = await Telemetry.trackStage(traceId, 'EXECUTION_ENGINE',
-                () => ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan })
+                () => ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan })
             );
 
             const liveData = {
@@ -75,12 +97,12 @@ class AIOrchestrator {
                 calculator: execResult.outputs.calculator?.result || ""
             };
 
-            // 5. PROMPT BUILDER
+            // 6. PROMPT BUILDER
             const promptData = await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
                 () => PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: new Date().toLocaleDateString() })
             );
 
-            // 6. FINAL LLM (Synthesis)
+            // 7. FINAL LLM (Synthesis)
             const aiResponse = await Telemetry.trackStage(traceId, 'FINAL_LLM',
                 () => LLMProvider.chat([
                     { role: 'system', content: promptData.systemPrompt },
@@ -90,9 +112,9 @@ class AIOrchestrator {
 
             let finalContent = aiResponse.content;
 
-            // 7. VALIDATION ENGINE
+            // 8. SAFETY GUARDRAILS + RESPONSE VALIDATOR
             const allowLlmValidation = !(plan.searchStrategy?.skipLlmExpansion && plan.searchStrategy?.skipLlmRerank);
-            const outputStatus = await Telemetry.trackStage(traceId, 'VALIDATION_ENGINE',
+            const outputStatus = await Telemetry.trackStage(traceId, 'SAFETY_GUARDRAILS',
                 () => ValidationEngine.validateOutput(userMessage, finalContent, liveData, { allowLlm: allowLlmValidation })
             );
             if (outputStatus.status === 'REPLACE') finalContent = outputStatus.content;
@@ -103,11 +125,13 @@ class AIOrchestrator {
             await this._persist(userName, sessionId, userMessage, formatted, suggestions);
 
             BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: formatted, plan, execResult, suggestions });
+            traceFinalized = true;
 
-            return { ...shapeResponse(formatted, { suggestions }), requestId: traceId };
+            return { ...shapeResponse(formatted, { suggestions, cognitiveMap: plan.cognitiveMap }), requestId: traceId };
 
         } catch (error) {
             console.error("❌ Neural Pipeline Error:", error);
+            if (!traceFinalized) Telemetry.endTrace(traceId);
             return { ...shapeResponse(SAFE_RESPONSES.GENERIC_FALLBACK), success: false, requestId: traceId };
         }
     }
@@ -118,8 +142,10 @@ class AIOrchestrator {
     static async processRequestStream(input, res) {
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
-        const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
+        const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage, input.requestId);
         const overallStart = Date.now();
+        let stream = null;
+        let traceFinalized = false;
 
         console.log(`\n[PIPELINE_START] User: ${userName} | Query: "${userMessage}"`);
 
@@ -133,8 +159,14 @@ class AIOrchestrator {
             console.log(`⏱️ Stage 1 (Gateway+Context): ${Date.now() - prefetchStart}ms`);
 
             if (gatewayStatus.status === 'BLOCK') {
-                const stream = new StreamingEngine(res);
-                stream.error(new Error(gatewayStatus.reason));
+                stream = new StreamingEngine(res);
+                await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
+                    () => PromptComposer.build(['SAFETY'], profile, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: new Date().toLocaleDateString() })
+                );
+                stream.error(new Error(this._safeGatewayResponse(gatewayStatus.reason)));
+                Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
+                Telemetry.endTrace(traceId);
+                traceFinalized = true;
                 return;
             }
 
@@ -146,19 +178,30 @@ class AIOrchestrator {
                 speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
             }
 
-            // 2. COGNITIVE CONTROLLER
+            // 2. QUERY UNDERSTANDING ENGINE + PLANNER ENGINE
             const intentStart = Date.now();
-            const plan = await IntentEngine.classify(userMessage, state, profile);
+            const cognitiveContract = await Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
+                () => IntentEngine.classify(userMessage, state, profile)
+            );
+            Telemetry.setContext(traceId, {
+                intent: cognitiveContract.intent,
+                confidence: cognitiveContract.confidence,
+                cognitiveMap: cognitiveContract.cognitiveMap
+            });
+            const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
+                () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
+            );
             const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
             console.log(`⏱️ Stage 2 (Intent/Planner): ${Date.now() - intentStart}ms | Turbo: ${isTurbo} | Intent: ${plan.intent}`);
 
             // Initialize stream with Turbo setting
-            const stream = new StreamingEngine(res, { turbo: isTurbo });
+            stream = new StreamingEngine(res, { turbo: isTurbo });
 
             // FAST PATH: Conversation starters and simple intents skip complex execution
             if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
                 await this._handleFastResponse(userMessage, plan, profile, stream);
                 BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: "Fast Response", plan });
+                traceFinalized = true;
                 console.log(`🚀 Fast Response Total: ${Date.now() - overallStart}ms`);
                 return;
             }
@@ -173,11 +216,11 @@ class AIOrchestrator {
             if (needsRag && speculativeRagPromise) {
                 // Reuse the speculative search result
                 const ragOutput = await speculativeRagPromise;
-                execResult = await ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan });
+                execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
                 // Merge/Override with speculative result if it was faster
                 execResult.outputs.rag = ragOutput;
             } else {
-                execResult = await ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan });
+                execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
             }
             console.log(`⏱️ Stage 3 (Execution/RAG): ${Date.now() - execStart}ms`);
 
@@ -253,10 +296,14 @@ class AIOrchestrator {
 
             await this._persist(userName, sessionId, userMessage, finalContent, suggestions);
             BackgroundServices.runAll({ traceId, userName, userMessage, finalContent, plan, execResult, suggestions });
+            traceFinalized = true;
 
         } catch (error) {
             console.error("❌ Stream Pipeline Error:", error);
-            stream.error(error);
+            if (stream) stream.error(error);
+            else if (res && !res.headersSent) res.status(200).json({ success: false, message: SAFE_RESPONSES.GENERIC_FALLBACK, answer: "" });
+            else if (res && !res.writableEnded) res.end();
+            if (!traceFinalized) Telemetry.endTrace(traceId);
         }
     }
 
@@ -317,8 +364,21 @@ class AIOrchestrator {
         return null;
     }
 
+    static _safeGatewayResponse(reason) {
+        const reasonMap = {
+            EMPTY: 'EMPTY_INPUT',
+            LENGTH_OVERFLOW: 'UNSAFE_OUTPUT',
+            REPETITIVE: 'GIBBERISH',
+            MALICIOUS_INTENT: 'MALICIOUS_INTENT',
+            GIBBERISH: 'GIBBERISH',
+            INJECTION_ATTEMPT: 'INJECTION_ATTEMPT'
+        };
+        return SAFE_RESPONSES[reasonMap[reason] || reason] || SAFE_RESPONSES.UNSAFE_OUTPUT;
+    }
+
     static async _persist(userName, sessionId, query, response, suggestions) {
         try {
+            if (Chat.db?.readyState !== 1) return;
             const name = userName || "User";
             await Chat.create({ userName: name, sessionId, role: 'user', content: query });
             await Chat.create({ userName: name, sessionId, role: 'assistant', content: response, suggestions });

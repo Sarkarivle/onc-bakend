@@ -15,6 +15,9 @@ class RetrievalEngine {
         const telemetry = { latency: {}, stats: {} };
 
         try {
+            if (Job.db?.readyState !== 1) {
+                return { count: 0, jobs: "", documents: [], confidence: 0 };
+            }
             // TURBO DEFAULT: Skip LLM work unless explicitly needed
             const skipLlmExpansion = plan.searchStrategy?.skipLlmExpansion !== false; // Default to true
             const skipLlmRerank = plan.searchStrategy?.skipLlmRerank !== false; // Default to true

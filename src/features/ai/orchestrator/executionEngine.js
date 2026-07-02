@@ -65,17 +65,16 @@ class ExecutionEngine {
      */
     static _buildExecutionLayers(plan) {
         if (!plan.execution || !Array.isArray(plan.execution)) return [];
+        const executableSteps = plan.execution.filter(step => String(step.tool || '').toUpperCase() !== 'LLM');
+        if (executableSteps.length === 0) return [];
 
         if (plan.parallel) {
-            // In parallel mode, all steps except the final synthesis (usually LLM) can run together
-            const asyncSteps = plan.execution.filter(s => s.tool !== 'LLM');
-            const syncSteps = plan.execution.filter(s => s.tool === 'LLM');
-            return [asyncSteps, syncSteps].filter(l => l.length > 0);
+            return [executableSteps];
         }
 
         // Sequential mode: Group by step number
         const groups = {};
-        plan.execution.forEach(step => {
+        executableSteps.forEach(step => {
             const s = step.step || 1;
             if (!groups[s]) groups[s] = [];
             groups[s].push(step);

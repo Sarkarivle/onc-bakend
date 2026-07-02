@@ -48,10 +48,14 @@ class SmartGateway {
     static async validate(query) {
         const q = String(query || "").trim();
         if (!q || q.length < 2) return { status: 'BLOCK', reason: 'EMPTY' };
+        const lower = q.toLowerCase();
 
         // 1. FAST JUNK CHECK (Scaling layer)
         if (q.length > 500) return { status: 'BLOCK', reason: 'LENGTH_OVERFLOW' };
         if (/(.)\1{5,}/.test(q)) return { status: 'BLOCK', reason: 'REPETITIVE' };
+        if (this._matchesSafetyAttack(lower)) return { status: 'BLOCK', reason: 'MALICIOUS_INTENT' };
+        if (this._matchesGibberish(lower)) return { status: 'BLOCK', reason: 'GIBBERISH' };
+        if (this._matchesGreeting(lower)) return { status: 'GREET' };
 
         const queryVector = await VectorService.generate(q);
         if (!queryVector) return { status: 'PROCEED' };
@@ -107,6 +111,29 @@ class SmartGateway {
         }
         if (mA === 0 || mB === 0) return 0;
         return dot / (Math.sqrt(mA) * Math.sqrt(mB));
+    }
+
+    static _matchesSafetyAttack(query) {
+        return [
+            /ignore (all )?(previous|prior) instructions?/i,
+            /system prompt|secret config|internal (database|rules|keys)|developer key/i,
+            /you are now|forget (your )?safety|bypass (all )?(filters|safety)/i,
+            /hack (a )?(bank|account)|admin (access|privileges)|steal passwords/i,
+            /reveal (model )?architecture|show .*instructions/i
+        ].some(pattern => pattern.test(query));
+    }
+
+    static _matchesGreeting(query) {
+        return /^(namaste|hello|hi|hey|good morning|good afternoon|good evening|ram ram|salaam)\b/i.test(query)
+            || /\b(kya haal hai|kaise ho)\b/i.test(query);
+    }
+
+    static _matchesGibberish(query) {
+        if (/^[^a-z0-9]+$/i.test(query)) return true;
+        if (/^\d{6,}$/.test(query)) return true;
+        if (/^(asdfghjkl|qwerty uiop|qazwsx|zzzzzzzz|ksjdfhksjdh)$/i.test(query)) return true;
+        const compact = query.replace(/\s+/g, '');
+        return compact.length >= 8 && !/[aeiou]/i.test(compact);
     }
 }
 

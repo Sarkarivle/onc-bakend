@@ -12,13 +12,20 @@ class MemoryEngine {
      */
     static async searchMemory(userId, query, limit = 5) {
         try {
+            if (Fact.db?.readyState !== 1) return [];
+            const tokens = this._extractSearchTokens(query);
+            if (tokens.length === 0) return [];
+
+            const tokenRegex = new RegExp(tokens.map(this._escapeRegex).join('|'), 'i');
+            const categoryRegex = new RegExp(this._escapeRegex(tokens[0]), 'i');
+
             // Standard MongoDB search over user's facts
             const memories = await Fact.find({
                 userId,
                 isDeleted: false,
                 $or: [
-                    { fact: { $regex: query.split(' ').join('|'), $options: 'i' } },
-                    { category: { $regex: query, $options: 'i' } }
+                    { fact: { $regex: tokenRegex } },
+                    { category: { $regex: categoryRegex } }
                 ]
             })
             .sort({ lastAccessed: -1, importance: -1 })
@@ -43,6 +50,7 @@ class MemoryEngine {
      */
     static async saveMemory(userId, category, factText, importance = 0.5) {
         try {
+            if (Fact.db?.readyState !== 1) return null;
             // Check for existing similar facts to avoid duplicates
             const existing = await Fact.findOne({ userId, category, fact: factText });
             if (existing) {
@@ -91,6 +99,7 @@ Output ONLY JSON Array: [{ "category": "SKILL|GOAL|EDU|LOC", "fact": "atomic fac
      */
     static async getShortTermContext(sessionId, windowSize = 5) {
         try {
+            if (State.db?.readyState !== 1) return [];
             const state = await State.findOne({ sessionId });
             if (!state || !state.history) return [];
             return state.history.slice(-windowSize);
@@ -101,6 +110,20 @@ Output ONLY JSON Array: [{ "category": "SKILL|GOAL|EDU|LOC", "fact": "atomic fac
         const recency = (Date.now() - new Date(memory.lastAccessed)) / (1000 * 60 * 60 * 24);
         const recencyScore = Math.exp(-recency / 7);
         return (memory.importance * 0.4) + (recencyScore * 0.4) + (0.2 * Math.min(memory.usageCount / 10, 1));
+    }
+
+    static _extractSearchTokens(query) {
+        const stopWords = new Set(['mujhe', 'batao', 'please', 'bhai', 'yaar', 'ke', 'ki', 'ka', 'hai', 'mein', 'me', 'aur', 'the']);
+        return String(query || '')
+            .toLowerCase()
+            .split(/[^a-z0-9]+/i)
+            .map(token => token.trim())
+            .filter(token => token.length > 1 && !stopWords.has(token))
+            .slice(0, 8);
+    }
+
+    static _escapeRegex(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 }
 

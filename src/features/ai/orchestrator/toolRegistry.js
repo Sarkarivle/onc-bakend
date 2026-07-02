@@ -96,7 +96,72 @@ registry.register('CALCULATOR', {
     safeFallback: () => ({ result: "" })
 });
 
-// 5. LLM Tool
+// 5. AGE CALCULATOR Tool
+registry.register('AGE_CALCULATOR', {
+    timeout: 1000,
+    validate: () => {},
+    execute: async (input, context) => {
+        const dob = context.profile?.dob || input;
+        const date = new Date(dob);
+        if (!dob || Number.isNaN(date.getTime())) {
+            return { success: false, result: "DOB not available" };
+        }
+
+        const today = new Date();
+        let years = today.getFullYear() - date.getFullYear();
+        let months = today.getMonth() - date.getMonth();
+        let days = today.getDate() - date.getDate();
+
+        if (days < 0) {
+            months -= 1;
+            days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        }
+        if (months < 0) {
+            years -= 1;
+            months += 12;
+        }
+
+        return { success: true, result: { years, months, days }, dob };
+    },
+    safeFallback: () => ({ success: false, result: "DOB not available" })
+});
+
+// 6. ELIGIBILITY CHECKER Tool
+registry.register('ELIGIBILITY_CHECKER', {
+    timeout: 1500,
+    validate: () => {},
+    execute: async (input, context) => {
+        const profile = context.profile || {};
+        const text = String(input || context.userMessage || '').toLowerCase();
+        const reasons = [];
+
+        const qualification = String(profile.qualification || '').toLowerCase();
+        if (/12th|intermediate/.test(text) && !/12th|graduate|post graduate|iti|diploma/.test(qualification)) {
+            reasons.push("12th qualification required");
+        }
+        if (/graduate|graduation|degree/.test(text) && !/graduate|post graduate/.test(qualification)) {
+            reasons.push("Graduation required");
+        }
+        if (/female/.test(text) && profile.gender && !/female/i.test(profile.gender)) {
+            reasons.push("Female candidate requirement");
+        }
+
+        return {
+            success: true,
+            eligible: reasons.length === 0,
+            reasons,
+            profileUsed: {
+                qualification: profile.qualification || null,
+                category: profile.category || null,
+                state: profile.state || null,
+                gender: profile.gender || null
+            }
+        };
+    },
+    safeFallback: () => ({ success: false, eligible: null, reasons: ["Profile unavailable"] })
+});
+
+// 7. LLM Tool retained for registry completeness; ExecutionEngine keeps final LLM after PromptBuilder.
 const LLMProvider = require('../generation/llmProvider');
 registry.register('LLM', {
     timeout: 35000,

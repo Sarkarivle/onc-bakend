@@ -3,7 +3,7 @@
  * Responsibility: Enterprise-grade observability, tracing, and metrics.
  * Built on OpenTelemetry standards for Google Cloud/Datadog/Grafana compatibility.
  */
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 class TelemetryEngine {
     constructor() {
@@ -13,8 +13,8 @@ class TelemetryEngine {
     /**
      * Initializes a new request trace.
      */
-    startTrace(userId, sessionId, initialInput) {
-        const traceId = uuidv4();
+    startTrace(userId, sessionId, initialInput, requestId = null) {
+        const traceId = requestId || randomUUID();
         const trace = {
             traceId,
             userId,
@@ -77,6 +77,12 @@ class TelemetryEngine {
         }
     }
 
+    setContext(traceId, metadata = {}) {
+        const trace = this.traces.get(traceId);
+        if (!trace) return;
+        trace.context = { ...trace.context, ...metadata };
+    }
+
     /**
      * Finalizes the trace and returns the full report.
      */
@@ -86,6 +92,7 @@ class TelemetryEngine {
 
         trace.endTime = Date.now();
         trace.totalDuration = trace.endTime - trace.startTime;
+        trace.summary = this._buildSummary(trace);
 
         // Structured Logging for External Collectors (ELK/Splunk)
         console.log(`[TELEMETRY_TRACE] ${JSON.stringify(trace)}`);
@@ -93,6 +100,31 @@ class TelemetryEngine {
         // Cleanup to prevent memory leaks
         this.traces.delete(traceId);
         return trace;
+    }
+
+    _buildSummary(trace) {
+        const durationFor = (...names) => trace.stages
+            .filter(stage => names.includes(stage.module))
+            .reduce((sum, stage) => sum + (stage.duration || 0), 0);
+
+        return {
+            requestId: trace.traceId,
+            sessionId: trace.sessionId,
+            userId: trace.userId,
+            latencyMs: trace.totalDuration,
+            plannerTimeMs: durationFor('QUERY_UNDERSTANDING_ENGINE', 'PLANNER_ENGINE', 'COGNITIVE_CONTROLLER'),
+            searchTimeMs: durationFor('SEARCH', 'RAG_RETRIEVER', 'EXECUTION_ENGINE'),
+            ragTimeMs: durationFor('RAG_RETRIEVER', 'EXECUTION_ENGINE'),
+            llmTimeMs: durationFor('FINAL_LLM'),
+            promptBuilderTimeMs: durationFor('PROMPT_BUILDER'),
+            safetyTimeMs: durationFor('GATEWAY_VALIDATION', 'SAFETY_GUARDRAILS', 'VALIDATION_ENGINE'),
+            errors: trace.stages.filter(stage => stage.status === 'FAILED').map(stage => ({
+                module: stage.module,
+                error: stage.error
+            })),
+            confidence: trace.context?.confidence || null,
+            intent: trace.context?.intent || null
+        };
     }
 
     /**

@@ -6,23 +6,22 @@ const StateModel = require('../memory/stateModel');
 
 class SessionState {
     static async get(sessionId) {
+        if (StateModel.db?.readyState !== 1) {
+            return this._defaultState();
+        }
+
         let state = await StateModel.findOne({ sessionId });
 
         if (!state) {
-            return {
-                topic: "GENERAL",
-                currentTopic: "GENERAL",
-                currentDomain: "GENERAL",
-                lastDomain: "GENERAL",
-                history: [],
-                turnCount: 0
-            };
+            return this._defaultState();
         }
 
         return state.toObject();
     }
 
     static async update(sessionId, metadata) {
+        if (StateModel.db?.readyState !== 1) return this._defaultState();
+
         const { query, resolvedIntent, aiResponse, plan, knowledgeContext, userName, insights, turnSummary } = metadata;
         const currentState = await this.get(sessionId);
 
@@ -65,6 +64,17 @@ class SessionState {
             updateData,
             { upsert: true, new: true }
         );
+    }
+
+    static _defaultState() {
+        return {
+            topic: "GENERAL",
+            currentTopic: "GENERAL",
+            currentDomain: "GENERAL",
+            lastDomain: "GENERAL",
+            history: [],
+            turnCount: 0
+        };
     }
 }
 

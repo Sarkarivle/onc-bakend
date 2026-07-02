@@ -189,6 +189,10 @@ function getActualResult(testCase, moduleResult, plan) {
         source: moduleResult.source,
         // Planner-specific fields
         tools: moduleResult.tools,
+        needsDatabase: moduleResult.needsDatabase,
+        needsRAG: moduleResult.needsRAG,
+        needsMemory: moduleResult.needsMemory,
+        needsTool: moduleResult.needsTool,
         action: moduleResult.action,
         strategy: moduleResult.strategy,
     };

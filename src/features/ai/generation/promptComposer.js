@@ -27,7 +27,7 @@ class PromptComposer {
      * Builds a production-grade prompt system.
      */
     static async build(priorityModules, userData, liveData, meta) {
-        const { plan, currentDate } = meta;
+        const { plan = {}, currentDate } = meta || {};
 
         // TURBO PATH: Ultra-light prompt for Semantic Router matches
         // This reduces prompt size by 80%, making first-token generation much faster.
@@ -46,15 +46,22 @@ class PromptComposer {
         const memoryBlock = this._formatMemory(liveData.memory, plan);
         const historyBlock = this._formatHistory(liveData.memory?.recentHistory || []);
         const ragBlock = this._formatRAG(liveData.jobs);
+        const plannerBlock = this._formatPlanner(plan);
+        const cognitiveMapBlock = this._formatCognitiveMap(plan.cognitiveMap);
+        const toolBlock = this._formatToolResults(liveData);
 
         // 2. Build Component List (Hierarchical Order)
         let systemPrompt = this._getBasePrompt(plan.intent, currentDate);
         systemPrompt += '\n\n# CONTEXTUAL DATA (GROUND TRUTH)\n';
 
+        if (cognitiveMapBlock) systemPrompt += `\n${cognitiveMapBlock}\n`;
+        if (plannerBlock) systemPrompt += `\n${plannerBlock}\n`;
         if (profileBlock) systemPrompt += `\n${profileBlock}\n`;
         if (memoryBlock) systemPrompt += `\n${memoryBlock}\n`;
         if (historyBlock) systemPrompt += `\n[CONVERSATION HISTORY]:\n${historyBlock}\n`;
         if (ragBlock) systemPrompt += `\n[RETRIEVED DATABASE]:\n${ragBlock}\n`;
+        if (toolBlock) systemPrompt += `\n[TOOL RESULTS]:\n${toolBlock}\n`;
+        if (plan.refinedQuery) systemPrompt += `\n[CANONICAL USER QUERY]: ${plan.refinedQuery}\n`;
 
         return { systemPrompt };
     }
@@ -122,6 +129,33 @@ class PromptComposer {
     static _formatRAG(jobs) {
         if (!jobs) return "";
         return jobs;
+    }
+
+    static _formatPlanner(plan) {
+        if (!plan) return "";
+        return `[PLANNER OUTPUT]:
+        - Intent: ${plan.intent || 'GENERAL_QUERY'}
+        - Mode: ${plan.mode || 'GENERAL_HELP'}
+        - Behavior: ${plan.behavior || 'RESPOND'}
+        - Confidence: ${plan.confidence || 0.5}
+        - Tools: ${(plan.tools || []).join(', ') || 'LLM'}
+        - Needs RAG: ${Boolean(plan.needsRAG)}
+        - Needs Memory: ${Boolean(plan.needsMemory)}
+        - Refined Query: ${plan.refinedQuery || ''}`;
+    }
+
+    static _formatCognitiveMap(cognitiveMap) {
+        if (!cognitiveMap) return "";
+        return `[COGNITIVE MAP JSON]:
+${JSON.stringify(cognitiveMap, null, 2)}`;
+    }
+
+    static _formatToolResults(liveData = {}) {
+        const entries = [];
+        if (liveData.calculator) entries.push(`Calculator: ${liveData.calculator}`);
+        if (liveData.searchResults) entries.push(`Search: ${liveData.searchResults}`);
+        if (liveData.databaseResults) entries.push(`Database: ${liveData.databaseResults}`);
+        return entries.join('\n');
     }
 }
 

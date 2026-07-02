@@ -15,8 +15,9 @@ const SAFE_RESPONSES = {
 };
 
 function normalizeRequest(body) {
+  if (!body || typeof body !== 'object') return "";
   const message = body.question || body.message || body.userMessage || body.query || body.input || body.prompt || body.text || "";
-  return message.trim();
+  return String(message).replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function shapeResponse(finalText, existingExtras = {}) {

@@ -88,7 +88,10 @@ class DeterministicIntentResolver {
         // Greetings should stay fixed even when the user mentions a topic after saying hi.
         // Optimized: Only match as greeting if the query is SHORT.
         // Long conversational queries like "ek baat batao..." should go to LLM for depth.
-        if (normalizedQuery.length < 20 && GREETINGS.some(g => normalizedQuery.startsWith(g) || normalizedQuery.endsWith(g))) {
+        if (
+            (normalizedQuery.length < 20 && GREETINGS.some(g => normalizedQuery.startsWith(g) || normalizedQuery.endsWith(g))) ||
+            /^(hi|hello|hey|namaste)\s+jobo\b/.test(normalizedQuery)
+        ) {
              return this._createResponse({
                 intent: 'GREETING',
                 behavior: 'GREET',
