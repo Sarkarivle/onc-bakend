@@ -28,7 +28,7 @@ class ProgressEmitter {
 
     static emit(sessionId, stage, lang = 'hi') {
         if (!this.io || !sessionId) return;
-        const status = this.STAGE_MAP[stage] || { hi: 'Dost soch raha hai...', en: 'Thinking...' };
+        const status = this.STAGE_MAP[stage] || { hi: 'Bas ek minute...', en: 'Thinking...' };
         const message = lang === 'hi' ? status.hi : status.en;
 
         this.io.to(sessionId).emit('ai_progress', {

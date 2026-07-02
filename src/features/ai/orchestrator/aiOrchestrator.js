@@ -161,14 +161,17 @@ class AIOrchestrator {
             ]);
             console.log(`⏱️ Stage 1 (Gateway+Context): ${Date.now() - prefetchStart}ms`);
 
+            // Initialize stream early to send personalized status
+            stream = new StreamingEngine(res, { turbo: false });
+            const firstName = userName.split(' ')[0] || "Dost";
+            stream.startThinking(`${firstName} bhai, bas ek minute, sab check kar loon...`);
+
             if (gatewayStatus.status === 'BLOCK') {
-                stream = new StreamingEngine(res);
                 const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
                 await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
                     () => PromptComposer.build(['SAFETY'], profile, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
                 );
                 stream.error(new Error(this._safeGatewayResponse(gatewayStatus.reason)));
-                Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
                 Telemetry.endTrace(traceId);
                 traceFinalized = true;
                 return;
@@ -179,10 +182,12 @@ class AIOrchestrator {
             const lastMsg = state.history?.length > 0 ? state.history[state.history.length-1].assistant : "";
 
             if (gatewayStatus.likelyIntent === 'JOB_SEARCH' || (userMessage.length < 10 && lastMsg.toLowerCase().includes('job'))) {
+                stream.startThinking(`${firstName} bhai, tumhare liye sateek vacancy dhund raha hoon...`);
                 speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
             }
 
             // 2. QUERY UNDERSTANDING ENGINE + PLANNER ENGINE
+            stream.startThinking(`${firstName} bhai, tumhare sawal par gaur kar raha hoon...`);
             const intentStart = Date.now();
             const cognitiveContract = await Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
                 () => IntentEngine.classify(userMessage, state, profile)
@@ -192,14 +197,16 @@ class AIOrchestrator {
                 confidence: cognitiveContract.confidence,
                 cognitiveMap: cognitiveContract.cognitiveMap
             });
+
+            stream.startThinking(`${firstName} bhai, ab best rasta plan kar raha hoon...`);
             const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
                 () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
             );
             const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
             console.log(`⏱️ Stage 2 (Intent/Planner): ${Date.now() - intentStart}ms | Turbo: ${isTurbo} | Intent: ${plan.intent}`);
 
-            // Initialize stream with Turbo setting
-            stream = new StreamingEngine(res, { turbo: isTurbo });
+            // Update stream with Turbo setting if changed
+            if (isTurbo) stream.skipValidation = true;
 
             // FAST PATH: Conversation starters and simple intents skip complex execution
             if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
@@ -212,7 +219,10 @@ class AIOrchestrator {
 
             // 3. EXECUTION ENGINE (With Speculative Reuse)
             const execStart = Date.now();
-            if (!isTurbo) stream.startThinking('Data fetch ho raha hai...');
+            if (!isTurbo) {
+                const actionText = plan.intent === 'JOB_SEARCH' ? "sarkari database scan kar raha hoon" : "best jankari nikal raha hoon";
+                stream.startThinking(`${firstName} bhai, ab ${actionText}...`);
+            }
 
             let execResult;
             const needsRag = plan.execution?.some(e => e.tool === 'RAG');
