@@ -18,7 +18,8 @@ const CONFIG = {
             "army agniveer vacancy", "high court jobs", "upsc civil services",
             "nayi bharti kab aayegi", "jobs for graduates", "part time jobs",
             "female candidate vacancies", "bihar police vacancy", "running me mere liye jobs",
-            "kuch aur h kya mere liye", "iske alaba jobs"
+            "kuch aur h kya mere liye", "iske alaba jobs", "koi new sarkari job aayi h kya",
+            "nayi vacancy dikhao", "current openings"
         ],
         FIELD_DETAILS: [
             "exam syllabus kya hai", "application fees kitni hai", "last date kab hai",
