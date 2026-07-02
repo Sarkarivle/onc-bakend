@@ -28,6 +28,11 @@ const INTENT_ANCHORS = {
         "software engineer ki padhai", "government vs private job guide",
         "career options for biology students", "graduation ke baad kya scope hai"
     ],
+    MOTIVATION: [
+        "kya karne ka fayda hai", "mann nahi lag raha", "fail ho gaya hu",
+        "pareshan hu career ko lekar", "kuch samajh nahi aa raha",
+        "zindagi me kya kare", "demotivated feel kar raha hu", "himmat har gaya"
+    ],
     ORDINAL_FOLLOWUP: [
         "2 no bali job", "pehle wali job", "1 number wali", "second option",
         "more details on 3rd", "details of 2", "dusri wali", "pehli wali details",
@@ -120,6 +125,19 @@ class SemanticRouter {
         return dot / (Math.sqrt(mA) * Math.sqrt(mB));
     }
 
+    static _getMode(intent) {
+        const mapping = {
+            'JOB_SEARCH': 'JOB_SEARCH',
+            'FIELD_DETAILS': 'JOB_DETAILS',
+            'ORDINAL_FOLLOWUP': 'JOB_DETAILS',
+            'PROFILE_INQUIRY': 'PROFILE_HELP',
+            'CAREER_GUIDANCE': 'CAREER_GUIDANCE',
+            'MOTIVATION': 'CAREER_GUIDANCE',
+            'RESUME': 'RESUME_HELP'
+        };
+        return mapping[intent] || 'GENERAL_HELP';
+    }
+
     static _getDefaultExecution(intent) {
         // ALWAYS include MEMORY tool to ensure follow-up context is never lost
         const base = [{ step: 1, tool: "MEMORY", purpose: "load history" }];
@@ -130,22 +148,10 @@ class SemanticRouter {
         if (intent === 'FIELD_DETAILS') {
             return [...base, { step: 2, tool: "RAG", purpose: "details" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
         }
-        if (intent === 'PROFILE_INQUIRY') {
+        if (intent === 'PROFILE_INQUIRY' || intent === 'MOTIVATION') {
             return [...base, { step: 2, tool: "PROFILE", purpose: "fetch user profile" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
         }
         return [...base, { step: 2, tool: "LLM", purpose: "direct response" }];
-    }
-
-    static _getMode(intent) {
-        const mapping = {
-            'JOB_SEARCH': 'JOB_SEARCH',
-            'FIELD_DETAILS': 'JOB_DETAILS',
-            'ORDINAL_FOLLOWUP': 'JOB_DETAILS',
-            'PROFILE_INQUIRY': 'PROFILE_HELP',
-            'CAREER_GUIDANCE': 'CAREER_GUIDANCE',
-            'RESUME': 'RESUME_HELP'
-        };
-        return mapping[intent] || 'GENERAL_HELP';
     }
 }
 
