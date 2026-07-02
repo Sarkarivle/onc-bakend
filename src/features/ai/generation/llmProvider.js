@@ -9,6 +9,11 @@ class LLMProvider {
 
         if (!url) return constants.DEFAULT_RUNPOD_URL;
 
+        // CRITICAL FIX: Strip common copy-paste errors like "curl https://..."
+        url = url.replace(/^(curl|wget)\s+/i, '')
+                 .replace(/['"\s]/g, '')
+                 .trim();
+
         // Ensure protocol exists
         if (!url.startsWith('http')) {
             url = `https://${url}`;
