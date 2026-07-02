@@ -110,14 +110,16 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
                 { title: { $regex: searchRegex } },
                 { organization: { $regex: searchRegex } },
                 { "eligibility.education": { $regex: searchRegex } },
-                { "eligibility.skills": { $regex: searchRegex } }
+                { "eligibility.skills": { $regex: searchRegex } },
+                { "tags": { $in: keywords } } // Match tags directly if exists
             ];
         }
 
-        // Smart Filtering based on Profile
-        if (profile.qualification) {
-            // Soft match qualification
-            const qualRegex = new RegExp(this._escapeRegex(profile.qualification.split(' ')[0]), 'i');
+        // Smart Filtering based on Profile - Optimized to not be too strict
+        if (profile.qualification && !searchRegex?.toString().toLowerCase().includes(profile.qualification.split(' ')[0].toLowerCase())) {
+            // Only add educational filter if query doesn't already contain it
+            const qual = profile.qualification.split(' ')[0];
+            const qualRegex = new RegExp(this._escapeRegex(qual), 'i');
             criteria["eligibility.education"] = { $regex: qualRegex };
         }
 

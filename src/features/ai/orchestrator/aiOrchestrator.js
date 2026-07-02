@@ -240,19 +240,35 @@ class AIOrchestrator {
 
             // 4. EXECUTION ENGINE (Reuse speculative results if available)
             const execStart = Date.now();
-            let execResult;
+            let execResult = { outputs: {} };
 
             if (!isTurbo) {
                 const actionText = plan.intent === 'JOB_SEARCH' ? "sarkari database scan kar raha hoon" : "best jankari nikal raha hoon";
                 stream.startThinking(`${firstName} bhai, ab ${actionText}...`);
             }
 
-            if (plan.needsRAG && speculativeRagPromise) {
-                const ragOutput = await speculativeRagPromise;
-                execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
-                execResult.outputs.rag = ragOutput; // Fusion
-            } else {
-                execResult = await ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan });
+            // SMART FUSION: Check if speculative results are good enough
+            let ragOutput = null;
+            if (speculativeRagPromise) {
+                ragOutput = await speculativeRagPromise;
+            }
+
+            // FALLBACK: If speculative search found nothing but intent is JOB_SEARCH, search again with Refined Query
+            if (plan.needsRAG && (!ragOutput || ragOutput.count === 0)) {
+                console.log("🔍 Speculative RAG empty. Retrying with refined query:", plan.refinedQuery);
+                ragOutput = await RetrievalEngine.searchJobs(plan.refinedQuery || userMessage, profile, plan);
+            }
+
+            // Execute other tools if planned
+            execResult = await ExecutionEngine.executePlan(plan, {
+                userMessage: plan.refinedQuery || userMessage,
+                originalUserMessage: userMessage,
+                profile, state, sessionId, plan
+            });
+
+            // Merge RAG results
+            if (plan.needsRAG) {
+                execResult.outputs.rag = ragOutput;
             }
             console.log(`⏱️ Stage 3 (Parallel Execution): ${Date.now() - execStart}ms`);
 
