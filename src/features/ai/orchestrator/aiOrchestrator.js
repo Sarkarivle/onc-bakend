@@ -137,6 +137,11 @@ class AIOrchestrator {
             stream.startThinking('Sawal samajh raha hoon...');
             const plan = await IntentEngine.classify(userMessage, state, profile);
 
+            // LOGIC SPEED BOOST: If intent is already high confidence, don't wait for thinking message update
+            if (plan.confidence > 0.82) {
+                stream.emit('intent_resolved', { intent: plan.intent, fast: true });
+            }
+
             // FAST PATH: Conversation starters and simple intents skip complex execution
             if (plan.needsPlanning === false && ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT', 'PROFILE_QUERY'].includes(plan.intent)) {
                 await this._handleFastResponse(userMessage, plan, profile, stream);

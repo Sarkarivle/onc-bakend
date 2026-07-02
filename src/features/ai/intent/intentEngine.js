@@ -9,6 +9,7 @@
  */
 const LLMProvider = require('../generation/llmProvider');
 const DeterministicIntentResolver = require('./DeterministicIntentResolver');
+const SemanticRouter = require('./SemanticRouter');
 
 class IntentEngine {
     /**
@@ -16,13 +17,25 @@ class IntentEngine {
      * Performs Intent Detection, Query Refinement, and Tool Planning in a single LLM call.
      */
     static async classify(query, state = {}, profile = {}) {
-        // 1. FAST PATH: Deterministic Check (For Greetings/Safety/Garbage/Common Jobs)
+        // 1. FAST PATH: Deterministic Check (Exact match/Keywords)
         const fastMatch = DeterministicIntentResolver.resolve(query);
         if (fastMatch) {
             return {
                 ...fastMatch,
                 refinedQuery: fastMatch.refinedQuery || query,
                 execution: fastMatch.execution || (fastMatch.intent === 'GREETING' ? [] : [{ step: 1, tool: "LLM", purpose: "direct response" }])
+            };
+        }
+
+        // 2. TURBO PATH: Semantic Router (Local Vector Matching)
+        // This bypasses the Intent LLM Call (Saves 2-3 seconds)
+        const semanticMatch = await SemanticRouter.route(query);
+        if (semanticMatch) {
+            return {
+                ...semanticMatch,
+                refinedQuery: query,
+                behavior: "RESPOND",
+                reasoning: "⚡ Fast Semantic Intelligence"
             };
         }
 
