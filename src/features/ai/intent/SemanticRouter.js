@@ -23,6 +23,11 @@ const INTENT_ANCHORS = {
         "software engineer ki padhai", "government vs private job guide",
         "career options for biology students", "graduation ke baad kya scope hai"
     ],
+    ORDINAL_FOLLOWUP: [
+        "2 no bali job", "pehle wali job", "1 number wali", "second option",
+        "more details on 3rd", "details of 2", "dusri wali", "pehli wali details",
+        "details about number 2", "more info on 1"
+    ],
     RESUME: [
         "resume kaise banaye", "cv format download", "resume building tips",
         "professional summary for resume", "resume me kya likhe"
@@ -100,13 +105,13 @@ class SemanticRouter {
 
     static _getDefaultExecution(intent) {
         // ALWAYS include MEMORY tool to ensure follow-up context is never lost
-        const base = [{ step: 1, tool: "MEMORY", purpose: "load conversation history" }];
+        const base = [{ step: 1, tool: "MEMORY", purpose: "load history" }];
 
-        if (intent === 'JOB_SEARCH') {
-            return [...base, { step: 2, tool: "RAG", purpose: "search jobs" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
+        if (intent === 'JOB_SEARCH' || intent === 'ORDINAL_FOLLOWUP') {
+            return [...base, { step: 2, tool: "RAG", purpose: "search" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
         }
         if (intent === 'FIELD_DETAILS') {
-            return [...base, { step: 2, tool: "RAG", purpose: "fetch details" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
+            return [...base, { step: 2, tool: "RAG", purpose: "details" }, { step: 3, tool: "LLM", purpose: "synthesis" }];
         }
         return [...base, { step: 2, tool: "LLM", purpose: "direct response" }];
     }
@@ -115,6 +120,7 @@ class SemanticRouter {
         const mapping = {
             'JOB_SEARCH': 'JOB_SEARCH',
             'FIELD_DETAILS': 'JOB_DETAILS',
+            'ORDINAL_FOLLOWUP': 'JOB_DETAILS',
             'CAREER_GUIDANCE': 'CAREER_GUIDANCE',
             'RESUME': 'RESUME_HELP'
         };

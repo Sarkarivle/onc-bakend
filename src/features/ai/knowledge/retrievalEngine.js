@@ -15,9 +15,10 @@ class RetrievalEngine {
         const telemetry = { latency: {}, stats: {} };
 
         try {
-            // 1. QUERY UNDERSTANDING & EXPANSION
-            const skipLlmExpansion = plan.searchStrategy?.skipLlmExpansion === true;
-            const skipLlmRerank = plan.searchStrategy?.skipLlmRerank === true;
+            // TURBO DEFAULT: Skip LLM work unless explicitly needed
+            const skipLlmExpansion = plan.searchStrategy?.skipLlmExpansion !== false; // Default to true
+            const skipLlmRerank = plan.searchStrategy?.skipLlmRerank !== false; // Default to true
+
             const expansion = skipLlmExpansion
                 ? this._basicExpansion(userQuery)
                 : await this._expandQuery(userQuery);
