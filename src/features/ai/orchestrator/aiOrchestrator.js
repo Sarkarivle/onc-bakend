@@ -172,45 +172,42 @@ class AIOrchestrator {
             const promptData = await PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: new Date().toLocaleDateString() });
 
             // 6. FINAL LLM (Streaming)
-            if (!isTurbo) stream.startThinking('Jawab likh raha hoon...');
             let fullContent = "";
-            let isInsideUserMessage = false;
-            let hasExitedUserMessage = false;
             let hasPushedAnyContent = false;
 
-            // Reinforce formatting in the user message to ensure model follows tags
-            const reinforcedUserMessage = `${userMessage}\n\n(Note: Jawab Hinglish में दें और <USER_MESSAGE> टैग्स का इस्तेमाल करें)`;
+            // In Turbo mode, we tell the model to be direct
+            const reinforcedUserMessage = isTurbo
+                ? `${userMessage} (Direct jawab do, no tags needed)`
+                : `${userMessage}\n\n(Note: Jawab Hinglish में दें और <USER_MESSAGE> टैग्स का इस्तेमाल करें)`;
 
+            const startTimeLLM = Date.now();
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
                 { role: 'user', content: reinforcedUserMessage }
             ], async (chunk) => {
+                if (!hasPushedAnyContent) {
+                    console.log(`⏱️ TTFT (First Token): ${Date.now() - startTimeLLM}ms`);
+                }
+
                 fullContent += chunk;
 
-                // Neural Tag Filtering & Clean Forwarding
-                if (fullContent.includes('<USER_MESSAGE>') && !hasExitedUserMessage) {
-                    if (!isInsideUserMessage) {
-                        isInsideUserMessage = true;
+                // Turbo Mode: Skip all filtering logic and push immediately
+                if (isTurbo) {
+                    await stream.pushChunk(chunk);
+                    hasPushedAnyContent = true;
+                } else {
+                    // Standard filtering for complex queries
+                    if (fullContent.includes('<USER_MESSAGE>')) {
                         const parts = fullContent.split('<USER_MESSAGE>');
                         const part = parts[parts.length - 1];
-                        if (part) {
-                            await stream.pushChunk(part);
-                            hasPushedAnyContent = true;
-                        }
-                    } else {
-                        if (chunk.includes('</USER_MESSAGE>')) {
-                            const lastPart = chunk.split('</USER_MESSAGE>')[0];
-                            if (lastPart) await stream.pushChunk(lastPart);
-                            isInsideUserMessage = false;
-                            hasExitedUserMessage = true;
-                        } else {
+                        if (part && !part.includes('</USER_MESSAGE>')) {
                             await stream.pushChunk(chunk);
                             hasPushedAnyContent = true;
                         }
+                    } else if (fullContent.length > 50) {
+                        await stream.pushChunk(chunk);
+                        hasPushedAnyContent = true;
                     }
-                } else if (!fullContent.includes('<AGENT_THOUGHT>') && (hasPushedAnyContent || fullContent.length > 150)) {
-                    await stream.pushChunk(chunk); // Fallback for models not using tags
-                    hasPushedAnyContent = true;
                 }
             });
 
