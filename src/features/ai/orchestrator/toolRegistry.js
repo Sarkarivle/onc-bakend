@@ -179,4 +179,21 @@ registry.register('LLM', {
     }
 });
 
+// 8. DATE_DIFF Tool
+registry.register('DATE_DIFF', {
+    timeout: 1000,
+    validate: (input) => { if (!input || !input.date1 || !input.date2) throw new Error("DATE_DIFF requires date1 and date2"); },
+    execute: async (input) => {
+        const d1 = new Date(input.date1);
+        const d2 = new Date(input.date2);
+        if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) {
+            return { success: false, error: "Invalid date format" };
+        }
+        const diffTime = Math.abs(d2 - d1);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { success: true, days: diffDays };
+    },
+    safeFallback: () => ({ success: false, days: 0 })
+});
+
 module.exports = registry;

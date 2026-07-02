@@ -60,9 +60,9 @@ class EliteFormatter {
             const table = `
 | Detail | Information |
 | :--- | :--- |
-| 📅 Last Date | ${dateMatch ? dateMatch[1].trim() : 'Check Official Site'} |
-| 💰 Fees | ${feeMatch ? feeMatch[1].trim() : 'As per notification'} |
-| 🔢 Vacancy | ${vacancyMatch ? vacancyMatch[1].trim() : 'Check details'} |
+| 📋 **Vacancy** | **${vacancyMatch ? vacancyMatch[1].trim() : 'Check details'}** |
+| 📅 **Last Date** | **${dateMatch ? dateMatch[1].trim() : 'Check Official Site'}** |
+| 💰 **Fees** | **${feeMatch ? feeMatch[1].trim() : 'As per notification'}** |
 `;
             // Remove the old lines/sentences that contained these facts to avoid duplication
             let cleaned = text;

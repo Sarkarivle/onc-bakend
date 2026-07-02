@@ -56,7 +56,7 @@ Analyze the user request and generate a high-precision Execution Plan.
 1. UNDERSTAND: Extract true goal.
 2. INTENT: Detect primary (JOB_SEARCH, FIELD_DETAILS, CAREER_GUIDANCE, RESUME, SCHOLARSHIP, RESULT_CHECK).
 3. REWRITE: If vague, rewrite into searchable query using context.
-4. PLANNING: Decide if external tools (RAG, PROFILE, CALCULATOR) are needed.
+4. PLANNING: Decide if external tools (RAG, PROFILE, CALCULATOR, DATE_DIFF) are needed. Use DATE_DIFF if the query involves job deadlines or calculating remaining days.
 5. CONFIDENCE: Score 0.0 to 1.0.
 6. CLARIFICATION: If intent is vague (<0.6), decide to clarify.
 
@@ -67,7 +67,7 @@ Analyze the user request and generate a high-precision Execution Plan.
   "refinedQuery": "STRING",
   "needsPlanning": BOOLEAN,
   "execution": [
-    { "step": 1, "tool": "RAG|PROFILE|CALCULATOR", "purpose": "reason" },
+    { "step": 1, "tool": "RAG|PROFILE|CALCULATOR|DATE_DIFF", "purpose": "reason" },
     { "step": 2, "tool": "LLM", "purpose": "synthesis" }
   ],
   "reasoning": "1 sentence"
