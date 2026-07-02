@@ -18,6 +18,7 @@ const SuggestionEngine = require('../ux/suggestionEngine');
 const StreamingEngine = require('./streamingEngine');
 const Telemetry = require('./telemetryEngine');
 const BackgroundServices = require('./backgroundServices');
+const RetrievalEngine = require('../knowledge/retrievalEngine');
 const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/safetyGuard');
 
 class AIOrchestrator {
@@ -114,17 +115,25 @@ class AIOrchestrator {
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage);
 
         try {
-            // 1. API GATEWAY STAGE
-            const gatewayStatus = await SmartGateway.validate(userMessage);
+            // 1. FAST PATH & PRE-FETCH
+            // Start local safety and context loading immediately
+            const [gatewayStatus, [state, profile]] = await Promise.all([
+                SmartGateway.validate(userMessage),
+                Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
+            ]);
+
             if (gatewayStatus.status === 'BLOCK') {
                 stream.error(new Error(gatewayStatus.reason));
                 return;
             }
 
-            // 2. CONTEXT LOADING
-            const [state, profile] = await Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)]);
+            // SPECULATIVE RAG: Start searching jobs if likely a job query, while Planner thinks
+            let speculativeRagPromise = null;
+            if (gatewayStatus.likelyIntent === 'JOB_SEARCH') {
+                speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
+            }
 
-            // 3. COGNITIVE CONTROLLER
+            // 2. COGNITIVE CONTROLLER
             stream.startThinking('Sawal samajh raha hoon...');
             const plan = await IntentEngine.classify(userMessage, state, profile);
 
@@ -135,9 +144,22 @@ class AIOrchestrator {
                 return;
             }
 
-            // 4. EXECUTION ENGINE
+            // 3. EXECUTION ENGINE (With Speculative Reuse)
             stream.startThinking('Data fetch ho raha hai...');
-            const execResult = await ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan });
+
+            let execResult;
+            const needsRag = plan.execution?.some(e => e.tool === 'RAG');
+
+            if (needsRag && speculativeRagPromise) {
+                // Reuse the speculative search result
+                const ragOutput = await speculativeRagPromise;
+                execResult = await ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan });
+                // Merge/Override with speculative result if it was faster
+                execResult.outputs.rag = ragOutput;
+            } else {
+                execResult = await ExecutionEngine.executePlan(plan, { userMessage, profile, state, sessionId, plan });
+            }
+
             const liveData = {
                 jobs: execResult.outputs.rag?.jobs || "",
                 memory: execResult.outputs.memory || {},

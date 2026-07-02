@@ -22,6 +22,12 @@ const ANCHORS = {
         "asdfghjkl", "qwerty uiop", "1234567890", "zzzzzzzz", "!!! @@@ ###",
         "random strings of characters", "nonsense typing", "qazwsx edcrfv",
         "ksjdfhksjdh", "11111111", ".........."
+    ],
+    JOB_SEARCH: [
+        "latest govt jobs", "ssc railway vacancies", "12th pass naukri",
+        "sarkari bharti list", "bank exams notification", "police job apply link",
+        "teaching jobs ctet", "army agniveer vacancy", "high court jobs",
+        "upsc civil services", "state psc exams", "graduate job openings"
     ]
 };
 
@@ -54,9 +60,7 @@ class SmartGateway {
         const attackScore = this._getAverageTopKSimilarity(queryVector, 'SAFETY_ATTACK', 2);
         const greetingScore = this._getAverageTopKSimilarity(queryVector, 'GREETING', 2);
         const trashScore = this._getAverageTopKSimilarity(queryVector, 'TRASH_GIBBERISH', 1);
-
-        // Debug log for fine-tuning during research
-        // console.log(`[DEBUG] Q: ${q} | A: ${attackScore.toFixed(3)} | G: ${greetingScore.toFixed(3)} | T: ${trashScore.toFixed(3)}`);
+        const jobScore = this._getAverageTopKSimilarity(queryVector, 'JOB_SEARCH', 2);
 
         // 3. MULTI-LAYER DECISION (Stable Thresholds)
         if (attackScore > 0.72) { // Ensemble threshold is usually lower than Max threshold
@@ -69,6 +73,10 @@ class SmartGateway {
 
         if (greetingScore > 0.70) {
             return { status: 'GREET' };
+        }
+
+        if (jobScore > 0.75) {
+            return { status: 'PROCEED', likelyIntent: 'JOB_SEARCH' };
         }
 
         return { status: 'PROCEED' };

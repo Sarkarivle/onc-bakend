@@ -1,6 +1,12 @@
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 const Settings = require('../../settings/settingsModel');
 const constants = require('../../../config/constants');
+
+// Connection pooling for Turbo Speed
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
 
 class LLMProvider {
     static settingsCache = {
@@ -87,7 +93,11 @@ class LLMProvider {
                     ],
                     stream: false,
                     options: { temperature: 0.1 }
-                }, { timeout: 45000 });
+                }, {
+                    timeout: 45000,
+                    httpAgent,
+                    httpsAgent
+                });
 // ... (rest of the code stays same)
 // ... (rest of the code stays same)
 
@@ -137,7 +147,11 @@ class LLMProvider {
                     messages: messages,
                     stream: false,
                     options: { temperature: 0.7 }
-                }, { timeout: 60000 });
+                }, {
+                    timeout: 60000,
+                    httpAgent,
+                    httpsAgent
+                });
 
                 let content = "";
                 if (response.data.message) content = response.data.message.content;
@@ -168,7 +182,12 @@ class LLMProvider {
                 messages: messages,
                 stream: true,
                 options: { temperature: 0.7 }
-            }, { responseType: 'stream', timeout: 90000 });
+            }, {
+                responseType: 'stream',
+                timeout: 90000,
+                httpAgent,
+                httpsAgent
+            });
 // ... (rest of standard stream logic)
 
             return new Promise((resolve, reject) => {

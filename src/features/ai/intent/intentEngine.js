@@ -35,33 +35,24 @@ Analyze the user request and generate a high-precision Execution Plan.
 [USER PROFILE]: ${JSON.stringify(profile)}
 
 # COGNITIVE REQUIREMENTS:
-1. UNDERSTAND: Extract the true goal of the user.
-2. INTENT: Detect primary intent (JOB_SEARCH, FIELD_DETAILS, CAREER_GUIDANCE, RESUME, SCHOLARSHIP, RESULT_CHECK).
-3. REWRITE: If query is vague, rewrite it into a full searchable query using context.
+1. UNDERSTAND: Extract true goal.
+2. INTENT: Detect primary (JOB_SEARCH, FIELD_DETAILS, CAREER_GUIDANCE, RESUME, SCHOLARSHIP, RESULT_CHECK).
+3. REWRITE: If vague, rewrite into searchable query using context.
 4. PLANNING: Decide if external tools (RAG, PROFILE, CALCULATOR) are needed.
-5. CONFIDENCE: Score your plan from 0.0 to 1.0.
-6. CLARIFICATION: If intent is too vague (<0.6 confidence), decide to ask for clarification.
+5. CONFIDENCE: Score 0.0 to 1.0.
+6. CLARIFICATION: If intent is vague (<0.6), decide to clarify.
 
-# AVAILABLE TOOLS:
-- RAG: Search the Job/Scholarship Database for verified updates.
-- PROFILE: Access user's deep profile context (Qualification, DOB, Category).
-- CALCULATOR: Perform mathematical operations or age calculations.
-- LLM: The final synthesis tool (always required).
-
-# OUTPUT SCHEMA (STRICT JSON ONLY):
+# OUTPUT SCHEMA (JSON ONLY):
 {
   "intent": "STRING",
   "confidence": 0.0-1.0,
   "refinedQuery": "STRING",
   "needsPlanning": BOOLEAN,
-  "parallel": BOOLEAN,
-  "shouldClarify": BOOLEAN,
-  "requiredContext": ["profile", "conversation"],
   "execution": [
     { "step": 1, "tool": "RAG|PROFILE|CALCULATOR", "purpose": "reason" },
     { "step": 2, "tool": "LLM", "purpose": "synthesis" }
   ],
-  "reasoning": "1 sentence logic"
+  "reasoning": "1 sentence"
 }
 
 PLAN:`;
