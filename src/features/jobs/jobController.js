@@ -153,45 +153,77 @@ const getAiMatchAdvice = async (req, res) => {
         feeText = job.applicationFee?.generalObcEws || 'N/A';
     }
 
-    // Exact Date Calculation (Extremely Aggressive Search)
+    // Exact Date Calculation (Super Aggressive Search)
     let lastDateStr = "N/A";
 
-    // 1. Check direct field (Priority 1)
+    // 1. Check direct fields first
     if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
         lastDateStr = job.lastDate.toISOString();
     }
     else {
-        // 2. Recursive Smart Search in fullData and importantDates
+        // 2. Deep Search Function
         const findDateValue = (obj) => {
-            if (!obj || typeof obj !== 'object') return null;
+            if (!obj) return null;
 
-            // Check keys in this level
-            const keys = Object.keys(obj);
-
-            // Look for specific "last date" keys
-            const dateKey = keys.find(k =>
-                (k.toLowerCase().includes('last') && k.toLowerCase().includes('date')) ||
-                (k.toLowerCase().includes('end') && k.toLowerCase().includes('date')) ||
-                (k.toLowerCase() === 'application_last_date')
-            );
-
-            if (dateKey && obj[dateKey] && obj[dateKey] !== 'N/A' && typeof obj[dateKey] === 'string') {
-                return obj[dateKey];
+            // If it's a string, it might be the date itself
+            if (typeof obj === 'string') {
+                if (obj.match(/\d{4}/) && (obj.match(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i) || obj.includes('/'))) {
+                    return obj;
+                }
+                return null;
             }
 
-            // If not found, go deeper into arrays or objects
-            for (const key of keys) {
-                if (typeof obj[key] === 'object') {
-                    const found = findDateValue(obj[key]);
+            if (typeof obj !== 'object') return null;
+
+            // If it's an array, check each item
+            if (Array.isArray(obj)) {
+                for (const item of obj) {
+                    const found = findDateValue(item);
+                    if (found) return found;
+                }
+                return null;
+            }
+
+            // Check all keys in this object
+            const keys = Object.keys(obj);
+
+            // Priority 1: Keys that look like "last date"
+            for (const k of keys) {
+                const kl = k.toLowerCase();
+                if ((kl.includes('last') && kl.includes('date')) ||
+                    (kl.includes('end') && kl.includes('date')) ||
+                    kl === 'application_last_date') {
+
+                    const val = obj[k];
+                    if (typeof val === 'string' && val !== 'N/A' && val.trim() !== '') return val;
+                    if (typeof val === 'object' && val?.value) return val.value;
+                }
+            }
+
+            // Priority 2: Go deeper
+            for (const k of keys) {
+                if (typeof obj[k] === 'object') {
+                    const found = findDateValue(obj[k]);
                     if (found) return found;
                 }
             }
             return null;
         };
 
-        lastDateStr = job.importantDates?.applicationLastDate !== 'N/A' ? job.importantDates?.applicationLastDate : null;
-        if (!lastDateStr || lastDateStr === 'N/A') {
-            lastDateStr = findDateValue(job.fullData) || "N/A";
+        lastDateStr = findDateValue({
+            importantDates: job.importantDates,
+            fullData: job.fullData
+        }) || "N/A";
+
+        // 3. Last Resort: Extract from HTML if JSON failed
+        if ((lastDateStr === "N/A" || lastDateStr === "") && job.fullHtmlContent) {
+            const html = job.fullHtmlContent;
+            const lastDateMatch = html.match(/Last Date[^<]*<\/td>[^<]*<td[^>]*>([^<]+)<\/td>/i) ||
+                                 html.match(/Last Date[^:]*:[^<]*<b>([^<]+)<\/b>/i) ||
+                                 html.match(/Last Date[^:]*:([^<]+)/i);
+            if (lastDateMatch && lastDateMatch[1]) {
+                lastDateStr = lastDateMatch[1].trim();
+            }
         }
     }
 
