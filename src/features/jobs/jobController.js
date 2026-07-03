@@ -157,14 +157,11 @@ const getAiMatchAdvice = async (req, res) => {
     let lastDateStr = job.importantDates?.applicationLastDate;
 
     // Fallback if top-level field is N/A or empty
-    if (!lastDateStr || lastDateStr === 'N/A') {
-        lastDateStr = job.fullData?.job_overview?.last_date || job.fullData?.important_dates?.last_date;
-    }
-
-    // If we have a direct Date object in job.lastDate, use its string version
-    if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
-        const d = new Date(job.lastDate);
-        lastDateStr = `${d.getDate()} ${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+    if (!lastDateStr || lastDateStr === 'N/A' || lastDateStr === '') {
+        // Try multiple locations in fullData
+        lastDateStr = job.fullData?.job_overview?.last_date ||
+                      job.fullData?.important_dates?.last_date ||
+                      (job.lastDate ? job.lastDate.toISOString() : "N/A");
     }
 
     const urgencyResult = DateTool.calculateUrgency(lastDateStr || "N/A");
