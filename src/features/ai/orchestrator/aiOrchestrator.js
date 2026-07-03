@@ -21,7 +21,24 @@ const RetrievalEngine = require('../knowledge/retrievalEngine');
 const SemanticRouter = require('../intent/SemanticRouter');
 const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/safetyGuard');
 
+const PlannerLog = require('../models/PlannerLog');
+
 class AIOrchestrator {
+    // ... existing methods
+
+    static async _logDecision(query, plan, meta) {
+        try {
+            await PlannerLog.create({
+                query,
+                originalPlan: plan,
+                userName: meta.userName,
+                sessionId: meta.sessionId,
+                modelUsed: process.env.AI_LOGIC_MODEL || "qwen2.5:1.5b",
+                latency: meta.latency
+            });
+        } catch (e) { console.error("❌ Shadow Log Error:", e.message); }
+    }
+}
     static {
         console.log("🧠 Warming up Neural Engines...");
         SemanticRouter.init().catch(e => console.error("Router Warmup Error:", e));
@@ -71,6 +88,9 @@ class AIOrchestrator {
             const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
                 () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
             );
+
+            // --- SHADOW LOGGING: Save decision for future training ---
+            this._logDecision(userMessage, plan, { userName, sessionId, latency: Date.now() - intentStart });
 
             const fixedResponse = this._fixedSimpleResponse(plan.intent);
             if (fixedResponse) {
@@ -211,6 +231,9 @@ class AIOrchestrator {
             const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
                 () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
             );
+
+            // --- SHADOW LOGGING: Save decision for future training ---
+            this._logDecision(userMessage, plan, { userName, sessionId, latency: Date.now() - intentStart });
 
             if (plan.canAnswerInstantly && plan.directResponse) {
                 const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
