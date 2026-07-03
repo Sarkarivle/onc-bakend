@@ -68,7 +68,7 @@ const importJob = async (req, res) => {
             if (dateStr.includes('-')) {
                 const parts = dateStr.split('-');
                 if (parts.length === 3) {
-                    const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct'>9, 'nov':10, 'dec':11 };
+                    const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct':9, 'nov':10, 'dec':11 };
                     const m = months[parts[1].toLowerCase().substring(0,3)];
                     if (m !== undefined) d = new Date(parseInt(parts[2]), m, parseInt(parts[0]));
                 }
@@ -153,15 +153,55 @@ const getAiMatchAdvice = async (req, res) => {
     if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
         lastDateStr = job.lastDate.toISOString();
     } else {
-        const checkFields = [
-            job.importantDates?.applicationLastDate,
-            job.fullData?.job_overview?.last_date,
-            job.fullData?.important_dates?.last_date
-        ];
-        lastDateStr = checkFields.find(f => f && f !== 'N/A' && f !== '') || "N/A";
+        const findDateDeep = (obj) => {
+            if (!obj) return null;
+            if (typeof obj === 'string') {
+                // Check if string looks like a date
+                if (obj.match(/\d{4}/) && (obj.match(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i) || obj.includes('/') || obj.includes('-'))) {
+                    return obj;
+                }
+                return null;
+            }
+            if (Array.isArray(obj)) {
+                for (const item of obj) {
+                    const found = findDateDeep(item);
+                    if (found) return found;
+                }
+                return null;
+            }
+            if (typeof obj === 'object') {
+                const keys = Object.keys(obj);
+                // Look for "last date" key/value pairs
+                for (const k of keys) {
+                    const kl = k.toLowerCase();
+                    const val = obj[k];
+
+                    // Case 1: Key is "last date"
+                    if ((kl.includes('last') && kl.includes('date')) || kl.includes('closing_date')) {
+                        if (typeof val === 'string' && val.length > 5) return val;
+                    }
+
+                    // Case 2: Object has label: "Last Date" and value: "..."
+                    if (kl === 'label' && typeof val === 'string' && val.toLowerCase().includes('last date')) {
+                        if (obj.value || obj.date) return obj.value || obj.date;
+                    }
+                }
+                // Recurse
+                for (const k of keys) {
+                    const found = findDateDeep(obj[k]);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        lastDateStr = findDateDeep({
+            importantDates: job.importantDates,
+            fullData: job.fullData
+        }) || "N/A";
     }
 
-    // Path B: HTML Regex Search (If Path A failed or returned N/A)
+    // Path B: HTML Regex Search (Fallback)
     if (lastDateStr === "N/A" && job.fullHtmlContent) {
         const html = job.fullHtmlContent;
         const regexes = [
