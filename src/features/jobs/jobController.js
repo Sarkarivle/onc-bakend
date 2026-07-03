@@ -154,17 +154,24 @@ const getAiMatchAdvice = async (req, res) => {
     }
 
     // Exact Date Calculation (More Robust)
-    let lastDateStr = job.importantDates?.applicationLastDate;
+    let lastDateStr = "N/A";
 
-    // Fallback if top-level field is N/A or empty
-    if (!lastDateStr || lastDateStr === 'N/A' || lastDateStr === '') {
-        // Try multiple locations in fullData
+    // Priority 1: Top-level Date object (most reliable)
+    if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
+        lastDateStr = job.lastDate.toISOString();
+    }
+    // Priority 2: Structured field
+    else if (job.importantDates?.applicationLastDate && job.importantDates.applicationLastDate !== 'N/A') {
+        lastDateStr = job.importantDates.applicationLastDate;
+    }
+    // Priority 3: Fallbacks from fullData
+    else {
         lastDateStr = job.fullData?.job_overview?.last_date ||
                       job.fullData?.important_dates?.last_date ||
-                      (job.lastDate ? job.lastDate.toISOString() : "N/A");
+                      "N/A";
     }
 
-    const urgencyResult = DateTool.calculateUrgency(lastDateStr || "N/A");
+    const urgencyResult = DateTool.calculateUrgency(lastDateStr);
 
     const vacancyText = job.totalVacancy || 'Not Specified';
     const requiredEdu = job.eligibility?.education || 'Check Notification';
