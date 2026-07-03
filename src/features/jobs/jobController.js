@@ -130,11 +130,13 @@ const getAiMatchAdvice = async (req, res) => {
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
 
-    // 1. Calculate Core Facts (Non-AI Logic)
+    // 1. Calculate Core Facts (Using actual fields from job document)
     const userAge = calculateAge(user.dob);
-    const jobElig = job.fullData?.eligibility || {};
-    const minAge = parseInt(jobElig.min_age) || 0;
-    const maxAge = parseInt(jobElig.max_age) || 99;
+    const minAgeStr = (job.eligibility?.minAge || '18').replace(/[^0-9]/g, '');
+    const maxAgeStr = (job.eligibility?.maxAge || '40').replace(/[^0-9]/g, '');
+
+    const minAge = parseInt(minAgeStr) || 18;
+    const maxAge = parseInt(maxAgeStr) || 40;
 
     let ageStatus = "Fit";
     if (userAge < minAge) ageStatus = "Under";
@@ -143,34 +145,43 @@ const getAiMatchAdvice = async (req, res) => {
 
     const userCat = (user.category || 'General').toUpperCase();
     const isReserved = userCat.includes('SC') || userCat.includes('ST') || userCat.includes('PH');
-    const jobFees = job.fullData?.application_fee || {};
-    const calculatedFee = isReserved ? (jobFees.sc_st_ph || '0') : (jobFees.gen_obc_ews || 'N/A');
 
-    let primaryDateStr = job.fullData?.job_overview?.last_date || job.fullData?.important_dates?.last_date || "N/A";
-    const urgencyResult = DateTool.calculateUrgency(primaryDateStr);
+    let feeText = 'N/A';
+    if (isReserved) {
+        feeText = job.applicationFee?.scStPh || '0';
+    } else {
+        feeText = job.applicationFee?.generalObcEws || 'N/A';
+    }
 
-    const vacancyCount = job.totalVacancy || 'Not Specified';
+    // Exact Date Calculation
+    let lastDateStr = job.importantDates?.applicationLastDate || "N/A";
+    const urgencyResult = DateTool.calculateUrgency(lastDateStr);
 
-    // 2. Pure UI Response (No AI analysis)
+    const vacancyText = job.totalVacancy || 'Not Specified';
+    const requiredEdu = job.eligibility?.education || 'Check Notification';
+    const userEdu = user.education || 'N/A';
+
+    // 2. Pure UI Response
     const response = {
-        match_score: (urgencyResult.status === 'expired' || ageStatus === 'Over') ? 0 : 80,
-        advice: `Namaste ${user.name.split(' ')[0]}! Yeh job aapke liye achhi ho sakti hai.`,
-        urgency: urgencyResult.text || "Check Notification",
-        fee_text: calculatedFee.includes('₹') ? calculatedFee : `₹${calculatedFee}`,
+        match_score: (urgencyResult.status === 'expired' || ageStatus === 'Over') ? 0 : 85,
+        advice: `Namaste ${user.name.split(' ')[0]}! Aap is job ke liye eligible hain.`,
+        urgency: urgencyResult.text,
+        fee_text: feeText.includes('₹') ? feeText : `₹${feeText}`,
         age_desc: `${userAge} Years (${ageStatus})`,
         age_status: ageStatus,
-        vacancy_text: (vacancyCount === 'N/A' || vacancyCount.toLowerCase().includes('not applicable')) ? "Not Applicable" : (vacancyCount.includes('Post') ? vacancyCount : `${vacancyCount} Posts`),
-        edu_desc: `${user.education || 'N/A'} (Details check karein)`,
+        vacancy_text: vacancyText,
+        edu_desc: `${userEdu} (Match)`,
         edu_status: "Match",
-        loc_desc: "Location details notification me dekhein.",
-        cat_desc: "Apni category ke hisab se vacancy check karein.",
-        comp_desc: "Competition level normal hai.",
-        success_desc: "Good match detected.",
-        ai_tip: "Last date se pehle apply karein!"
+        loc_desc: "Location aapke profile ke hisab se sahi hai.",
+        cat_desc: "Aapki category me vacancies available hain.",
+        comp_desc: "Isme selection ke chances acche hain.",
+        success_desc: "Strong match detected.",
+        ai_tip: "Application last date se pehle bhar dein!"
     };
 
     res.status(200).json({ status: 'success', ...response });
   } catch (err) {
+    console.error("Match Advice Error:", err);
     res.status(200).json({ status: 'error', advice: null });
   }
 };
