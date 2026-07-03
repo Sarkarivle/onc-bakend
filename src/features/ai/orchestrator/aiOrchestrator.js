@@ -24,8 +24,6 @@ const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/
 const PlannerLog = require('../models/PlannerLog');
 
 class AIOrchestrator {
-    // ... existing methods
-
     static async _logDecision(query, plan, meta) {
         try {
             await PlannerLog.create({
@@ -37,11 +35,6 @@ class AIOrchestrator {
                 latency: meta.latency
             });
         } catch (e) { console.error("❌ Shadow Log Error:", e.message); }
-    }
-}
-    static {
-        console.log("🧠 Warming up Neural Engines...");
-        SemanticRouter.init().catch(e => console.error("Router Warmup Error:", e));
     }
 
     /**
@@ -90,7 +83,7 @@ class AIOrchestrator {
             );
 
             // --- SHADOW LOGGING: Save decision for future training ---
-            this._logDecision(userMessage, plan, { userName, sessionId, latency: Date.now() - intentStart });
+            this._logDecision(userMessage, plan, { userName, sessionId, latency: 0 });
 
             const fixedResponse = this._fixedSimpleResponse(plan.intent);
             if (fixedResponse) {
@@ -233,7 +226,7 @@ class AIOrchestrator {
             );
 
             // --- SHADOW LOGGING: Save decision for future training ---
-            this._logDecision(userMessage, plan, { userName, sessionId, latency: Date.now() - intentStart });
+            this._logDecision(userMessage, plan, { userName, sessionId, latency: 0 });
 
             if (plan.canAnswerInstantly && plan.directResponse) {
                 const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
@@ -400,5 +393,9 @@ class AIOrchestrator {
         } catch (e) { console.error("❌ Persistence Error:", e.message); }
     }
 }
+
+// Warm up engines
+console.log("🧠 Warming up Neural Engines...");
+SemanticRouter.init().catch(e => console.error("Router Warmup Error:", e));
 
 module.exports = AIOrchestrator;
