@@ -1,5 +1,7 @@
 const Job = require('./jobModel');
+const JobMatch = require('./jobMatchModel');
 const Settings = require('../settings/settingsModel');
+// ... rest of imports
 const constants = require('../../config/constants');
 const jobPrompts = require('./jobPrompts');
 const matchPrompts = require('./matchPrompts');
@@ -188,8 +190,28 @@ const getAiMatchAdvice = async (req, res) => {
   try {
     const { jobId } = req.params;
     const user = req.user;
-    const job = await Job.findById(jobId);
 
+    // 1. Check if we already have a saved match for this user and job
+    const existingMatch = await JobMatch.findOne({ userId: user._id, jobId });
+
+    // Simple check: if calculated in last 24 hours, return saved one
+    if (existingMatch && (new Date() - existingMatch.lastCalculated < 24 * 60 * 60 * 1000)) {
+        return res.status(200).json({
+            status: 'success',
+            match_score: existingMatch.matchScore,
+            advice: existingMatch.advice,
+            urgency: existingMatch.urgency,
+            fee_text: existingMatch.feeText,
+            age_desc: existingMatch.ageDesc,
+            age_status: existingMatch.ageStatus,
+            vacancy_text: existingMatch.vacancyText,
+            edu_desc: existingMatch.eduDesc,
+            edu_status: existingMatch.eduStatus,
+            isCached: true
+        });
+    }
+
+    const job = await Job.findById(jobId);
     if (!job) {
         return res.status(404).json({ status: 'error', message: 'Job not found' });
     }
@@ -334,9 +356,43 @@ const getAiMatchAdvice = async (req, res) => {
     ${JSON.stringify(essentialJobData)}
     `;
 
-    const parsed = await LLMProvider.generateLogic(fullPrompt);
-    if (!parsed) {
-        return res.status(200).json({ status: 'error', message: 'AI Logic Failed' });
+    let rawResult = await LLMProvider.generateLogic(fullPrompt);
+    let parsed;
+
+    try {
+        // If it's already an object, use it, otherwise clean and parse
+        if (typeof rawResult === 'object') {
+            parsed = rawResult;
+        } else {
+            const cleaned = cleanAIResponse(rawResult);
+            parsed = JSON.parse(cleaned);
+        }
+    } catch (parseErr) {
+        console.error("JSON Parse Error:", parseErr.message, "Raw:", rawResult);
+        return res.status(200).json({ status: 'error', message: 'AI JSON Format Error' });
+    }
+
+    // 2. Save the result for next time
+    try {
+        await JobMatch.findOneAndUpdate(
+            { userId: user._id, jobId },
+            {
+                matchScore: parsed.match_score,
+                advice: parsed.advice,
+                urgency: parsed.urgency,
+                feeText: parsed.fee_text,
+                ageDesc: parsed.age_desc,
+                ageStatus: parsed.age_status,
+                vacancyText: parsed.vacancy_text,
+                eduDesc: parsed.edu_desc,
+                eduStatus: parsed.edu_status,
+                lastCalculated: new Date(),
+                userProfileSnapshot: { dob: user.dob, education: user.education, category: user.category }
+            },
+            { upsert: true }
+        );
+    } catch (saveErr) {
+        console.error("Failed to save job match:", saveErr.message);
     }
 
     res.status(200).json({ status: 'success', ...parsed });
