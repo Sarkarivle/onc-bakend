@@ -2,8 +2,8 @@ module.exports = {
     DEFAULT_RUNPOD_URL: "http://127.0.0.1:11434/api/chat",
 
     // 1. INTENT & PLANNER ENGINE (Fast & Logical Architect)
-    // Using phi3 for a balance of speed and complex reasoning/JSON stability
-    AI_LOGIC_MODEL: "phi3",
+    // qwen2.5:1.5b is the sweet spot for logic and speed (< 1-2s)
+    AI_LOGIC_MODEL: "qwen2.5:1.5b",
 
     // 2. PERSONALITY ENGINE (Heavy Synthesis & High-Impact Voice)
     AI_PERSONALITY_MODEL: "qwen2.5:7b",
