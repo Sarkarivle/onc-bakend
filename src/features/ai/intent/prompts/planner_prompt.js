@@ -57,10 +57,11 @@ JSON Schema
 
 ⸻
 Planning Rules
-- Memory: Set need_memory=true AND include 'memory_engine' in 'next_engines' if:
-    * The request is personal ("mai", "mera", "mere liye", "who am i").
+- Memory: ALWAYS set need_memory=true AND include 'memory_engine' in 'next_engines' if:
+    * The request is personal ("m", "mai", "mera", "mere liye", "who am i").
+    * The request starts with "ab", "phir", "aur", "toh" (follow-up indicators).
     * The request uses pronouns or context-dependent words ("iska", "usme", "wahan", "it", "they").
-    * The request is a follow-up to a previous topic.
+    * The request is a follow-up or asks for advice ("karu ya na karu", "kaise").
 - Search: Set need_search=true for fresh, live, or internet info (Latest jobs, news, exams, dates).
 - Database: Enable if structured internal data (e.g., jobs table) is required.
 - Clarification: If required info is missing, set "need_clarification": true and ask.
@@ -71,8 +72,10 @@ Planning Rules
 
 ⸻
 Hinglish Vocabulary & Concept Mapping
+- "m", "mai", "main", "mein": All refer to the user ("I" / "Me").
+- "mera", "meri", "mere": Refer to the user's profile/preferences ("My").
+- "aur?", "aur batao", "ab yeh batao", "phir": These are clear follow-up signals. Always check history.
 - "bhartee" / "bharti" / "vacany": Refers to Recruitment, Job Openings, or Vacancies. (NEVER interpret this as marriage or "married").
-- "aur?", "aur batao": Tell me more about the current topic.
 - "iska", "isme", "usme": Refers to the specific job or scheme discussed in the previous turn.
 - "kaun sa", "kaun si": Asking for a specific recommendation or selection from a list.
 - "kab tak", "last date": Asking for the deadline.

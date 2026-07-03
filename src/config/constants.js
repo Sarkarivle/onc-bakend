@@ -6,13 +6,13 @@ module.exports = {
     AI_LOGIC_MODEL: "qwen2.5:7b",
 
     // 2. PERSONALITY ENGINE (Heavy Synthesis & High-Impact Voice)
-    AI_PERSONALITY_MODEL: "qwen3:14b",
+    AI_PERSONALITY_MODEL: "gemma4:latest",
 
     // 3. REASONING ENGINE (Deep Career Analysis)
-    AI_REASONING_MODEL: "qwen3:14b",
+    AI_REASONING_MODEL: "gemma4:latest",
 
     // 4. VERIFICATION ENGINE
-    AI_VERIFY_MODEL: "qwen2.5:0.5b",
+    AI_VERIFY_MODEL: "gemma4:latest",
 
     // 5. SECURITY GUARD
     AI_GUARD_MODEL: "qwen2.5:0.5b"
