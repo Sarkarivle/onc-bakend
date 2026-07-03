@@ -39,31 +39,29 @@ JSON Schema
   "priority": "low | medium | high",
   "urgency": "low | normal | high | critical",
   "need_memory": boolean,
-  "memory_action": "none | read | update",
+  "memory_action": "read | update | none",
   "need_search": boolean,
   "need_database": boolean,
-  "need_tools": ["List of specific tools, e.g., 'job_search', 'date_diff'"],
-  "data_sources": ["memory", "jobs_database", "web_search"],
-  "context_requirements": ["e.g., 'qualification', 'state'"],
-  "missing_information": ["List fields required but not provided"],
-  "need_clarification": boolean,
-  "clarification_question": "Generate one clear question if needed",
-  "execution_mode": "parallel | sequential",
+  "need_tools": ["RAG", "MEMORY", "PROFILE", "CALCULATOR"],
   "next_engines": ["memory_engine", "search_engine", "database_engine", "ranking_engine", "prompt_composer", "response_engine"],
-  "expected_output": "Description of final result (e.g., 'Friendly greeting', 'Government job recommendations', 'Career roadmap')",
-  "response_strategy": "Describe downstream solution (e.g., 'Retrieve memory → Search jobs → Rank → Build context')",
-  "directResponse": "Provide a direct response string ONLY if next_engines is exactly ['response_engine']. For greetings, use a warm, brotherly tone. For information requests, do NOT use this; let the response_engine handle it."
+  "expected_output": "Description of final result",
+  "response_strategy": "Step-by-step execution path",
+  "directResponse": "String for greetings ONLY"
 }
 
 ⸻
-Planning Rules
-- Memory: ALWAYS set need_memory=true AND include 'memory_engine' in 'next_engines' if:
-    * The request is personal ("m", "mai", "mera", "mere liye", "who am i").
-    * The request starts with "ab", "phir", "aur", "toh" (follow-up indicators).
-    * The request uses pronouns or context-dependent words ("iska", "usme", "wahan", "it", "they").
-    * The request is a follow-up or asks for advice ("karu ya na karu", "kaise").
-- Search & Database: Set need_search=true AND need_database=true AND include ['search_engine', 'database_engine', 'ranking_engine'] if the user asks for:
-    * "New jobs", "Current vacancies", "Bharti", "Recruitment", "Exam dates", or any specific exam details.
+Planning Rules (STRICT)
+1. If query contains "m", "mai", "main", "mera", "mere":
+   - MUST set "need_memory": true
+   - MUST include "MEMORY" and "PROFILE" in "need_tools"
+   - MUST include "memory_engine" in "next_engines"
+
+2. If query asks for jobs, bharti, vacancies:
+   - MUST set "need_search": true AND "need_database": true
+   - MUST include "RAG" in "need_tools"
+   - MUST include ["search_engine", "database_engine", "ranking_engine"] in "next_engines"
+
+3. Goal Type: Use 'information_retrieval' for job lists, 'planning' for career advice.
 - Clarification: If required info is missing, set "need_clarification": true and ask.
 - Next Engines:
   - Latest jobs: [memory_engine, search_engine, database_engine, ranking_engine, prompt_composer]
