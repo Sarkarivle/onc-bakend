@@ -80,13 +80,26 @@ class PromptComposer {
     static _getBasePrompt(plan, currentDate) {
         const planIntent = (typeof plan === 'string' ? plan : plan.intent) || 'GENERAL';
 
-        // Map Goal Type to specific Prompt Modules if intent is generic
-        let inferredIntent = planIntent.toUpperCase();
-        if (inferredIntent === 'GENERAL' && plan.goal_type) {
-            const gt = plan.goal_type.toLowerCase();
-            if (gt.includes('planning') || gt.includes('analysis') || gt.includes('recommendation')) {
+        // Normalize intent (Handle spaces and underscores)
+        let inferredIntent = planIntent.toUpperCase().trim().replace(/\s+/g, '_');
+
+        const goalType = (plan.goal_type || "").toLowerCase();
+        const refinedQuery = (plan.refinedQuery || "").toLowerCase();
+
+        // HEURISTIC: Fix common misclassifications from the Planner
+        // If it's a planning/recommendation task, it should be CAREER_GUIDANCE even if labeled as JOB_SEARCH
+        if (inferredIntent === 'JOB_SEARCH' || inferredIntent === 'GENERAL') {
+            const isPlanning = goalType.includes('planning') || goalType.includes('recommendation') || goalType.includes('analysis');
+            const isNegation = refinedQuery.includes('nahi') || refinedQuery.includes('not') || refinedQuery.includes('no ');
+
+            if (isPlanning || (isNegation && (refinedQuery.includes('job') || refinedQuery.includes('naukri')))) {
                 inferredIntent = 'CAREER_GUIDANCE';
-            } else if (gt.includes('information_retrieval')) {
+            }
+        }
+
+        // Map Goal Type to specific Prompt Modules if intent is still generic
+        if (inferredIntent === 'GENERAL' && goalType) {
+            if (goalType.includes('information_retrieval')) {
                 inferredIntent = 'JOB_SEARCH';
             }
         }

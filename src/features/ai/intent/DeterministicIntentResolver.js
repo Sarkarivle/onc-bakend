@@ -34,9 +34,9 @@ const JOB_SEARCH_TERMS = [
 ];
 
 const CAREER_TERMS = [
-    'kaise bane', 'kaise crack', 'career', 'scope', 'after 12th', '10th ke baad',
-    '12th ke baad', 'government vs private', 'software engineer', 'suggest a career',
-    'what should i do', 'b.com', 'bcom'
+    'kaise bane', 'kaise crack', 'career', 'scope', 'after 12th', '10th ke baad', '10th ke bad',
+    '12th ke baad', '12th ke bad', 'government vs private', 'software engineer', 'suggest a career',
+    'what should i do', 'b.com', 'bcom', 'kya karein', 'kya karu', 'kya karna chahiye'
 ];
 
 const COMPLEX_PLANNING_TERMS = ['compare', 'best path', 'which is better', 'pros and cons'];

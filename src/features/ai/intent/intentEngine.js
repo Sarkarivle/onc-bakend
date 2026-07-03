@@ -80,6 +80,17 @@ class IntentEngine {
         const goalType = (plan.goal_type || "").toLowerCase();
         const q = query.toLowerCase();
 
+        // Check for negations to prevent misclassification (e.g., "job nahi chahiye")
+        const isNegation = q.includes('nahi') || q.includes('not') || q.includes('no ');
+
+        // Prioritize Career Guidance for planning goals or negative job queries
+        if (goalType.includes('planning') || goalType.includes('recommendation') || (isNegation && (q.includes('job') || q.includes('naukri')))) {
+            // Ensure we don't override more specific intents like Resume or College
+            if (!goal.includes('resume') && !goal.includes('college') && !goal.includes('cv')) {
+                return 'CAREER_GUIDANCE';
+            }
+        }
+
         if (goal.includes('job') || goal.includes('vacancy') || q.includes('naukri')) return 'JOB_SEARCH';
         if (goal.includes('college') || goal.includes('university') || q.includes('college')) return 'COLLEGE';
         if (goalType === 'profile_update' || goal.includes('profile') || q.includes('meri profile')) return 'PROFILE_QUERY';
