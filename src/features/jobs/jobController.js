@@ -153,9 +153,21 @@ const getAiMatchAdvice = async (req, res) => {
         feeText = job.applicationFee?.generalObcEws || 'N/A';
     }
 
-    // Exact Date Calculation
-    let lastDateStr = job.importantDates?.applicationLastDate || "N/A";
-    const urgencyResult = DateTool.calculateUrgency(lastDateStr);
+    // Exact Date Calculation (More Robust)
+    let lastDateStr = job.importantDates?.applicationLastDate;
+
+    // Fallback if top-level field is N/A or empty
+    if (!lastDateStr || lastDateStr === 'N/A') {
+        lastDateStr = job.fullData?.job_overview?.last_date || job.fullData?.important_dates?.last_date;
+    }
+
+    // If we have a direct Date object in job.lastDate, use its string version
+    if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
+        const d = new Date(job.lastDate);
+        lastDateStr = `${d.getDate()} ${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+    }
+
+    const urgencyResult = DateTool.calculateUrgency(lastDateStr || "N/A");
 
     const vacancyText = job.totalVacancy || 'Not Specified';
     const requiredEdu = job.eligibility?.education || 'Check Notification';
