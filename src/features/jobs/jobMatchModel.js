@@ -16,6 +16,13 @@ const jobMatchSchema = new mongoose.Schema({
     eduDesc: { type: String },
     eduStatus: { type: String },
 
+    // Why This Job Section
+    locDesc: { type: String },
+    catDesc: { type: String },
+    compDesc: { type: String },
+    successDesc: { type: String },
+    aiTip: { type: String },
+
     // Metadata
     lastCalculated: { type: Date, default: Date.now },
     userProfileSnapshot: mongoose.Schema.Types.Mixed // To check if profile changed

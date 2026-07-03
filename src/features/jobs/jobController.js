@@ -207,6 +207,11 @@ const getAiMatchAdvice = async (req, res) => {
             vacancy_text: existingMatch.vacancyText,
             edu_desc: existingMatch.eduDesc,
             edu_status: existingMatch.eduStatus,
+            loc_desc: existingMatch.locDesc,
+            cat_desc: existingMatch.catDesc,
+            comp_desc: existingMatch.compDesc,
+            success_desc: existingMatch.successDesc,
+            ai_tip: existingMatch.aiTip,
             isCached: true
         });
     }
@@ -335,6 +340,8 @@ const getAiMatchAdvice = async (req, res) => {
         urgency: urgencyText,
         vacancy_text: vacancyCount.includes('Post') ? vacancyCount : `${vacancyCount} Posts`,
         user_qualification: user.education || 'N/A',
+        user_location: user.location || 'N/A',
+        user_category: user.category || 'General',
         job_qualification: requiredEdu,
         is_expired: isExpired,
         today_date: DateTool.getKolkataDate().toDateString()
@@ -349,6 +356,8 @@ const getAiMatchAdvice = async (req, res) => {
     - AGE_STATUS: ${calculatedFacts.age_status}
     - VACANCY: ${calculatedFacts.vacancy_text}
     - USER_EDU: ${calculatedFacts.user_qualification}
+    - USER_LOC: ${calculatedFacts.user_location}
+    - USER_CAT: ${calculatedFacts.user_category}
     - JOB_EDU: ${calculatedFacts.job_qualification}
     - IS_EXPIRED: ${calculatedFacts.is_expired}
 
@@ -386,6 +395,11 @@ const getAiMatchAdvice = async (req, res) => {
                 vacancyText: parsed.vacancy_text,
                 eduDesc: parsed.edu_desc,
                 eduStatus: parsed.edu_status,
+                locDesc: parsed.loc_desc,
+                catDesc: parsed.cat_desc,
+                compDesc: parsed.comp_desc,
+                successDesc: parsed.success_desc,
+                aiTip: parsed.ai_tip,
                 lastCalculated: new Date(),
                 userProfileSnapshot: { dob: user.dob, education: user.education, category: user.category }
             },
