@@ -4,7 +4,14 @@ const Chat = require('../chat/chatModel');
 const Correction = require('./correctionModel');
 const AIOrchestrator = require('./orchestrator/aiOrchestrator');
 
+const PlannerController = require('./plannerController');
+
 const router = express.Router();
+
+// --- NEW SHADOW DASHBOARD ROUTES ---
+router.get('/planner-logs', PlannerController.getLogs);
+router.patch('/planner-logs/:id', PlannerController.correctLog);
+router.get('/planner-logs/export', PlannerController.exportData);
 
 // ... existing feedback and history routes ...
 router.post('/feedback', async (req, res) => {

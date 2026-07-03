@@ -56,7 +56,10 @@ Planning Rules (STRICT)
    - MUST include "MEMORY" and "PROFILE" in "need_tools"
    - MUST include "memory_engine" in "next_engines"
 
-2. If query asks for jobs, bharti, vacancies:
+2. If user asks for specific info (official link, syllabus, fees, last date) but doesn't mention job name:
+   - This is a follow-up. MUST set "need_memory": true.
+
+3. If query asks for jobs, bharti, vacancies:
    - MUST set "need_search": true AND "need_database": true
    - MUST include "RAG" in "need_tools"
    - MUST include ["search_engine", "database_engine", "ranking_engine"] in "next_engines"

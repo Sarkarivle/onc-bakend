@@ -40,7 +40,8 @@ const CAREER_TERMS = [
 ];
 
 const COMPLEX_PLANNING_TERMS = ['compare', 'best path', 'which is better', 'pros and cons'];
-const ADVICE_KEYWORDS = ['kare', 'karun', 'karu', 'kaise', 'kyun', 'kyu', 'percent', 'chance', 'probability', 'vs', 'better', 'guide', 'suggestion', 'advice'];
+const ADVICE_KEYWORDS = ['kare', 'karun', 'karu', 'kaise', 'kyun', 'kyu', 'percent', 'chance', 'probability', 'vs', 'better', 'guide', 'suggestion', 'advice', 'kya', 'kaun', 'kaunsi', 'list'];
+const FOLLOWUP_PRONOUNS = ['iska', 'uska', 'isme', 'usme', 'ye', 'wo', 'wahi', 'phir', 'aur'];
 
 const GENERAL_TERMS = ['weather', 'cricket score', 'maths solve', 'prime minister'];
 const MOTIVATION_TERMS = ['study motivation', 'motivation'];
@@ -186,9 +187,10 @@ class DeterministicIntentResolver {
         }
 
         // 1. FAST INTENT MATCH: Jobs and clear job/detail requests.
-        // Rule: Only auto-resolve if it's NOT an advice/question query.
+        // Rule: Only auto-resolve if it's NOT an advice/question query or a follow-up.
         if (
             !ADVICE_KEYWORDS.some(term => normalizedQuery.includes(term)) &&
+            !FOLLOWUP_PRONOUNS.some(term => normalizedQuery.includes(term)) &&
             !COMPLEX_PLANNING_TERMS.some(term => normalizedQuery.includes(term)) && (
             normalizedQuery === 'jobs' ||
             normalizedQuery === 'vacancies' ||

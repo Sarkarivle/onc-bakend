@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONC Admin | Planner Shadow Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .json-editor { font-family: 'Courier New', Courier, monospace; }
+    </style>
+</head>
+<script>
+    if (!localStorage.getItem('admin_token')) {
+        window.location.href = '/admin/login';
+    }
+</script>
+<body class="bg-[#F8F9FA]">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-[#1A237E] min-h-screen p-6 text-white hidden md:block">
+            <h2 class="text-2xl font-black mb-10">ONC Panel</h2>
+            <nav class="space-y-4">
+                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏠 Dashboard</span>
+                </a>
+                <a href="/admin/planner-logs" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl">
+                    <span>🧠 AI Planner Logs</span>
+                </a>
+                <a href="/admin/jansewa" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏢 Jansewa Kendras</span>
+                </a>
+                <a href="/admin/jobs" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>💼 Manage Jobs</span>
+                </a>
+                <a href="/admin/settings" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>⚙️ Settings</span>
+                </a>
+                <div class="pt-10">
+                    <button onclick="logout()" class="flex items-center space-x-3 p-3 text-red-300 hover:bg-red-500/10 w-full rounded-xl transition">
+                        <span>🚪 Logout</span>
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 min-h-screen">
+            <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center sticky top-0 z-10">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">AI Planner Intelligence</h1>
+                    <p class="text-xs text-gray-500">Correct AI decisions to generate fine-tuning data.</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="exportData()" class="bg-green-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-green-700 transition flex items-center space-x-2">
+                        <span>📥 Export JSONL</span>
+                    </button>
+                    <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-[#1A237E] font-bold">A</div>
+                </div>
+            </header>
+
+            <main class="p-8">
+                <div id="logsContainer" class="space-y-6">
+                    <!-- Logs will be loaded here -->
+                    <div class="flex justify-center p-20">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A237E]"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold">Correct Decision</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">User Query</label>
+                    <div id="modalQuery" class="bg-gray-50 p-4 rounded-xl text-gray-700 font-semibold border border-gray-100 italic"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-red-400 uppercase mb-2">Original Plan (Bad)</label>
+                        <pre id="modalOriginal" class="bg-red-50 p-4 rounded-xl text-xs text-red-800 h-64 overflow-auto border border-red-100 json-editor"></pre>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-green-600 uppercase mb-2">Corrected Plan (Edit Here)</label>
+                        <textarea id="modalCorrected" class="w-full bg-gray-50 p-4 rounded-xl text-xs text-gray-800 h-64 overflow-auto border border-gray-200 json-editor focus:ring-2 focus:ring-green-500 outline-none"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50 flex justify-end space-x-4">
+                <button onclick="closeModal()" class="px-6 py-2 text-gray-500 font-bold">Cancel</button>
+                <button onclick="saveCorrection()" class="bg-[#1A237E] text-white px-8 py-2 rounded-xl font-bold hover:bg-[#1A237E]/90 transition">
+                    Save Decision
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLogId = null;
+
+        async function fetchLogs() {
+            try {
+                const response = await fetch('/api/v1/ai/planner-logs', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    renderLogs(data.logs);
+                }
+            } catch (err) {
+                console.error('Failed to fetch logs:', err);
+            }
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('logsContainer');
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="text-center p-20 text-gray-400">No logs found. Start chatting with AI first.</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => `
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:border-indigo-200 transition group">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-black px-2 py-1 rounded bg-indigo-50 text-[#1A237E] uppercase">${log.status}</span>
+                            <span class="text-xs text-gray-400">${new Date(log.createdAt).toLocaleString()}</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick='openEditModal(${JSON.stringify(log).replace(/'/g, "&apos;")})' class="bg-indigo-50 text-[#1A237E] px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition">
+                                ${log.status === 'reviewed' ? 'Edit Again' : 'Correct Decision'}
+                            </button>
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2">"${log.query}"</h3>
+                    <div class="bg-gray-50 p-4 rounded-2xl text-xs text-gray-500 overflow-hidden truncate">
+                        ${JSON.stringify(log.correctedPlan || log.originalPlan)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openEditModal(log) {
+            currentLogId = log._id;
+            document.getElementById('modalQuery').textContent = log.query;
+            document.getElementById('modalOriginal').textContent = JSON.stringify(log.originalPlan, null, 2);
+            document.getElementById('modalCorrected').value = JSON.stringify(log.correctedPlan || log.originalPlan, null, 2);
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        async function saveCorrection() {
+            try {
+                const correctedPlanStr = document.getElementById('modalCorrected').value;
+                let correctedPlan;
+                try {
+                    correctedPlan = JSON.parse(correctedPlanStr);
+                } catch (e) {
+                    return alert('Invalid JSON format. Please check your correction.');
+                }
+
+                const response = await fetch(\`/api/v1/ai/planner-logs/\${currentLogId}\`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': \`Bearer \${localStorage.getItem('admin_token')}\`
+                    },
+                    body: JSON.stringify({ correctedPlan })
+                });
+
+                if (response.ok) {
+                    alert('✅ Decision updated successfully!');
+                    closeModal();
+                    fetchLogs();
+                }
+            } catch (err) {
+                alert('Error saving correction');
+            }
+        }
+
+        function exportData() {
+            window.open('/api/v1/ai/planner-logs/export', '_blank');
+        }
+
+        function logout() {
+            localStorage.removeItem('admin_token');
+            window.location.href = '/admin/login';
+        }
+
+        fetchLogs();
+    </script>
+</body>
+</html>
