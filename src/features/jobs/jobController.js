@@ -337,8 +337,8 @@ const getAiMatchAdvice = async (req, res) => {
         age_desc: `${userAge} Years (${ageStatus})`,
         age_status: ageStatus,
         fee_text: calculatedFee.includes('₹') ? calculatedFee : `₹${calculatedFee}`,
-        urgency: urgencyText,
-        vacancy_text: vacancyCount.includes('Post') ? vacancyCount : `${vacancyCount} Posts`,
+        urgency: urgencyText || "Check Notification",
+        vacancy_text: (vacancyCount === 'N/A' || vacancyCount.toLowerCase().includes('not applicable')) ? "Not Applicable" : (vacancyCount.includes('Post') ? vacancyCount : `${vacancyCount} Posts`),
         user_qualification: user.education || 'N/A',
         user_location: user.location || 'N/A',
         user_category: user.category || 'General',
@@ -350,11 +350,11 @@ const getAiMatchAdvice = async (req, res) => {
     const fullPrompt = `${matchPrompts.MATCH_ADVICE_PROMPT(user.name)}
 
     TOOL_RESULTS (IST DATE: ${calculatedFacts.today_date}):
-    - URGENCY: ${calculatedFacts.urgency}
-    - FEE: ${calculatedFacts.fee_text}
-    - AGE_DESC: ${calculatedFacts.age_desc}
+    - URGENCY (Last Date Info): ${calculatedFacts.urgency}
+    - FEE (Your Category): ${calculatedFacts.fee_text}
+    - AGE_DESC (Your Status): ${calculatedFacts.age_desc}
     - AGE_STATUS: ${calculatedFacts.age_status}
-    - VACANCY: ${calculatedFacts.vacancy_text}
+    - VACANCY (Total Posts): ${calculatedFacts.vacancy_text}
     - USER_EDU: ${calculatedFacts.user_qualification}
     - USER_LOC: ${calculatedFacts.user_location}
     - USER_CAT: ${calculatedFacts.user_category}

@@ -4,15 +4,20 @@ module.exports = {
     NO MARKDOWN. NO CODE BLOCKS. NO PRE-TEXT. NO POST-TEXT.
     ONLY the JSON object starting with { and ending with }.
 
+    CRITICAL INSTRUCTION:
+    - Do NOT swap fields.
+    - "urgency" MUST only contain date/time info from TOOL_RESULTS.URGENCY.
+    - "vacancy_text" MUST only contain post/vacancy info from TOOL_RESULTS.VACANCY.
+
     STRUCTURE:
     {
       "match_score": number (0-100),
-      "advice": "string (Hinglish, short & sharp summary, start with Namaste ${userName.split(' ')[0]}!)",
-      "urgency": "string (Use exactly from TOOL_RESULTS.urgency)",
-      "fee_text": "string (Use exactly from TOOL_RESULTS.fee_text)",
-      "age_desc": "string (e.g. 20 Years (Fit). Use TOOL_RESULTS facts)",
-      "age_status": "string (Fit/Over/Limit)",
-      "vacancy_text": "string (Use exactly from TOOL_RESULTS.vacancy_text)",
+      "advice": "string (Hinglish, max 12 words, start with Namaste ${userName.split(' ')[0]}!)",
+      "urgency": "string (EXACTLY from TOOL_RESULTS.URGENCY)",
+      "fee_text": "string (EXACTLY from TOOL_RESULTS.FEE)",
+      "age_desc": "string (EXACTLY from TOOL_RESULTS.AGE_DESC)",
+      "age_status": "string (EXACTLY from TOOL_RESULTS.AGE_STATUS)",
+      "vacancy_text": "string (EXACTLY from TOOL_RESULTS.VACANCY)",
       "edu_desc": "string (User Qualification vs Job Req)",
       "edu_status": "string (Match/No Match)",
       "loc_desc": "string (Match location based on user and job state)",
@@ -23,9 +28,8 @@ module.exports = {
     }
 
     RULES:
-    - Use TOOL_RESULTS for absolute facts.
+    - Use TOOL_RESULTS for all absolute facts.
     - If IS_EXPIRED is true, match_score MUST be 0.
-    - Language: Hinglish (Hindi + English).
-    - Be honest but encouraging.
+    - Language: Hinglish.
     `
 };
