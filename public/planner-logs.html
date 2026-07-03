@@ -107,16 +107,34 @@
         let currentLogId = null;
 
         async function fetchLogs() {
+            console.log("Fetching logs...");
+            const container = document.getElementById('logsContainer');
             try {
-                const response = await fetch('/api/v1/ai/planner-logs', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-                });
+                const token = localStorage.getItem('admin_token');
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const response = await fetch('/api/v1/ai/planner-logs', { headers });
+                console.log("Response status:", response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
+                console.log("Data received:", data);
                 if (data.success) {
                     renderLogs(data.logs);
+                } else {
+                    container.innerHTML = `<div class="text-center p-20 text-red-500 font-bold">Error: ${data.message}</div>`;
                 }
             } catch (err) {
                 console.error('Failed to fetch logs:', err);
+                container.innerHTML = `
+                    <div class="text-center p-20">
+                        <div class="text-red-500 font-bold mb-4">Failed to load logs: ${err.message}</div>
+                        <button onclick="fetchLogs()" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl">Try Again</button>
+                    </div>`;
             }
         }
 
