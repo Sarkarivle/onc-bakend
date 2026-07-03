@@ -146,79 +146,54 @@ const getAiMatchAdvice = async (req, res) => {
     const isReserved = userCat.includes('SC') || userCat.includes('ST') || userCat.includes('PH');
     let feeText = isReserved ? (job.applicationFee?.scStPh || '0') : (job.applicationFee?.generalObcEws || 'N/A');
 
-    // 2. EXTREME DATE EXTRACTION
+    // 2. SMART DATE EXTRACTION
     let lastDateStr = "N/A";
 
-    // Path A: Check Structured Fields
+    // Path A: Check structured JSON fields
     if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
         lastDateStr = job.lastDate.toISOString();
     } else {
-        const findDateDeep = (obj) => {
-            if (!obj) return null;
-            if (typeof obj === 'string') {
-                // Check if string looks like a date
-                if (obj.match(/\d{4}/) && (obj.match(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i) || obj.includes('/') || obj.includes('-'))) {
-                    return obj;
-                }
-                return null;
-            }
-            if (Array.isArray(obj)) {
-                for (const item of obj) {
-                    const found = findDateDeep(item);
-                    if (found) return found;
-                }
-                return null;
-            }
-            if (typeof obj === 'object') {
-                const keys = Object.keys(obj);
-                // Look for "last date" key/value pairs
-                for (const k of keys) {
-                    const kl = k.toLowerCase();
-                    const val = obj[k];
-
-                    // Case 1: Key is "last date"
-                    if ((kl.includes('last') && kl.includes('date')) || kl.includes('closing_date')) {
-                        if (typeof val === 'string' && val.length > 5) return val;
-                    }
-
-                    // Case 2: Object has label: "Last Date" and value: "..."
-                    if (kl === 'label' && typeof val === 'string' && val.toLowerCase().includes('last date')) {
-                        if (obj.value || obj.date) return obj.value || obj.date;
-                    }
-                }
-                // Recurse
-                for (const k of keys) {
-                    const found = findDateDeep(obj[k]);
+        const findInJson = (obj) => {
+            if (!obj || typeof obj !== 'object') return null;
+            const entries = Object.entries(obj);
+            for (const [k, v] of entries) {
+                if (k.toLowerCase().includes('last') && k.toLowerCase().includes('date') && typeof v === 'string' && v.length > 5) return v;
+                if (typeof v === 'object') {
+                    const found = findInJson(v);
                     if (found) return found;
                 }
             }
             return null;
         };
-
-        lastDateStr = findDateDeep({
-            importantDates: job.importantDates,
-            fullData: job.fullData
-        }) || "N/A";
+        lastDateStr = findInJson({ dates: job.importantDates, full: job.fullData }) || "N/A";
     }
 
-    // Path B: HTML Regex Search (Fallback)
-    if (lastDateStr === "N/A" && job.fullHtmlContent) {
-        const html = job.fullHtmlContent;
-        const regexes = [
-            /Last Date[^<]*<\/td>[^<]*<td[^>]*>([^<]+)<\/td>/i,
-            /Last Date[^:]*:[^<]*<b>([^<]+)<\/b>/i,
-            /Last Date[^:]*:([^<]+)/i,
-            /Closing Date[^:]*:([^<]+)/i,
-            /Last Date For Apply Online[^:]*:([^<]+)/i
-        ];
-
-        for (const regex of regexes) {
-            const match = html.match(regex);
-            if (match && match[1] && match[1].trim().length > 5) {
-                lastDateStr = match[1].trim();
-                break;
+    // Path B: Table Scanner (Using Cheerio)
+    if ((lastDateStr === "N/A" || lastDateStr === "") && job.fullHtmlContent) {
+        const $ = cheerio.load(job.fullHtmlContent);
+        $('td').each((i, el) => {
+            const cellText = $(el).text().toLowerCase().trim();
+            // Agar cell me "Last Date" hai aur usme fees ka zikr nahi hai
+            if (cellText.includes('last date') && !cellText.includes('fee')) {
+                // Next cell me date ho sakti hai
+                let dateVal = $(el).next().text().trim();
+                // Agar next cell khali hai toh pure row me last cell dekho
+                if (!dateVal || dateVal.length < 5) {
+                    dateVal = $(el).closest('tr').find('td').last().text().trim();
+                }
+                if (dateVal && dateVal.length > 5 && dateVal.match(/\d/)) {
+                    lastDateStr = dateVal;
+                    return false; // Break loop
+                }
             }
-        }
+        });
+    }
+
+    // Path C: Broad Regex (Backup)
+    if (lastDateStr === "N/A" && job.fullHtmlContent) {
+        const match = job.fullHtmlContent.match(/Last Date[^:]*:([^<]+)/i) ||
+                      job.fullHtmlContent.match(/Closing Date[^:]*:([^<]+)/i);
+        if (match && match[1]) lastDateStr = match[1].trim();
     }
 
     const urgencyResult = DateTool.calculateUrgency(lastDateStr);
