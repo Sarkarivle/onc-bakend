@@ -39,8 +39,8 @@ class PromptComposer {
     static async build(priorityModules, userData, liveData, meta) {
         const { plan = {}, currentDate } = meta || {};
 
-        // TURBO PATH: Ultra-light prompt for Semantic Router matches
-        // This reduces prompt size by 80%, making first-token generation much faster.
+        // TURBO PATH: Temporarily disabled to ensure context retention in follow-ups.
+        /*
         if (plan.reasoning === "⚡ Fast Semantic Intelligence" || ['GREETING', 'IDENTITY', 'ACKNOWLEDGEMENT'].includes(plan.intent)) {
             return {
                 systemPrompt: `Role: Career Assistant (Jobo AI).
@@ -50,6 +50,7 @@ class PromptComposer {
                 Rule: Do NOT use any tags like <USER_MESSAGE> or <AGENT_THOUGHT> in the final output.`
             };
         }
+        */
 
         // 1. Context Collection & Compression
         const profileBlock = this._formatProfile(userData, plan);
@@ -61,7 +62,7 @@ class PromptComposer {
         const toolBlock = this._formatToolResults(liveData);
 
         // 2. Build Component List (Hierarchical Order)
-        let systemPrompt = this._getBasePrompt(plan.intent, currentDate);
+        let systemPrompt = this._getBasePrompt(plan, currentDate);
         systemPrompt += '\n\n# CONTEXTUAL DATA (GROUND TRUTH)\n';
 
         if (cognitiveMapBlock) systemPrompt += `\n${cognitiveMapBlock}\n`;
@@ -76,14 +77,27 @@ class PromptComposer {
         return { systemPrompt };
     }
 
-    static _getBasePrompt(intent, currentDate) {
-        const cacheKey = `${intent || 'GENERAL'}:${currentDate || ''}`;
+    static _getBasePrompt(plan, currentDate) {
+        const planIntent = (typeof plan === 'string' ? plan : plan.intent) || 'GENERAL';
+
+        // Map Goal Type to specific Prompt Modules if intent is generic
+        let inferredIntent = planIntent.toUpperCase();
+        if (inferredIntent === 'GENERAL' && plan.goal_type) {
+            const gt = plan.goal_type.toLowerCase();
+            if (gt.includes('planning') || gt.includes('analysis') || gt.includes('recommendation')) {
+                inferredIntent = 'CAREER_GUIDANCE';
+            } else if (gt.includes('information_retrieval')) {
+                inferredIntent = 'JOB_SEARCH';
+            }
+        }
+
+        const cacheKey = `${inferredIntent}:${currentDate || ''}`;
         if (this.basePromptCache.has(cacheKey)) {
             return this.basePromptCache.get(cacheKey);
         }
 
-        // Dynamically select the output module based on intent
-        const output = outputModules[intent] || outputModules.GENERAL;
+        // Dynamically select the output module based on inferred intent
+        const output = outputModules[inferredIntent] || outputModules.GENERAL;
 
         const components = [
             personality,
@@ -94,8 +108,8 @@ class PromptComposer {
             output(currentDate)
         ];
 
-        if (intentModules[intent]) {
-            components.push(intentModules[intent]);
+        if (intentModules[inferredIntent]) {
+            components.push(intentModules[inferredIntent]);
         }
 
         const basePrompt = components.join('\n\n---\n\n');
