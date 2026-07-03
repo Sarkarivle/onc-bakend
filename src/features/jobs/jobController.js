@@ -6,6 +6,7 @@ const matchPrompts = require('./matchPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const VectorService = require('../ai/knowledge/vectorService');
+const LLMProvider = require('../ai/generation/core_engine/llmProvider');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -108,36 +109,8 @@ const importJob = async (req, res) => {
 
     const prompt = jobPrompts.IMPORT_JOB_PROMPT(textToProcess);
 
-    const aiRes = await axios.post(runpodUrl, {
-      model: constants.AI_MODEL_NAME,
-      prompt: `System: Return ONLY a valid JSON object. No conversation. No preamble.\n\nUser: ${prompt}`,
-      stream: false,
-      options: {
-        temperature: 0.1,
-        max_tokens: 20000
-      }
-    });
-
-
-    const rawAiOutput = aiRes.data.response;
-    const cleanedJson = cleanAIResponse(rawAiOutput);
-
-    let result;
-    try {
-        const fullResult = JSON.parse(cleanedJson);
-        result = fullResult.structured_data || fullResult;
-    } catch (parseErr) {
-        try {
-            // Aggressive fallback cleaning for unescaped quotes
-            // Look for quotes NOT preceded by structural chars and NOT followed by structural chars
-            const aggressive = cleanedJson.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
-            const fullResult = JSON.parse(aggressive);
-            result = fullResult.structured_data || fullResult;
-        } catch (secondaryErr) {
-            console.error('Raw AI Output that failed:', rawAiOutput);
-            throw new Error(`AI returned invalid JSON: ${parseErr.message}`);
-        }
-    }
+    const result = await LLMProvider.generateLogic(prompt);
+    if (!result) throw new Error('AI Engine failed to generate structured data');
 
     const parseDate = (dateStr) => {
         if (!dateStr || typeof dateStr !== 'string' || dateStr === 'N/A' || dateStr.toLowerCase().includes('soon')) return null;
@@ -218,13 +191,6 @@ const getAiMatchAdvice = async (req, res) => {
 
     if (!job) {
         return res.status(404).json({ status: 'error', message: 'Job not found' });
-    }
-
-    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
-    let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
-
-    if (runpodUrl && !runpodUrl.includes('/api/generate') && !runpodUrl.includes('/api/chat')) {
-        runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
     }
 
     const advicePrompt = matchPrompts.MATCH_ADVICE_PROMPT(user.name);
@@ -374,25 +340,12 @@ const getAiMatchAdvice = async (req, res) => {
 
     User: ${advicePrompt}`;
 
-    const aiRes = await axios.post(runpodUrl, {
-        model: constants.AI_MODEL_NAME,
-        prompt: `System: Return ONLY a valid JSON object. No preamble. No conversation.\n\nUser: ${fullPrompt}`,
-        stream: false,
-        options: { temperature: 0.1, top_p: 0.9, max_tokens: 1500 }
-    });
-
-    const rawOutput = aiRes.data.response;
-    let cleaned = cleanAIResponse(rawOutput);
-
-    try {
-        const parsed = JSON.parse(cleaned);
-        res.status(200).json({ status: 'success', ...parsed });
-    } catch (parseErr) {
-        try {
-            console.error('Failed to parse AI advice:', cleaned);
-            res.status(200).json({ status: 'error', message: 'JSON Parse Error' });
-        }
+    const parsed = await LLMProvider.generateLogic(fullPrompt);
+    if (!parsed) {
+        return res.status(200).json({ status: 'error', message: 'AI Logic Failed' });
     }
+
+    res.status(200).json({ status: 'success', ...parsed });
   } catch (err) {
     console.error('Match Advice Error:', err.message);
     res.status(200).json({ status: 'error', advice: null });

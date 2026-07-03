@@ -98,8 +98,6 @@ class LLMProvider {
                     httpAgent,
                     httpsAgent
                 });
-// ... (rest of the code stays same)
-// ... (rest of the code stays same)
 
                 let raw = "";
                 if (response.data.message && response.data.message.content) {
@@ -188,7 +186,6 @@ class LLMProvider {
                 httpAgent,
                 httpsAgent
             });
-// ... (rest of standard stream logic)
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
