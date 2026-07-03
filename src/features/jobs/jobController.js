@@ -6,7 +6,6 @@ const matchPrompts = require('./matchPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const VectorService = require('../ai/knowledge/vectorService');
-const GenerationProvider = require('../ai/generation/generationProvider');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -100,15 +99,27 @@ const importJob = async (req, res) => {
 
     if (!textToProcess) throw new Error('Input text empty');
 
+    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
+    let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
+
+    if (runpodUrl && !runpodUrl.includes('/api/generate') && !runpodUrl.includes('/api/chat')) {
+        runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
+    }
+
     const prompt = jobPrompts.IMPORT_JOB_PROMPT(textToProcess);
 
-    const aiRes = await GenerationProvider.generate(prompt, {
-        stream: false,
-        options: { temperature: 0.1, max_tokens: 20000 }
+    const aiRes = await axios.post(runpodUrl, {
+      model: constants.AI_MODEL_NAME,
+      prompt: `System: Return ONLY a valid JSON object. No conversation. No preamble.\n\nUser: ${prompt}`,
+      stream: false,
+      options: {
+        temperature: 0.1,
+        max_tokens: 20000
+      }
     });
 
 
-    const rawAiOutput = aiRes.response;
+    const rawAiOutput = aiRes.data.response;
     const cleanedJson = cleanAIResponse(rawAiOutput);
 
     let result;
@@ -207,6 +218,13 @@ const getAiMatchAdvice = async (req, res) => {
 
     if (!job) {
         return res.status(404).json({ status: 'error', message: 'Job not found' });
+    }
+
+    const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
+    let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
+
+    if (runpodUrl && !runpodUrl.includes('/api/generate') && !runpodUrl.includes('/api/chat')) {
+        runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
     }
 
     const advicePrompt = matchPrompts.MATCH_ADVICE_PROMPT(user.name);
@@ -356,13 +374,14 @@ const getAiMatchAdvice = async (req, res) => {
 
     User: ${advicePrompt}`;
 
-    const aiRes = await GenerationProvider.generate(fullPrompt, {
+    const aiRes = await axios.post(runpodUrl, {
+        model: constants.AI_MODEL_NAME,
+        prompt: `System: Return ONLY a valid JSON object. No preamble. No conversation.\n\nUser: ${fullPrompt}`,
         stream: false,
         options: { temperature: 0.1, top_p: 0.9, max_tokens: 1500 }
     });
 
-
-    const rawOutput = aiRes.response;
+    const rawOutput = aiRes.data.response;
     let cleaned = cleanAIResponse(rawOutput);
 
     try {
@@ -370,18 +389,13 @@ const getAiMatchAdvice = async (req, res) => {
         res.status(200).json({ status: 'success', ...parsed });
     } catch (parseErr) {
         try {
-            // Secondary attempt with aggressive quote fixing
-            const fixed = cleaned.replace(/(?<![:\{\[,\s])"(?![\s]*[:,\}\]])/g, '\\"');
-            const parsed = JSON.parse(fixed);
-            res.status(200).json({ status: 'success', ...parsed });
-        } catch (e) {
             console.error('Failed to parse AI advice:', cleaned);
-            res.status(500).json({ status: 'error', message: 'AI response parsing failed' });
+            res.status(200).json({ status: 'error', message: 'JSON Parse Error' });
         }
     }
   } catch (err) {
     console.error('Match Advice Error:', err.message);
-    res.status(500).json({ status: 'error', message: 'Could not generate match advice' });
+    res.status(200).json({ status: 'error', advice: null });
   }
 };
 
