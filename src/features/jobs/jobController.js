@@ -302,22 +302,64 @@ const getAiMatchAdvice = async (req, res) => {
         primaryDateInfo: primaryDateInfo
     };
 
-    const fullPrompt = `System: Expert Job Advisor. Today is ${new Date().toDateString()}.
-    PRIMARY DATE CONTEXT:
-    - Event: ${primaryDateInfo.event}
-    - Date: ${primaryDateInfo.dateStr}
-    - Status: ${primaryDateInfo.status}
-    - Days Left: ${primaryDateInfo.daysRemaining}
+    // --- STEP: Pre-calculate Facts for Accuracy ---
+    const userAge = calculateAge(user.dob);
+    const jobElig = job.fullData?.eligibility || {};
+    const minAge = parseInt(jobElig.min_age) || 0;
+    const maxAge = parseInt(jobElig.max_age) || 99;
 
-    IMPORTANT: If status is 'expired', strictly say the date has passed. If 'future', tell exactly how many days/months left. If the event is NOT 'Apply Last Date', mention the event name clearly (e.g., Exam Date, Admit Card).
+    let ageStatus = "Fit";
+    if (userAge < minAge) ageStatus = "Under";
+    else if (userAge > maxAge) ageStatus = "Over";
+    else if (userAge >= maxAge - 2) ageStatus = "Limit";
 
-    Use JOB DATA & USER PROFILE for Hinglish advice.
+    // Fee Calculation
+    const userCat = (user.category || 'General').toUpperCase();
+    const isReserved = userCat.includes('SC') || userCat.includes('ST') || userCat.includes('PH');
+    const jobFees = job.fullData?.application_fee || {};
+    const calculatedFee = isReserved ? (jobFees.sc_st_ph || '0') : (jobFees.gen_obc_ews || 'N/A');
 
-    JOB DATA:
+    // Urgency Text
+    let urgencyText = "Jaldi Karein";
+    if (primaryDateInfo.status === 'expired') urgencyText = "Date nikal chuki h";
+    else if (primaryDateInfo.daysRemaining === 0) urgencyText = "Aaj aakhri din hai";
+    else if (primaryDateInfo.daysRemaining === 1) urgencyText = "1 din rah gaya hai";
+    else if (primaryDateInfo.daysRemaining > 0) urgencyText = `${primaryDateInfo.daysRemaining} din baki hai`;
+
+    // Vacancy and Education simple check
+    const vacancyCount = job.totalVacancy || 'Not Specified';
+    const requiredEdu = (jobElig.education || 'Check Notification').toString();
+
+    const calculatedFacts = {
+        age_desc: `${userAge} Years (${ageStatus})`,
+        age_status: ageStatus,
+        fee_text: calculatedFee.includes('₹') ? calculatedFee : `₹${calculatedFee}`,
+        urgency: urgencyText,
+        vacancy_text: vacancyCount.includes('Post') ? vacancyCount : `${vacancyCount} Posts`,
+        user_qualification: user.education || 'N/A',
+        job_qualification: requiredEdu,
+        is_expired: primaryDateInfo.status === 'expired'
+    };
+
+    const fullPrompt = `System: You are a Job Data Processor. Today is ${new Date().toDateString()}.
+
+    TOOL_RESULTS (TRUST THESE OVER EVERYTHING ELSE):
+    - URGENCY: ${calculatedFacts.urgency}
+    - FEE: ${calculatedFacts.fee_text}
+    - AGE_DESC: ${calculatedFacts.age_desc}
+    - AGE_STATUS: ${calculatedFacts.age_status}
+    - VACANCY: ${calculatedFacts.vacancy_text}
+    - USER_EDU: ${calculatedFacts.user_qualification}
+    - JOB_EDU: ${calculatedFacts.job_qualification}
+
+    INSTRUCTIONS:
+    1. Use the EXACT values from TOOL_RESULTS for the corresponding JSON keys.
+    2. Compare USER_EDU and JOB_EDU to set "edu_status" (Match/No Match) and "edu_desc".
+    3. Calculate "match_score" (0-100). If is_expired is true, score must be 0.
+    4. Generate "advice" in short Hinglish addressing the user as "${user.name.split(' ')[0]} Bhai".
+
+    JOB CONTEXT:
     ${JSON.stringify(essentialJobData)}
-
-    USER PROFILE:
-    Name: ${user.name}, DOB: ${user.dob}, Cat: ${user.category}, Edu: ${user.education || 'N/A'}, City: ${user.city || 'N/A'}
 
     User: ${advicePrompt}`;
 
