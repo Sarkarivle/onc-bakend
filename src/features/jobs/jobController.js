@@ -68,7 +68,7 @@ const importJob = async (req, res) => {
             if (dateStr.includes('-')) {
                 const parts = dateStr.split('-');
                 if (parts.length === 3) {
-                    const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct':9, 'nov':10, 'dec':11 };
+                    const months = { 'jan':0, 'feb':1, 'mar':2, 'apr':3, 'may':4, 'jun':5, 'jul':6, 'aug':7, 'sep':8, 'oct'>9, 'nov':10, 'dec':11 };
                     const m = months[parts[1].toLowerCase().substring(0,3)];
                     if (m !== undefined) d = new Date(parseInt(parts[2]), m, parseInt(parts[0]));
                 }
@@ -130,11 +130,10 @@ const getAiMatchAdvice = async (req, res) => {
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
 
-    // 1. Calculate Core Facts (Using actual fields from job document)
+    // 1. Core Facts
     const userAge = calculateAge(user.dob);
     const minAgeStr = (job.eligibility?.minAge || '18').replace(/[^0-9]/g, '');
     const maxAgeStr = (job.eligibility?.maxAge || '40').replace(/[^0-9]/g, '');
-
     const minAge = parseInt(minAgeStr) || 18;
     const maxAge = parseInt(maxAgeStr) || 40;
 
@@ -145,95 +144,46 @@ const getAiMatchAdvice = async (req, res) => {
 
     const userCat = (user.category || 'General').toUpperCase();
     const isReserved = userCat.includes('SC') || userCat.includes('ST') || userCat.includes('PH');
+    let feeText = isReserved ? (job.applicationFee?.scStPh || '0') : (job.applicationFee?.generalObcEws || 'N/A');
 
-    let feeText = 'N/A';
-    if (isReserved) {
-        feeText = job.applicationFee?.scStPh || '0';
-    } else {
-        feeText = job.applicationFee?.generalObcEws || 'N/A';
-    }
-
-    // Exact Date Calculation (Super Aggressive Search)
+    // 2. EXTREME DATE EXTRACTION
     let lastDateStr = "N/A";
 
-    // 1. Check direct fields first
+    // Path A: Check Structured Fields
     if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
         lastDateStr = job.lastDate.toISOString();
+    } else {
+        const checkFields = [
+            job.importantDates?.applicationLastDate,
+            job.fullData?.job_overview?.last_date,
+            job.fullData?.important_dates?.last_date
+        ];
+        lastDateStr = checkFields.find(f => f && f !== 'N/A' && f !== '') || "N/A";
     }
-    else {
-        // 2. Deep Search Function
-        const findDateValue = (obj) => {
-            if (!obj) return null;
 
-            // If it's a string, it might be the date itself
-            if (typeof obj === 'string') {
-                if (obj.match(/\d{4}/) && (obj.match(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i) || obj.includes('/'))) {
-                    return obj;
-                }
-                return null;
-            }
+    // Path B: HTML Regex Search (If Path A failed or returned N/A)
+    if (lastDateStr === "N/A" && job.fullHtmlContent) {
+        const html = job.fullHtmlContent;
+        const regexes = [
+            /Last Date[^<]*<\/td>[^<]*<td[^>]*>([^<]+)<\/td>/i,
+            /Last Date[^:]*:[^<]*<b>([^<]+)<\/b>/i,
+            /Last Date[^:]*:([^<]+)/i,
+            /Closing Date[^:]*:([^<]+)/i,
+            /Last Date For Apply Online[^:]*:([^<]+)/i
+        ];
 
-            if (typeof obj !== 'object') return null;
-
-            // If it's an array, check each item
-            if (Array.isArray(obj)) {
-                for (const item of obj) {
-                    const found = findDateValue(item);
-                    if (found) return found;
-                }
-                return null;
-            }
-
-            // Check all keys in this object
-            const keys = Object.keys(obj);
-
-            // Priority 1: Keys that look like "last date"
-            for (const k of keys) {
-                const kl = k.toLowerCase();
-                if ((kl.includes('last') && kl.includes('date')) ||
-                    (kl.includes('end') && kl.includes('date')) ||
-                    kl === 'application_last_date') {
-
-                    const val = obj[k];
-                    if (typeof val === 'string' && val !== 'N/A' && val.trim() !== '') return val;
-                    if (typeof val === 'object' && val?.value) return val.value;
-                }
-            }
-
-            // Priority 2: Go deeper
-            for (const k of keys) {
-                if (typeof obj[k] === 'object') {
-                    const found = findDateValue(obj[k]);
-                    if (found) return found;
-                }
-            }
-            return null;
-        };
-
-        lastDateStr = findDateValue({
-            importantDates: job.importantDates,
-            fullData: job.fullData
-        }) || "N/A";
-
-        // 3. Last Resort: Extract from HTML if JSON failed
-        if ((lastDateStr === "N/A" || lastDateStr === "") && job.fullHtmlContent) {
-            const html = job.fullHtmlContent;
-            const lastDateMatch = html.match(/Last Date[^<]*<\/td>[^<]*<td[^>]*>([^<]+)<\/td>/i) ||
-                                 html.match(/Last Date[^:]*:[^<]*<b>([^<]+)<\/b>/i) ||
-                                 html.match(/Last Date[^:]*:([^<]+)/i);
-            if (lastDateMatch && lastDateMatch[1]) {
-                lastDateStr = lastDateMatch[1].trim();
+        for (const regex of regexes) {
+            const match = html.match(regex);
+            if (match && match[1] && match[1].trim().length > 5) {
+                lastDateStr = match[1].trim();
+                break;
             }
         }
     }
 
     const urgencyResult = DateTool.calculateUrgency(lastDateStr);
 
-    const vacancyText = job.totalVacancy || 'Not Specified';
-    const requiredEdu = job.eligibility?.education || 'Check Notification';
-    const userEdu = user.education || 'N/A';
-
-    // 2. Pure UI Response
+    // 3. Response Construction
     const response = {
         match_score: (urgencyResult.status === 'expired' || ageStatus === 'Over') ? 0 : 85,
         advice: `Namaste ${user.name.split(' ')[0]}! Aap is job ke liye eligible hain.`,
@@ -241,14 +191,14 @@ const getAiMatchAdvice = async (req, res) => {
         fee_text: feeText.includes('₹') ? feeText : `₹${feeText}`,
         age_desc: `${userAge} Years (${ageStatus})`,
         age_status: ageStatus,
-        vacancy_text: vacancyText,
-        edu_desc: `${userEdu} (Match)`,
+        vacancy_text: job.totalVacancy || 'Not Specified',
+        edu_desc: `${user.education || 'N/A'} (Match)`,
         edu_status: "Match",
         loc_desc: "Location aapke profile ke hisab se sahi hai.",
         cat_desc: "Aapki category me vacancies available hain.",
         comp_desc: "Isme selection ke chances acche hain.",
         success_desc: "Strong match detected.",
-        ai_tip: "Application last date se pehle bhar dein!"
+        ai_tip: "Last date se pehle apply karein!"
     };
 
     res.status(200).json({ status: 'success', ...response });
