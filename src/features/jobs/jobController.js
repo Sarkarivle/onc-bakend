@@ -153,22 +153,29 @@ const getAiMatchAdvice = async (req, res) => {
         feeText = job.applicationFee?.generalObcEws || 'N/A';
     }
 
-    // Exact Date Calculation (More Robust)
+    // Exact Date Calculation (More Robust Smart Search)
     let lastDateStr = "N/A";
 
-    // Priority 1: Top-level Date object (most reliable)
+    // 1. Check direct field
     if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
         lastDateStr = job.lastDate.toISOString();
     }
-    // Priority 2: Structured field
-    else if (job.importantDates?.applicationLastDate && job.importantDates.applicationLastDate !== 'N/A') {
-        lastDateStr = job.importantDates.applicationLastDate;
-    }
-    // Priority 3: Fallbacks from fullData
     else {
-        lastDateStr = job.fullData?.job_overview?.last_date ||
-                      job.fullData?.important_dates?.last_date ||
-                      "N/A";
+        // 2. Smart Search in fullData and importantDates
+        const allPossibleData = {
+            ...(job.importantDates || {}),
+            ...(job.fullData?.job_overview || {}),
+            ...(job.fullData?.important_dates || {})
+        };
+
+        // Dhoondho koi bhi aisi key jisme "last" aur "date" dono hon
+        const dateKey = Object.keys(allPossibleData).find(k =>
+            k.toLowerCase().includes('last') && k.toLowerCase().includes('date')
+        );
+
+        if (dateKey && allPossibleData[dateKey] !== 'N/A') {
+            lastDateStr = allPossibleData[dateKey];
+        }
     }
 
     const urgencyResult = DateTool.calculateUrgency(lastDateStr);
