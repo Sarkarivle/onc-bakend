@@ -1,5 +1,6 @@
 module.exports = {
-    DEFAULT_RUNPOD_URL: "http://127.0.0.1:11434/api/chat",
+    DEFAULT_RUNPOD_URL: "http://127.0.0.1:11434/api/generate",
+    AI_MODEL_NAME: "qwen2.5:7b",
 
     // 1. INTENT & PLANNER ENGINE (Fast & Logical Architect)
     // qwen2.5:1.5b is the sweet spot for logic and speed (< 1-2s)

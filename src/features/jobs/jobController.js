@@ -102,7 +102,7 @@ const importJob = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
 
-    if (runpodUrl && !runpodUrl.includes('/api/generate')) {
+    if (runpodUrl && !runpodUrl.includes('/api/generate') && !runpodUrl.includes('/api/chat')) {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
     }
 
@@ -222,7 +222,7 @@ const getAiMatchAdvice = async (req, res) => {
     const runpodSetting = await Settings.findOne({ key: 'RUNPOD_URL' });
     let runpodUrl = (runpodSetting && runpodSetting.value) || constants.DEFAULT_RUNPOD_URL;
 
-    if (runpodUrl && !runpodUrl.includes('/api/generate')) {
+    if (runpodUrl && !runpodUrl.includes('/api/generate') && !runpodUrl.includes('/api/chat')) {
         runpodUrl = runpodUrl.replace(/\/$/, '') + '/api/generate';
     }
 
@@ -237,17 +237,27 @@ const getAiMatchAdvice = async (req, res) => {
         if (jobCat.includes('exam')) eventsToCheck.unshift("exam date");
 
         let foundEvent = null;
-        const allDates = job.fullData?.important_dates || [];
+        const allDatesData = job.fullData?.important_dates || {};
         const overviewLastDate = job.fullData?.job_overview?.last_date;
 
         for (const eventName of eventsToCheck) {
             let dateStr = (eventName === "last date") ? overviewLastDate : null;
             let actualEventName = (eventName === "last date") ? "Apply Last Date" : eventName;
 
-            const dObj = allDates.find(d => (d.label || d.event || "").toLowerCase().includes(eventName));
-            if (dObj) {
-                dateStr = dObj.value || dObj.date;
-                actualEventName = dObj.label || dObj.event;
+            // Handle both Array and Object formats
+            if (Array.isArray(allDatesData)) {
+                const dObj = allDatesData.find(d => (d.label || d.event || "").toLowerCase().includes(eventName));
+                if (dObj) {
+                    dateStr = dObj.value || dObj.date;
+                    actualEventName = dObj.label || dObj.event;
+                }
+            } else if (typeof allDatesData === 'object') {
+                // If it's an object, look for keys that match eventName
+                const key = Object.keys(allDatesData).find(k => k.toLowerCase().replace(/_/g, ' ').includes(eventName));
+                if (key) {
+                    dateStr = allDatesData[key];
+                    actualEventName = key.replace(/_/g, ' ').toUpperCase();
+                }
             }
 
             if (dateStr && dateStr !== "Available Soon" && dateStr !== "N/A") {
