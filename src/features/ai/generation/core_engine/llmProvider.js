@@ -46,26 +46,31 @@ class LLMProvider {
             return constants.DEFAULT_RUNPOD_URL;
         }
 
-        // ULTRA-ROBUST CLEANING: Strip "curl", "wget", extra "https://", and quotes from anywhere in the string
-        url = url.replace(/(curl|wget)\s+/i, '')
-                 .replace(/['"\s]/g, '')
-                 .replace(/^(https?:\/\/)+/i, 'https://') // Fix double https://https://
-                 .trim();
-
-        // Ensure protocol exists
-        if (!url.startsWith('http')) {
-            url = `https://${url}`;
+        // ULTRA-ROBUST CLEANING: Handle curl commands, quotes, and common copy-paste errors
+        if (url.includes('http')) {
+            // Extract just the URL if it's inside a curl command or has extra text
+            const match = url.match(/https?:\/\/[^\s'"]+/);
+            if (match) url = match[0];
         }
 
-        // Remove trailing slash
+        url = url.trim().replace(/['"]/g, ''); // Remove quotes
+
+        // Fix protocol issues
+        url = url.replace(/^(https?:\/\/)+/i, (m) => m.toLowerCase().includes('https') ? 'https://' : 'http://');
+        if (!url.startsWith('http')) url = `https://${url}`;
+
+        // Remove trailing slashes for consistency
         url = url.replace(/\/+$/, '');
 
-        // STRIP WRONG ENDPOINTS: If user pasted /api/tags or /api/generate by mistake, remove it
+        // STRIP WRONG ENDPOINTS: If user pasted /api/tags, /api/generate, /v1/models, etc.
         url = url.replace(/\/api\/(tags|generate|push|pull|show|copy|delete)\/?$/i, '');
+        url = url.replace(/\/v1\/(models|chat|completions)\/?$/i, '');
+        url = url.replace(/\/api\/?$/i, ''); // Avoid double /api/api
         url = url.replace(/\/+$/, ''); // Clean again
 
         // If the URL includes a standard path (/api/chat or /v1/), use it
-        if (url.toLowerCase().includes('/api/chat') || url.toLowerCase().includes('/v1')) {
+        const lowerUrl = url.toLowerCase();
+        if (lowerUrl.includes('/api/chat') || lowerUrl.includes('/v1')) {
             this.settingsCache = { baseUrl: url, expiresAt: now + this.SETTINGS_TTL_MS };
             return url;
         }
@@ -198,10 +203,23 @@ class LLMProvider {
                     buffer = lines.pop();
 
                     for (const line of lines) {
-                        if (!line.trim()) continue;
+                        let text = line.trim();
+                        if (!text) continue;
+
+                        // Handle OpenAI-style "data: " prefix
+                        if (text.startsWith('data: ')) {
+                            text = text.slice(6).trim();
+                        }
+                        if (text === '[DONE]') {
+                            resolve();
+                            continue;
+                        }
+
                         try {
-                            const json = JSON.parse(line);
-                            const content = (json.message && json.message.content) || json.response;
+                            const json = JSON.parse(text);
+                            const content = (json.message && json.message.content) ||
+                                          (json.choices && json.choices[0].delta && json.choices[0].delta.content) ||
+                                          json.response;
                             if (content) {
                                 onChunk(content);
                             }
@@ -210,7 +228,7 @@ class LLMProvider {
                                 resolve();
                             }
                         } catch (e) {
-                            // Partial JSON
+                            // Partial JSON or non-JSON line
                         }
                     }
                 });
