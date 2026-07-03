@@ -7,6 +7,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const VectorService = require('../ai/knowledge/vectorService');
 const LLMProvider = require('../ai/generation/core_engine/llmProvider');
+const DateTool = require('../ai/tools/dateTool');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -296,12 +297,10 @@ const getAiMatchAdvice = async (req, res) => {
     const jobFees = job.fullData?.application_fee || {};
     const calculatedFee = isReserved ? (jobFees.sc_st_ph || '0') : (jobFees.gen_obc_ews || 'N/A');
 
-    // Urgency Text
-    let urgencyText = "Jaldi Karein";
-    if (primaryDateInfo.status === 'expired') urgencyText = "Date nikal chuki h";
-    else if (primaryDateInfo.daysRemaining === 0) urgencyText = "Aaj aakhri din hai";
-    else if (primaryDateInfo.daysRemaining === 1) urgencyText = "1 din rah gaya hai";
-    else if (primaryDateInfo.daysRemaining > 0) urgencyText = `${primaryDateInfo.daysRemaining} din baki hai`;
+    // Urgency Text - Using Robust DateTool for accurate Kolkata Time calculations
+    const urgencyResult = DateTool.calculateUrgency(primaryDateInfo.dateStr);
+    const urgencyText = urgencyResult.text;
+    const isExpired = urgencyResult.status === 'expired';
 
     // Vacancy and Education simple check
     const vacancyCount = job.totalVacancy || 'Not Specified';
@@ -315,12 +314,13 @@ const getAiMatchAdvice = async (req, res) => {
         vacancy_text: vacancyCount.includes('Post') ? vacancyCount : `${vacancyCount} Posts`,
         user_qualification: user.education || 'N/A',
         job_qualification: requiredEdu,
-        is_expired: primaryDateInfo.status === 'expired'
+        is_expired: isExpired,
+        today_date: DateTool.getKolkataDate().toDateString()
     };
 
-    const fullPrompt = `System: You are a Job Data Processor. Today is ${new Date().toDateString()}.
+    const fullPrompt = `${matchPrompts.MATCH_ADVICE_PROMPT(user.name)}
 
-    TOOL_RESULTS (TRUST THESE OVER EVERYTHING ELSE):
+    TOOL_RESULTS (IST DATE: ${calculatedFacts.today_date}):
     - URGENCY: ${calculatedFacts.urgency}
     - FEE: ${calculatedFacts.fee_text}
     - AGE_DESC: ${calculatedFacts.age_desc}
@@ -328,17 +328,11 @@ const getAiMatchAdvice = async (req, res) => {
     - VACANCY: ${calculatedFacts.vacancy_text}
     - USER_EDU: ${calculatedFacts.user_qualification}
     - JOB_EDU: ${calculatedFacts.job_qualification}
-
-    INSTRUCTIONS:
-    1. Use the EXACT values from TOOL_RESULTS for the corresponding JSON keys.
-    2. Compare USER_EDU and JOB_EDU to set "edu_status" (Match/No Match) and "edu_desc".
-    3. Calculate "match_score" (0-100). If is_expired is true, score must be 0.
-    4. Generate "advice" in short Hinglish addressing the user as "${user.name.split(' ')[0]} Bhai".
+    - IS_EXPIRED: ${calculatedFacts.is_expired}
 
     JOB CONTEXT:
     ${JSON.stringify(essentialJobData)}
-
-    User: ${advicePrompt}`;
+    `;
 
     const parsed = await LLMProvider.generateLogic(fullPrompt);
     if (!parsed) {
