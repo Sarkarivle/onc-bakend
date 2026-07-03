@@ -153,28 +153,45 @@ const getAiMatchAdvice = async (req, res) => {
         feeText = job.applicationFee?.generalObcEws || 'N/A';
     }
 
-    // Exact Date Calculation (More Robust Smart Search)
+    // Exact Date Calculation (Extremely Aggressive Search)
     let lastDateStr = "N/A";
 
-    // 1. Check direct field
+    // 1. Check direct field (Priority 1)
     if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
         lastDateStr = job.lastDate.toISOString();
     }
     else {
-        // 2. Smart Search in fullData and importantDates
-        const allPossibleData = {
-            ...(job.importantDates || {}),
-            ...(job.fullData?.job_overview || {}),
-            ...(job.fullData?.important_dates || {})
+        // 2. Recursive Smart Search in fullData and importantDates
+        const findDateValue = (obj) => {
+            if (!obj || typeof obj !== 'object') return null;
+
+            // Check keys in this level
+            const keys = Object.keys(obj);
+
+            // Look for specific "last date" keys
+            const dateKey = keys.find(k =>
+                (k.toLowerCase().includes('last') && k.toLowerCase().includes('date')) ||
+                (k.toLowerCase().includes('end') && k.toLowerCase().includes('date')) ||
+                (k.toLowerCase() === 'application_last_date')
+            );
+
+            if (dateKey && obj[dateKey] && obj[dateKey] !== 'N/A' && typeof obj[dateKey] === 'string') {
+                return obj[dateKey];
+            }
+
+            // If not found, go deeper into arrays or objects
+            for (const key of keys) {
+                if (typeof obj[key] === 'object') {
+                    const found = findDateValue(obj[key]);
+                    if (found) return found;
+                }
+            }
+            return null;
         };
 
-        // Dhoondho koi bhi aisi key jisme "last" aur "date" dono hon
-        const dateKey = Object.keys(allPossibleData).find(k =>
-            k.toLowerCase().includes('last') && k.toLowerCase().includes('date')
-        );
-
-        if (dateKey && allPossibleData[dateKey] !== 'N/A') {
-            lastDateStr = allPossibleData[dateKey];
+        lastDateStr = job.importantDates?.applicationLastDate !== 'N/A' ? job.importantDates?.applicationLastDate : null;
+        if (!lastDateStr || lastDateStr === 'N/A') {
+            lastDateStr = findDateValue(job.fullData) || "N/A";
         }
     }
 
