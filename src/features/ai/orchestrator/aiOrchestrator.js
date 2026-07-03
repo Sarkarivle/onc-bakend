@@ -364,8 +364,16 @@ class AIOrchestrator {
         try {
             if (Chat.db?.readyState !== 1) return;
             const name = userName || "User";
-            await Chat.create({ userName: name, sessionId, role: 'user', content: query });
-            await Chat.create({ userName: name, sessionId, role: 'assistant', content: response, suggestions });
+
+            if (query && query.trim()) {
+                await Chat.create({ userName: name, sessionId, role: 'user', content: query });
+            }
+
+            if (response && response.trim()) {
+                await Chat.create({ userName: name, sessionId, role: 'assistant', content: response, suggestions });
+            } else {
+                console.warn("⚠️ Skipping assistant persistence: Response content is empty.");
+            }
         } catch (e) { console.error("❌ Persistence Error:", e.message); }
     }
 }
