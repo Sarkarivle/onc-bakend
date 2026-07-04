@@ -10,8 +10,9 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
         .tox-tinymce { border-radius: 8px !important; border: 1px solid #ddd !important; }
-        /* Hide TinyMCE Warnings and unnecessary UI */
-        .tox-notifications-container, .tox-statusbar__branding, .tox-upgrade, .tox-throbber { display: none !important; }
+        /* Hide TinyMCE and CKEditor Warnings */
+        .tox-notifications-container, .tox-statusbar__branding, .tox-upgrade, .tox-throbber,
+        .cke_notification_warning, .cke_notification_info { display: none !important; }
     </style>
 </head>
 <body class="p-0 m-0">
@@ -167,6 +168,9 @@
             }
 
             try {
+                // Hide the security warning
+                CKEDITOR.config.versionCheck = false;
+
                 editorInstance = CKEDITOR.replace('job-content', {
                     height: 600,
                     allowedContent: true, // Don't strip any HTML
