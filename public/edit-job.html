@@ -120,6 +120,18 @@
                         <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Total Vacancy</label>
                         <input type="text" id="f-vacancy" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
                     </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Salary</label>
+                        <input type="text" id="f-salary" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Education Requirement</label>
+                        <input type="text" id="f-edu" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">AI Summary (Hinglish)</label>
+                        <textarea id="f-summary" rows="2" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition"></textarea>
+                    </div>
                 </div>
 
                 <details>
@@ -491,15 +503,26 @@
         function syncJsonToForm() {
             try {
                 const data = JSON.parse(document.getElementById('job-json').value);
+
+                // Dates
                 document.getElementById('f-start').value = data.importantDates?.applicationBegin || "";
                 document.getElementById('f-last').value = data.importantDates?.applicationLastDate || "";
                 document.getElementById('f-exam').value = data.importantDates?.examDate || "";
+
+                // Fees
                 document.getElementById('f-fee-gen').value = data.applicationFee?.generalObcEws || "";
                 document.getElementById('f-fee-sc').value = data.applicationFee?.scStPh || "";
                 document.getElementById('f-fee-fem').value = data.applicationFee?.female || "";
+
+                // Eligibility & Vacancy
                 document.getElementById('f-age-min').value = data.eligibility?.minAge || "";
                 document.getElementById('f-age-max').value = data.eligibility?.maxAge || "";
                 document.getElementById('f-vacancy').value = data.totalVacancy || "";
+
+                // Flexible Fields
+                document.getElementById('f-salary').value = data.salary || "";
+                document.getElementById('f-edu').value = data.eligibility?.education || "";
+                document.getElementById('f-summary').value = data.aiCoreSummary?.summary || "";
             } catch (e) {
                 console.warn("Could not sync JSON to Form: Invalid JSON");
             }
@@ -509,13 +532,14 @@
             try {
                 let data = JSON.parse(document.getElementById('job-json').value);
 
-                // Initialize nested objects if they don't exist
+                // Initialize nested objects if they don't exist (Preserve other fields)
                 if (!data.importantDates) data.importantDates = {};
                 if (!data.applicationFee) data.applicationFee = {};
                 if (!data.eligibility) data.eligibility = {};
+                if (!data.aiCoreSummary) data.aiCoreSummary = {};
                 if (!data.fullData) data.fullData = {};
 
-                // Update common fields
+                // Update Fields
                 data.importantDates.applicationBegin = document.getElementById('f-start').value;
                 data.importantDates.applicationLastDate = document.getElementById('f-last').value;
                 data.importantDates.examDate = document.getElementById('f-exam').value;
@@ -526,13 +550,22 @@
 
                 data.eligibility.minAge = document.getElementById('f-age-min').value;
                 data.eligibility.maxAge = document.getElementById('f-age-max').value;
+                data.eligibility.education = document.getElementById('f-edu').value;
 
                 data.totalVacancy = document.getElementById('f-vacancy').value;
+                data.salary = document.getElementById('f-salary').value;
+                data.aiCoreSummary.summary = document.getElementById('f-summary').value;
 
-                // Also update fullData for better AI consistency
+                // Sync with fullData for AI engine consistency
                 if (data.fullData.job_overview) {
                     data.fullData.job_overview.application_start = data.importantDates.applicationBegin;
                     data.fullData.job_overview.last_date = data.importantDates.applicationLastDate;
+                    data.fullData.job_overview.salary_approx = data.salary;
+                }
+                if (data.fullData.eligibility) {
+                    data.fullData.eligibility.education = data.eligibility.education;
+                    data.fullData.eligibility.min_age = data.eligibility.minAge;
+                    data.fullData.eligibility.max_age = data.eligibility.maxAge;
                 }
 
                 document.getElementById('job-json').value = JSON.stringify(data, null, 4);
