@@ -159,47 +159,78 @@
         window.queuedContent = null;
 
         function initCKEditor() {
+            console.log("Attempting to initialize CKEditor...");
             if (typeof CKEDITOR === 'undefined') {
+                console.log("CKEDITOR undefined, retrying in 100ms...");
                 setTimeout(initCKEditor, 100);
                 return;
             }
 
-            editorInstance = CKEDITOR.replace('job-content', {
-                height: 600,
-                allowedContent: true,
-                extraPlugins: 'colorbutton,colordialog,font,justify,table,tableresize,showblocks',
-                removeButtons: 'Save,NewPage,ExportPdf,Preview,Print,Templates',
-                contentsCss: [
-                    'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
-                    'data:text/css;base64,' + btoa(`
-                        body { font-family: 'Inter', sans-serif; font-size: 14px; padding: 20px; line-height: 1.6; color: #333; }
-                        .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-                        .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
-                        .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
-                        .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; }
-                        .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
-                        .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; width: 35%; }
-                        .sv-table td { color: #444; }
-                        a { color: #1A237E; text-decoration: underline; font-weight: 600; }
-                    `)
-                ]
-            });
+            try {
+                editorInstance = CKEDITOR.replace('job-content', {
+                    height: 600,
+                    allowedContent: true, // Don't strip any HTML
+                    removeFormatAttributes: '', // Don't remove any attributes
+                    startupFocus: true,
+                    // Modern & Clean Toolbar
+                    toolbar: [
+                        { name: 'document', items: [ 'Source', '-', 'Maximize', 'ShowBlocks' ] },
+                        { name: 'clipboard', items: [ 'Undo', 'Redo' ] },
+                        { name: 'basicstyles', items: [ 'Bold', 'Italic', 'Underline', 'Strike', '-', 'RemoveFormat' ] },
+                        { name: 'paragraph', items: [ 'NumberedList', 'BulletedList', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock' ] },
+                        { name: 'links', items: [ 'Link', 'Unlink' ] },
+                        { name: 'insert', items: [ 'Image', 'Table', 'HorizontalRule' ] },
+                        '/',
+                        { name: 'styles', items: [ 'Format', 'Font', 'FontSize' ] },
+                        { name: 'colors', items: [ 'TextColor', 'BGColor' ] }
+                    ],
+                    contentsCss: [
+                        'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
+                        'data:text/css;base64,' + btoa(`
+                            body { font-family: 'Inter', sans-serif; font-size: 14px; padding: 20px; line-height: 1.6; color: #333; background: #fff; }
+                            .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+                            .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
+                            .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
+                            .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; }
+                            .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
+                            .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; width: 35%; }
+                            .sv-table td { color: #444; }
+                            a { color: #1A237E; text-decoration: underline; font-weight: 600; }
+                        `)
+                    ]
+                });
 
-            editorInstance.on('instanceReady', () => {
-                window.editorReady = true;
-                if (window.queuedContent !== null) {
-                    editorInstance.setData(window.queuedContent);
-                    window.queuedContent = null;
-                }
-            });
+                editorInstance.on('instanceReady', () => {
+                    console.log("CKEditor Instance is fully ready.");
+                    window.editorReady = true;
+                    if (window.queuedContent !== null) {
+                        console.log("Applying queued content to editor.");
+                        editorInstance.setData(window.queuedContent);
+                        window.queuedContent = null;
+                    }
+                });
+
+                editorInstance.on('error', (evt) => {
+                    console.error("CKEditor Error:", evt);
+                });
+
+            } catch (err) {
+                console.error("Failed to initialize CKEditor:", err);
+            }
         }
 
-        initCKEditor();
+        // Run init on DOM load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initCKEditor);
+        } else {
+            initCKEditor();
+        }
 
         let currentMode = 'visual';
 
         function toggleEditorMode(mode) {
             if (mode === currentMode) return;
+            console.log(`Switching mode: ${currentMode} -> ${mode}`);
 
             const btns = { visual: 'btn-visual', code: 'btn-code', preview: 'btn-preview' };
             const containers = { visual: 'visual-editor-container', code: 'code-editor-container', preview: 'preview-editor-container' };
@@ -226,11 +257,13 @@
                 const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
                 doc.open();
                 doc.write(`
+                    <!DOCTYPE html>
                     <html>
                         <head>
+                            <meta charset="UTF-8">
                             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
                             <style>
-                                body { font-family: 'Inter', sans-serif; padding: 20px; line-height: 1.6; background: #fff; }
+                                body { font-family: 'Inter', sans-serif; padding: 30px; line-height: 1.6; background: #fff; color: #333; }
                                 .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
                                 .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
                                 .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
@@ -264,6 +297,7 @@
 
         async function loadJob() {
             try {
+                console.log("Fetching job data...");
                 const res = await fetch(`/api/v1/jobs/${jobId}`, {
                     headers: { 'Authorization': `Bearer ${admin_token}` }
                 });
@@ -293,8 +327,10 @@
                 document.getElementById('job-content-raw').value = content;
 
                 if (editorInstance && window.editorReady) {
+                    console.log("Setting editor data directly.");
                     editorInstance.setData(content);
                 } else {
+                    console.log("Editor not ready, queuing content for load.");
                     window.queuedContent = content;
                 }
 
@@ -305,6 +341,7 @@
         }
 
         async function saveJob(status) {
+            console.log(`Saving job as ${status}...`);
             const title = document.getElementById('job-title').value;
             const organization = document.getElementById('job-org').value;
             const applyLink = document.getElementById('job-link').value;
@@ -323,7 +360,9 @@
             let additionalData = {};
             try {
                 additionalData = JSON.parse(document.getElementById('job-json').value);
-            } catch(e) {}
+            } catch(e) {
+                console.warn("Invalid structured data JSON, skipping merge.");
+            }
 
             const body = {
                 ...additionalData,
@@ -346,13 +385,17 @@
 
             if (res.ok) {
                 alert('Job saved successfully!');
+                if (status === 'publish') {
+                    document.getElementById('status-display').innerText = 'Published';
+                }
             } else {
-                alert('Failed to save job');
+                const errData = await res.json();
+                alert('Failed to save job: ' + (errData.message || 'Unknown error'));
             }
         }
 
         async function deleteJob() {
-            if (confirm('Are you sure you want to delete this job?')) {
+            if (confirm('Are you sure you want to move this job to trash?')) {
                 const res = await fetch(`/api/v1/jobs/${jobId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${admin_token}` }
