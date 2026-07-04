@@ -173,10 +173,13 @@
             verify_html: false,
             entity_encoding: 'raw',
             valid_elements: '*[*]',
-            init_instance_callback: function (editor) {
-                if (window.initialContent) {
-                    editor.setContent(window.initialContent, { format: 'html' });
-                }
+            setup: function (editor) {
+                editor.on('init', function () {
+                    window.editorInitialized = true;
+                    if (window.initialContent) {
+                        editor.setContent(window.initialContent);
+                    }
+                });
             }
         });
 
@@ -199,7 +202,7 @@
             else content = rawTextarea.value; // From preview (it's read-only)
 
             if (mode === 'visual') {
-                if (editor) editor.setContent(content, { format: 'html' });
+                if (editor && window.editorInitialized) editor.setContent(content);
             } else if (mode === 'code') {
                 rawTextarea.value = content;
             } else if (mode === 'preview') {
@@ -279,8 +282,8 @@
                 window.initialContent = rawContent;
 
                 const editor = tinymce.get('job-content');
-                if (editor && editor.initialized) {
-                    editor.setContent(rawContent, { format: 'html' });
+                if (editor && window.editorInitialized) {
+                    editor.setContent(rawContent);
                 }
 
             } catch (e) {
