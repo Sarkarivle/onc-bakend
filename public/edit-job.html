@@ -50,12 +50,6 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 text-xs text-gray-500 mb-4">
-                    <span>Permalink:</span>
-                    <span id="permalink" class="text-blue-600 underline">https://onc.app/jobs/example-job</span>
-                    <button class="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-100">Edit</button>
-                </div>
-
                 <div class="mb-4 flex justify-between items-center">
                     <button class="flex items-center gap-2 px-3 py-1.5 border rounded text-xs font-semibold hover:bg-gray-50">
                         <span>🖼️</span> Add Media
@@ -138,7 +132,7 @@
                         <label class="flex items-center gap-2"><input type="radio" name="category" value="Results" class="rounded"> Results</label>
                         <label class="flex items-center gap-2"><input type="radio" name="category" value="Jobs" class="rounded"> Jobs</label>
                     </div>
-                    <button class="text-blue-600 text-xs font-bold underline">+ Add New Category</button>
+                    <button onclick="addNewCategory()" class="text-blue-600 text-xs font-bold underline">+ Add New Category</button>
                 </div>
             </div>
         </div>
@@ -412,6 +406,17 @@
                 if (res.ok) {
                     window.location.href = '/admin/jobs';
                 }
+            }
+        }
+
+        function addNewCategory() {
+            const name = prompt("Enter new category name:");
+            if (name) {
+                const list = document.getElementById('category-list');
+                const label = document.createElement('label');
+                label.className = "flex items-center gap-2";
+                label.innerHTML = `<input type="radio" name="category" value="${name}" class="rounded" checked> ${name}`;
+                list.appendChild(label);
             }
         }
 
