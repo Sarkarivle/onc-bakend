@@ -73,12 +73,59 @@
                 </div>
             </div>
 
-            <!-- Structure Data (Optional/Expert Mode) -->
+            <!-- Structured Data (Expert Mode) -->
             <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">Expert Data Helper</h2>
+                    <div class="flex gap-2">
+                        <button onclick="syncFormToJson()" class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold border border-blue-100">Update JSON from Form</button>
+                        <button onclick="syncJsonToForm()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded font-bold border border-green-100">Refresh Form from JSON</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" id="easy-form">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Start Date</label>
+                        <input type="text" id="f-start" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Last Date</label>
+                        <input type="text" id="f-last" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Exam Date</label>
+                        <input type="text" id="f-exam" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">General/OBC Fee</label>
+                        <input type="text" id="f-fee-gen" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">SC/ST Fee</label>
+                        <input type="text" id="f-fee-sc" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Female Fee</label>
+                        <input type="text" id="f-fee-fem" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Min Age</label>
+                        <input type="text" id="f-age-min" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Max Age</label>
+                        <input type="text" id="f-age-max" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Total Vacancy</label>
+                        <input type="text" id="f-vacancy" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
+                    </div>
+                </div>
+
                 <details>
-                    <summary class="text-sm font-bold text-gray-600 cursor-pointer uppercase tracking-wider">Structured Data (Expert Mode)</summary>
+                    <summary class="text-[10px] font-bold text-gray-400 cursor-pointer uppercase tracking-wider hover:text-gray-600 transition">Raw JSON (Expert Mode)</summary>
                     <div class="mt-4">
-                         <textarea id="job-json" rows="10" class="w-full bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs"></textarea>
+                         <textarea id="job-json" rows="15" class="w-full bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs leading-relaxed"></textarea>
                     </div>
                 </details>
             </div>
@@ -345,6 +392,9 @@
                     window.queuedContent = content;
                 }
 
+                // Sync the easy form
+                syncJsonToForm();
+
             } catch (e) {
                 console.error('Load Error:', e);
                 alert('Error: ' + e.message);
@@ -434,6 +484,60 @@
                 label.className = "flex items-center gap-2";
                 label.innerHTML = `<input type="radio" name="category" value="${name}" class="rounded" checked> ${name}`;
                 list.appendChild(label);
+            }
+        }
+
+        // --- JSON <-> Form Synchronization ---
+        function syncJsonToForm() {
+            try {
+                const data = JSON.parse(document.getElementById('job-json').value);
+                document.getElementById('f-start').value = data.importantDates?.applicationBegin || "";
+                document.getElementById('f-last').value = data.importantDates?.applicationLastDate || "";
+                document.getElementById('f-exam').value = data.importantDates?.examDate || "";
+                document.getElementById('f-fee-gen').value = data.applicationFee?.generalObcEws || "";
+                document.getElementById('f-fee-sc').value = data.applicationFee?.scStPh || "";
+                document.getElementById('f-fee-fem').value = data.applicationFee?.female || "";
+                document.getElementById('f-age-min').value = data.eligibility?.minAge || "";
+                document.getElementById('f-age-max').value = data.eligibility?.maxAge || "";
+                document.getElementById('f-vacancy').value = data.totalVacancy || "";
+            } catch (e) {
+                console.warn("Could not sync JSON to Form: Invalid JSON");
+            }
+        }
+
+        function syncFormToJson() {
+            try {
+                let data = JSON.parse(document.getElementById('job-json').value);
+
+                // Initialize nested objects if they don't exist
+                if (!data.importantDates) data.importantDates = {};
+                if (!data.applicationFee) data.applicationFee = {};
+                if (!data.eligibility) data.eligibility = {};
+                if (!data.fullData) data.fullData = {};
+
+                // Update common fields
+                data.importantDates.applicationBegin = document.getElementById('f-start').value;
+                data.importantDates.applicationLastDate = document.getElementById('f-last').value;
+                data.importantDates.examDate = document.getElementById('f-exam').value;
+
+                data.applicationFee.generalObcEws = document.getElementById('f-fee-gen').value;
+                data.applicationFee.scStPh = document.getElementById('f-fee-sc').value;
+                data.applicationFee.female = document.getElementById('f-fee-fem').value;
+
+                data.eligibility.minAge = document.getElementById('f-age-min').value;
+                data.eligibility.maxAge = document.getElementById('f-age-max').value;
+
+                data.totalVacancy = document.getElementById('f-vacancy').value;
+
+                // Also update fullData for better AI consistency
+                if (data.fullData.job_overview) {
+                    data.fullData.job_overview.application_start = data.importantDates.applicationBegin;
+                    data.fullData.job_overview.last_date = data.importantDates.applicationLastDate;
+                }
+
+                document.getElementById('job-json').value = JSON.stringify(data, null, 4);
+            } catch (e) {
+                alert("Error updating JSON: Make sure the JSON is valid first.");
             }
         }
 
