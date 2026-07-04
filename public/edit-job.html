@@ -141,6 +141,7 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const jobId = urlParams.get('id');
+        const isNewJob = jobId === 'new';
         const admin_token = localStorage.getItem('admin_token');
 
         if (!jobId) {
@@ -299,6 +300,14 @@
         }
 
         async function loadJob() {
+            if (isNewJob) {
+                console.log("New Job Mode active.");
+                document.querySelectorAll('h1').forEach(h => h.innerText = "Create New Job");
+                document.getElementById('date-display').innerText = "Not yet published";
+                document.getElementById('status-display').innerText = "Draft";
+                document.getElementById('job-json').value = "{}";
+                return;
+            }
             try {
                 console.log("Fetching job data...");
                 const res = await fetch(`/api/v1/jobs/${jobId}`, {
@@ -376,8 +385,11 @@
                 isActive: status === 'publish'
             };
 
-            const res = await fetch(`/api/v1/jobs/${jobId}`, {
-                method: 'PATCH',
+            const url = isNewJob ? '/api/v1/jobs' : `/api/v1/jobs/${jobId}`;
+            const method = isNewJob ? 'POST' : 'PATCH';
+
+            const res = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${admin_token}`
@@ -386,9 +398,15 @@
             });
 
             if (res.ok) {
-                alert('Job saved successfully!');
-                if (status === 'publish') {
-                    document.getElementById('status-display').innerText = 'Published';
+                const responseData = await res.json();
+                alert(isNewJob ? 'Job created successfully!' : 'Job saved successfully!');
+
+                if (isNewJob && responseData.data && responseData.data._id) {
+                    window.location.href = `/admin/edit-job?id=${responseData.data._id}`;
+                } else {
+                    if (status === 'publish') {
+                        document.getElementById('status-display').innerText = 'Published';
+                    }
                 }
             } else {
                 const errData = await res.json();

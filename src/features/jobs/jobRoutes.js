@@ -19,6 +19,8 @@ router.get('/', handle('getAllJobs'));
 
 router.use(authMiddleware.protect);
 
+router.post('/', handle('createJob'));
+
 // Admin / Scraper Routes
 router.get('/admin/discover', handle('discoverNewJobs'));
 router.post('/admin/import', handle('importJob'));

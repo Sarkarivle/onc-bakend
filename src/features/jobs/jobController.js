@@ -212,6 +212,15 @@ const updateJob = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
+const createJob = async (req, res) => {
+  try {
+    const job = await Job.create(req.body);
+    res.status(201).json({ status: 'success', data: job });
+  } catch (err) {
+    res.status(400).json({ status: 'error', message: err.message });
+  }
+};
+
 const deleteJob = async (req, res) => {
   try {
     await Job.findByIdAndDelete(req.params.id);
@@ -219,4 +228,4 @@ const deleteJob = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
-module.exports = { getAllJobs, getJob, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob };
+module.exports = { getAllJobs, getJob, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob, createJob };

@@ -50,9 +50,12 @@
         <div class="flex-1 md:ml-64 min-h-screen">
             <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center sticky top-0 z-10">
                 <h1 class="text-xl font-bold text-gray-800">Job Management</h1>
-                <div class="flex gap-4">
-                    <button onclick="loadJobs()" class="text-sm font-bold text-blue-600">Refresh List</button>
-                    <button onclick="logout()" class="text-sm font-bold text-red-500">Logout</button>
+                <div class="flex items-center gap-4">
+                    <button onclick="window.location.href='/admin/edit-job?id=new'" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-900 transition shadow-sm">
+                        + Add New Job
+                    </button>
+                    <button onclick="loadJobs()" class="text-sm font-bold text-blue-600 hover:underline">Refresh List</button>
+                    <button onclick="logout()" class="text-sm font-bold text-red-500 hover:underline">Logout</button>
                 </div>
             </header>
 
