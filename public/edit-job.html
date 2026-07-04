@@ -312,7 +312,6 @@
                 document.getElementById('job-title').value = data.title || "";
                 document.getElementById('job-org').value = data.organization || "";
                 document.getElementById('job-link').value = data.applyLink || "";
-                document.getElementById('permalink').innerText = `https://onc.app/jobs/${(data.title || "").toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
                 const { _id, title, organization, applyLink, category, createdAt, isActive, fullHtmlContent, ...rest } = data;
                 document.getElementById('job-json').value = JSON.stringify(rest, null, 4);
