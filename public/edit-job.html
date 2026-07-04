@@ -153,34 +153,48 @@
             window.location.href = '/admin/jobs';
         }
 
-        // Initialize CKEditor (Classic Style)
-        CKEDITOR.replace('job-content', {
-            height: 600,
-            allowedContent: true, // Allow all HTML tags and attributes
-            extraPlugins: 'colorbutton,colordialog,font,justify,table,tableresize,showblocks',
-            removeButtons: 'Save,NewPage,ExportPdf,Preview,Print,Templates',
-            contentsCss: [
-                'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
-                'data:text/css;base64,' + btoa(`
-                    body { font-family: 'Inter', sans-serif; font-size: 14px; padding: 20px; line-height: 1.6; color: #333; }
-                    .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-                    .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
-                    .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
-                    .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; }
-                    .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
-                    .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; width: 35%; }
-                    .sv-table td { color: #444; }
-                    a { color: #1A237E; text-decoration: underline; font-weight: 600; }
-                `)
-            ]
-        });
+        // --- Editor Initialization ---
+        let editorInstance = null;
+        window.editorReady = false;
+        window.queuedContent = null;
 
-        CKEDITOR.instances['job-content'].on('instanceReady', function() {
-            window.editorInitialized = true;
-            if (window.pendingContent) {
-                this.setData(window.pendingContent);
+        function initCKEditor() {
+            if (typeof CKEDITOR === 'undefined') {
+                setTimeout(initCKEditor, 100);
+                return;
             }
-        });
+
+            editorInstance = CKEDITOR.replace('job-content', {
+                height: 600,
+                allowedContent: true,
+                extraPlugins: 'colorbutton,colordialog,font,justify,table,tableresize,showblocks',
+                removeButtons: 'Save,NewPage,ExportPdf,Preview,Print,Templates',
+                contentsCss: [
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
+                    'data:text/css;base64,' + btoa(`
+                        body { font-family: 'Inter', sans-serif; font-size: 14px; padding: 20px; line-height: 1.6; color: #333; }
+                        .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+                        .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
+                        .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
+                        .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; }
+                        .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
+                        .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; width: 35%; }
+                        .sv-table td { color: #444; }
+                        a { color: #1A237E; text-decoration: underline; font-weight: 600; }
+                    `)
+                ]
+            });
+
+            editorInstance.on('instanceReady', () => {
+                window.editorReady = true;
+                if (window.queuedContent !== null) {
+                    editorInstance.setData(window.queuedContent);
+                    window.queuedContent = null;
+                }
+            });
+        }
+
+        initCKEditor();
 
         let currentMode = 'visual';
 
@@ -190,18 +204,22 @@
             const btns = { visual: 'btn-visual', code: 'btn-code', preview: 'btn-preview' };
             const containers = { visual: 'visual-editor-container', code: 'code-editor-container', preview: 'preview-editor-container' };
 
-            const editor = CKEDITOR.instances['job-content'];
             const rawTextarea = document.getElementById('job-content-raw');
             const previewFrame = document.getElementById('preview-frame');
 
-            // Sync Content
             let content = "";
-            if (currentMode === 'visual') content = editor ? editor.getData() : "";
-            else if (currentMode === 'code') content = rawTextarea.value;
-            else content = rawTextarea.value;
+            if (currentMode === 'visual') {
+                content = (editorInstance && window.editorReady) ? editorInstance.getData() : (window.queuedContent || "");
+            } else {
+                content = rawTextarea.value;
+            }
 
             if (mode === 'visual') {
-                if (editor) editor.setData(content);
+                if (editorInstance && window.editorReady) {
+                    editorInstance.setData(content);
+                } else {
+                    window.queuedContent = content;
+                }
             } else if (mode === 'code') {
                 rawTextarea.value = content;
             } else if (mode === 'preview') {
@@ -229,7 +247,6 @@
                 rawTextarea.value = content;
             }
 
-            // Update UI
             Object.keys(containers).forEach(k => {
                 document.getElementById(containers[k]).classList.toggle('hidden', k !== mode);
                 const btn = document.getElementById(btns[k]);
@@ -272,14 +289,13 @@
                     if (rb.value === data.category) rb.checked = true;
                 });
 
-                const rawContent = data.fullHtmlContent || "";
-                document.getElementById('job-content-raw').value = rawContent;
+                const content = data.fullHtmlContent || "";
+                document.getElementById('job-content-raw').value = content;
 
-                const editor = CKEDITOR.instances['job-content'];
-                if (editor && window.editorInitialized) {
-                    editor.setData(rawContent);
+                if (editorInstance && window.editorReady) {
+                    editorInstance.setData(content);
                 } else {
-                    window.pendingContent = rawContent;
+                    window.queuedContent = content;
                 }
 
             } catch (e) {
@@ -295,8 +311,7 @@
 
             let content = "";
             if (currentMode === 'visual') {
-                const editor = CKEDITOR.instances['job-content'];
-                content = editor ? editor.getData() : "";
+                content = (editorInstance && window.editorReady) ? editorInstance.getData() : (window.queuedContent || "");
             } else {
                 content = document.getElementById('job-content-raw').value;
             }
