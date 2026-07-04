@@ -173,8 +173,10 @@
 
                 editorInstance = CKEDITOR.replace('job-content', {
                     height: 600,
+                    fullPage: true, // Important: allows editing full <html> documents
                     allowedContent: true, // Don't strip any HTML
-                    removeFormatAttributes: '', // Don't remove any attributes
+                    extraAllowedContent: '*(*){*}', // Allow all classes and styles
+                    removeFormatAttributes: '',
                     startupFocus: true,
                     // Modern & Clean Toolbar
                     toolbar: [
