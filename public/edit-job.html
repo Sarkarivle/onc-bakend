@@ -173,10 +173,12 @@
 
                 editorInstance = CKEDITOR.replace('job-content', {
                     height: 600,
-                    fullPage: true, // Important: allows editing full <html> documents
-                    allowedContent: true, // Don't strip any HTML
-                    extraAllowedContent: '*(*){*}', // Allow all classes and styles
+                    fullPage: false, // Changed to false: we are dealing with HTML fragments
+                    allowedContent: true,
+                    extraAllowedContent: '*(*){*}; table tr td th[*]', // Allow all classes, styles, and table attributes
                     removeFormatAttributes: '',
+                    entities: false, // Don't encode entities
+                    basicEntities: false,
                     startupFocus: true,
                     // Modern & Clean Toolbar
                     toolbar: [
@@ -211,6 +213,7 @@
                     window.editorReady = true;
                     if (window.queuedContent !== null) {
                         console.log("Applying queued content to editor.");
+                        // Force HTML mode by ensuring content is treated as such
                         editorInstance.setData(window.queuedContent);
                         window.queuedContent = null;
                     }
