@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Job | ONC Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.tiny.cloud/1/93k586wnfcheibcy52wdxcr3he8i2b0210pzbxgfdbl0pw1p/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
@@ -153,33 +153,32 @@
             window.location.href = '/admin/jobs';
         }
 
-        tinymce.init({
-            selector: '#job-content',
+        // Initialize CKEditor (Classic Style)
+        CKEDITOR.replace('job-content', {
             height: 600,
-            plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table code help wordcount',
-            toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code | help',
-            content_style: `
-                body { font-family: 'Inter', Helvetica, Arial, sans-serif; font-size: 14px; padding: 20px; line-height: 1.6; color: #333; }
-                .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-                .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
-                .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
-                .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; }
-                .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
-                .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; width: 35%; }
-                .sv-table td { color: #444; }
-                a { color: #1A237E; text-decoration: underline; font-weight: 600; }
-                strong { color: #000; }
-            `,
-            verify_html: false,
-            entity_encoding: 'raw',
-            valid_elements: '*[*]',
-            setup: function (editor) {
-                editor.on('init', function () {
-                    window.editorInitialized = true;
-                    if (window.initialContent) {
-                        editor.setContent(window.initialContent);
-                    }
-                });
+            allowedContent: true, // Allow all HTML tags and attributes
+            extraPlugins: 'colorbutton,colordialog,font,justify,table,tableresize,showblocks',
+            removeButtons: 'Save,NewPage,ExportPdf,Preview,Print,Templates',
+            contentsCss: [
+                'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
+                'data:text/css;base64,' + btoa(`
+                    body { font-family: 'Inter', sans-serif; font-size: 14px; padding: 20px; line-height: 1.6; color: #333; }
+                    .sv-box { border: 2px solid #1A237E; border-radius: 12px; padding: 25px; margin-bottom: 25px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+                    .sv-h1 { font-size: 24px; font-weight: 800; color: #1A237E; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1A237E; padding-bottom: 10px; }
+                    .sv-h2 { font-size: 18px; font-weight: 700; color: #d32f2f; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #d32f2f; padding-left: 10px; }
+                    .sv-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; }
+                    .sv-table th, .sv-table td { border: 1px solid #e0e0e0; padding: 12px; text-align: left; }
+                    .sv-table th { background: #f8f9fa; color: #1A237E; font-weight: 700; width: 35%; }
+                    .sv-table td { color: #444; }
+                    a { color: #1A237E; text-decoration: underline; font-weight: 600; }
+                `)
+            ]
+        });
+
+        CKEDITOR.instances['job-content'].on('instanceReady', function() {
+            window.editorInitialized = true;
+            if (window.pendingContent) {
+                this.setData(window.pendingContent);
             }
         });
 
@@ -191,18 +190,18 @@
             const btns = { visual: 'btn-visual', code: 'btn-code', preview: 'btn-preview' };
             const containers = { visual: 'visual-editor-container', code: 'code-editor-container', preview: 'preview-editor-container' };
 
-            const editor = tinymce.get('job-content');
+            const editor = CKEDITOR.instances['job-content'];
             const rawTextarea = document.getElementById('job-content-raw');
             const previewFrame = document.getElementById('preview-frame');
 
             // Sync Content
             let content = "";
-            if (currentMode === 'visual') content = editor ? editor.getContent() : "";
+            if (currentMode === 'visual') content = editor ? editor.getData() : "";
             else if (currentMode === 'code') content = rawTextarea.value;
-            else content = rawTextarea.value; // From preview (it's read-only)
+            else content = rawTextarea.value;
 
             if (mode === 'visual') {
-                if (editor && window.editorInitialized) editor.setContent(content);
+                if (editor) editor.setData(content);
             } else if (mode === 'code') {
                 rawTextarea.value = content;
             } else if (mode === 'preview') {
@@ -227,7 +226,7 @@
                     </html>
                 `);
                 doc.close();
-                rawTextarea.value = content; // Keep sync
+                rawTextarea.value = content;
             }
 
             // Update UI
@@ -248,7 +247,6 @@
 
         async function loadJob() {
             try {
-                console.log('Fetching Job ID:', jobId);
                 const res = await fetch(`/api/v1/jobs/${jobId}`, {
                     headers: { 'Authorization': `Bearer ${admin_token}` }
                 });
@@ -262,7 +260,6 @@
                 document.getElementById('job-link').value = data.applyLink || "";
                 document.getElementById('permalink').innerText = `https://onc.app/jobs/${(data.title || "").toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
-                // Structured Data
                 const { _id, title, organization, applyLink, category, createdAt, isActive, fullHtmlContent, ...rest } = data;
                 document.getElementById('job-json').value = JSON.stringify(rest, null, 4);
 
@@ -270,20 +267,19 @@
                     document.getElementById('date-display').innerText = new Date(data.createdAt).toLocaleString();
                 }
 
-                // Check Category
                 const radios = document.querySelectorAll('#category-list input');
                 radios.forEach(rb => {
                     if (rb.value === data.category) rb.checked = true;
                 });
 
-                // Load Content
                 const rawContent = data.fullHtmlContent || "";
                 document.getElementById('job-content-raw').value = rawContent;
-                window.initialContent = rawContent;
 
-                const editor = tinymce.get('job-content');
+                const editor = CKEDITOR.instances['job-content'];
                 if (editor && window.editorInitialized) {
-                    editor.setContent(rawContent);
+                    editor.setData(rawContent);
+                } else {
+                    window.pendingContent = rawContent;
                 }
 
             } catch (e) {
@@ -299,18 +295,16 @@
 
             let content = "";
             if (currentMode === 'visual') {
-                const editor = tinymce.get('job-content');
-                content = editor ? editor.getContent() : document.getElementById('job-content').value;
+                const editor = CKEDITOR.instances['job-content'];
+                content = editor ? editor.getData() : "";
             } else {
                 content = document.getElementById('job-content-raw').value;
             }
 
-            // Get selected category
             let category = "Latest Jobs";
             const checked = document.querySelector('#category-list input:checked');
             if (checked) category = checked.value;
 
-            // Optional: merge back JSON changes if edited
             let additionalData = {};
             try {
                 additionalData = JSON.parse(document.getElementById('job-json').value);
