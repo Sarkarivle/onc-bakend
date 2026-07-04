@@ -76,62 +76,16 @@
             <!-- Structured Data (Expert Mode) -->
             <div class="bg-white p-6 rounded-lg shadow-sm border">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">Expert Data Helper</h2>
+                    <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">Expert Data Helper (Dynamic)</h2>
                     <div class="flex gap-2">
-                        <button onclick="syncFormToJson()" class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold border border-blue-100">Update JSON from Form</button>
-                        <button onclick="syncJsonToForm()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded font-bold border border-green-100">Refresh Form from JSON</button>
+                        <button onclick="syncFormToJson()" class="text-[10px] bg-blue-50 text-blue-600 px-3 py-1.5 rounded font-bold border border-blue-100 hover:bg-blue-100 transition">Update JSON from Form</button>
+                        <button onclick="syncJsonToForm()" class="text-[10px] bg-green-50 text-green-600 px-3 py-1.5 rounded font-bold border border-green-100 hover:bg-green-100 transition">Refresh Form from JSON</button>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" id="easy-form">
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Start Date</label>
-                        <input type="text" id="f-start" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Last Date</label>
-                        <input type="text" id="f-last" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Exam Date</label>
-                        <input type="text" id="f-exam" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">General/OBC Fee</label>
-                        <input type="text" id="f-fee-gen" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">SC/ST Fee</label>
-                        <input type="text" id="f-fee-sc" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Female Fee</label>
-                        <input type="text" id="f-fee-fem" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Min Age</label>
-                        <input type="text" id="f-age-min" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Max Age</label>
-                        <input type="text" id="f-age-max" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Total Vacancy</label>
-                        <input type="text" id="f-vacancy" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Salary</label>
-                        <input type="text" id="f-salary" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">Education Requirement</label>
-                        <input type="text" id="f-edu" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition">
-                    </div>
-                    <div class="md:col-span-3">
-                        <label class="block text-[10px] font-black text-gray-400 uppercase mb-1">AI Summary (Hinglish)</label>
-                        <textarea id="f-summary" rows="2" class="w-full border border-gray-100 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white outline-none transition"></textarea>
-                    </div>
+                <!-- Dynamic Form Container -->
+                <div id="dynamic-form-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mb-8">
+                    <!-- Fields will be auto-generated here -->
                 </div>
 
                 <details>
@@ -499,78 +453,97 @@
             }
         }
 
-        // --- JSON <-> Form Synchronization ---
+        // --- Dynamic JSON <-> Form Synchronization ---
         function syncJsonToForm() {
             try {
-                const data = JSON.parse(document.getElementById('job-json').value);
+                const jsonText = document.getElementById('job-json').value;
+                const data = JSON.parse(jsonText);
+                const container = document.getElementById('dynamic-form-container');
+                container.innerHTML = ''; // Clear existing
 
-                // Dates
-                document.getElementById('f-start').value = data.importantDates?.applicationBegin || "";
-                document.getElementById('f-last').value = data.importantDates?.applicationLastDate || "";
-                document.getElementById('f-exam').value = data.importantDates?.examDate || "";
+                const excludeKeys = ['_id', 'searchVector', '__v', 'fullHtmlContent', 'title', 'organization', 'applyLink', 'category', 'isActive', 'createdAt', 'updatedAt'];
 
-                // Fees
-                document.getElementById('f-fee-gen').value = data.applicationFee?.generalObcEws || "";
-                document.getElementById('f-fee-sc').value = data.applicationFee?.scStPh || "";
-                document.getElementById('f-fee-fem').value = data.applicationFee?.female || "";
+                function buildForm(obj, parentPath = '') {
+                    for (const key in obj) {
+                        if (excludeKeys.includes(key) && parentPath === '') continue;
 
-                // Eligibility & Vacancy
-                document.getElementById('f-age-min').value = data.eligibility?.minAge || "";
-                document.getElementById('f-age-max').value = data.eligibility?.maxAge || "";
-                document.getElementById('f-vacancy').value = data.totalVacancy || "";
+                        const value = obj[key];
+                        const currentPath = parentPath ? `${parentPath}.${key}` : key;
 
-                // Flexible Fields
-                document.getElementById('f-salary').value = data.salary || "";
-                document.getElementById('f-edu').value = data.eligibility?.education || "";
-                document.getElementById('f-summary').value = data.aiCoreSummary?.summary || "";
+                        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                            // Recursively build for nested objects
+                            buildForm(value, currentPath);
+                        } else {
+                            // Create input for primitive values or arrays
+                            const fieldDiv = document.createElement('div');
+                            fieldDiv.className = "flex flex-col gap-1";
+
+                            const label = document.createElement('label');
+                            label.className = "text-[10px] font-bold text-gray-400 uppercase truncate";
+                            label.title = currentPath;
+                            label.innerText = currentPath.split('.').join(' ➔ ');
+
+                            let input;
+                            if (typeof value === 'string' && value.length > 50) {
+                                input = document.createElement('textarea');
+                                input.rows = 2;
+                            } else {
+                                input = document.createElement('input');
+                                input.type = "text";
+                            }
+
+                            input.className = "dynamic-field w-full border border-gray-200 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white focus:border-blue-400 outline-none transition";
+                            input.dataset.path = currentPath;
+                            input.value = (typeof value === 'object') ? JSON.stringify(value) : (value || "");
+
+                            fieldDiv.appendChild(label);
+                            fieldDiv.appendChild(input);
+                            container.appendChild(fieldDiv);
+                        }
+                    }
+                }
+
+                buildForm(data);
+                console.log("Dynamic form generated from JSON.");
             } catch (e) {
-                console.warn("Could not sync JSON to Form: Invalid JSON");
+                console.warn("Could not sync JSON to Form: Invalid JSON", e);
             }
         }
 
         function syncFormToJson() {
             try {
                 let data = JSON.parse(document.getElementById('job-json').value);
+                const fields = document.querySelectorAll('.dynamic-field');
 
-                // Initialize nested objects if they don't exist (Preserve other fields)
-                if (!data.importantDates) data.importantDates = {};
-                if (!data.applicationFee) data.applicationFee = {};
-                if (!data.eligibility) data.eligibility = {};
-                if (!data.aiCoreSummary) data.aiCoreSummary = {};
-                if (!data.fullData) data.fullData = {};
+                fields.forEach(field => {
+                    const path = field.dataset.path.split('.');
+                    const value = field.value;
 
-                // Update Fields
-                data.importantDates.applicationBegin = document.getElementById('f-start').value;
-                data.importantDates.applicationLastDate = document.getElementById('f-last').value;
-                data.importantDates.examDate = document.getElementById('f-exam').value;
+                    let current = data;
+                    for (let i = 0; i < path.length - 1; i++) {
+                        const part = path[i];
+                        if (!current[part]) current[part] = {};
+                        current = current[part];
+                    }
 
-                data.applicationFee.generalObcEws = document.getElementById('f-fee-gen').value;
-                data.applicationFee.scStPh = document.getElementById('f-fee-sc').value;
-                data.applicationFee.female = document.getElementById('f-fee-fem').value;
+                    const lastPart = path[path.length - 1];
 
-                data.eligibility.minAge = document.getElementById('f-age-min').value;
-                data.eligibility.maxAge = document.getElementById('f-age-max').value;
-                data.eligibility.education = document.getElementById('f-edu').value;
-
-                data.totalVacancy = document.getElementById('f-vacancy').value;
-                data.salary = document.getElementById('f-salary').value;
-                data.aiCoreSummary.summary = document.getElementById('f-summary').value;
-
-                // Sync with fullData for AI engine consistency
-                if (data.fullData.job_overview) {
-                    data.fullData.job_overview.application_start = data.importantDates.applicationBegin;
-                    data.fullData.job_overview.last_date = data.importantDates.applicationLastDate;
-                    data.fullData.job_overview.salary_approx = data.salary;
-                }
-                if (data.fullData.eligibility) {
-                    data.fullData.eligibility.education = data.eligibility.education;
-                    data.fullData.eligibility.min_age = data.eligibility.minAge;
-                    data.fullData.eligibility.max_age = data.eligibility.maxAge;
-                }
+                    // Try to parse as JSON if it looks like an array or object
+                    if ((value.startsWith('[') && value.endsWith(']')) || (value.startsWith('{') && value.endsWith('}'))) {
+                        try {
+                            current[lastPart] = JSON.parse(value);
+                        } catch(e) {
+                            current[lastPart] = value; // Fallback to string
+                        }
+                    } else {
+                        current[lastPart] = value;
+                    }
+                });
 
                 document.getElementById('job-json').value = JSON.stringify(data, null, 4);
+                alert("JSON updated from form fields!");
             } catch (e) {
-                alert("Error updating JSON: Make sure the JSON is valid first.");
+                alert("Error updating JSON: Make sure the Raw JSON is valid first.");
             }
         }
 
