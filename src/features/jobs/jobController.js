@@ -1,10 +1,13 @@
 const Job = require('./jobModel');
+const User = require('../auth/userModel');
 const Settings = require('../settings/settingsModel');
 const constants = require('../../config/constants');
 const jobPrompts = require('./jobPrompts');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const EligibilityEngine = require('../eligibility/EligibilityEngine');
+const LLMProvider = require('../ai/generation/core_engine/llmProvider');
+const VectorService = require('../ai/knowledge/vectorService');
 const DateTool = require('../ai/tools/dateTool');
 
 const calculateAge = (dob) => {
@@ -128,9 +131,13 @@ const importJob = async (req, res) => {
 const getAiMatchAdvice = async (req, res) => {
   try {
     const { jobId } = req.params;
-    // CRITICAL FIX: Re-fetch full user profile from DB to ensure no data is missing
-    const User = require('../auth/userModel');
+    // Ensure we have a valid user ID from auth middleware
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    }
+
     const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ status: 'error', message: 'User profile not found' });
 
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
