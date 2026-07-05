@@ -1,11 +1,18 @@
 const BaseRule = require('./BaseRule');
+const HtmlScanner = require('../utils/HtmlScanner');
 
 class EducationRule extends BaseRule {
     constructor() { super('EDUCATION'); }
 
-    evaluate(user, constraints) {
-        const rawRequired = constraints.education?.level;
+    evaluate(user, constraints, jobContext = {}) {
+        let rawRequired = constraints.education?.level;
         const requiredDegrees = constraints.education?.required_degrees || []; // Array: ["B.ED", "BTC"]
+
+        // --- HTML FALLBACK ---
+        if ((!rawRequired || rawRequired === 'N/A' || rawRequired === 'Check Notification') && jobContext.fullHtmlContent) {
+            const extractedEdu = HtmlScanner.scan(jobContext.fullHtmlContent, 'EDUCATION');
+            if (extractedEdu) rawRequired = extractedEdu;
+        }
 
         if (!rawRequired || rawRequired === 'N/A' || rawRequired === 'Check Notification') {
             return {

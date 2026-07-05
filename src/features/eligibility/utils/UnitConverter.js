@@ -7,10 +7,12 @@ class UnitConverter {
         if (!val) return 0;
         const num = parseFloat(val);
 
-        // If value is small (e.g. 5.2, 6.0), assume it's FEET
+        // If value is small (e.g. 5.2, 5.11), assume it's FEET
         if (num < 10) {
             const feet = Math.floor(num);
-            const inches = Math.round((num - feet) * 10);
+            // Handle decimal as inches (e.g. .2 as 2, .11 as 11)
+            let inchesStr = String(num).split('.')[1] || "0";
+            const inches = parseInt(inchesStr);
             const totalInches = (feet * 12) + inches;
             return Math.round(totalInches * 2.54);
         }

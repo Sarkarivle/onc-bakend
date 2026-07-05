@@ -69,7 +69,7 @@ class EligibilityEngine {
             };
 
             const activeRules = RuleRegistry.getEnabledRules(effectiveConstraints);
-            const evaluations = activeRules.map(rule => rule.evaluate(user, effectiveConstraints));
+            const evaluations = activeRules.map(rule => rule.evaluate(user, effectiveConstraints, notification));
 
             evaluations.forEach(res => {
                 if (res.status === 'PASS') {

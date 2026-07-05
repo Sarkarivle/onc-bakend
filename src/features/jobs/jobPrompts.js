@@ -64,7 +64,4 @@ JSON SCHEMA:
 
 RAW DATA:
 ${textToProcess}`
-
-RAW DATA:
-${textToProcess}`
 };

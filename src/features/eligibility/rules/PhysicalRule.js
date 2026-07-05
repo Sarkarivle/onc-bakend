@@ -1,14 +1,28 @@
 const BaseRule = require('./BaseRule');
 const UnitConverter = require('../utils/UnitConverter');
+const HtmlScanner = require('../utils/HtmlScanner');
 
 class PhysicalRule extends BaseRule {
     constructor() {
         super('PHYSICAL');
     }
 
-    evaluate(user, constraints) {
-        const physical = constraints.physical;
-        // Support both flat legacy format and new multidimensional format
+    evaluate(user, constraints, jobContext = {}) {
+        let physical = constraints.physical;
+        const userGender = (user.gender || 'MALE').toLowerCase();
+        const userCategory = (user.category || 'GENERAL').toUpperCase();
+
+        // --- HTML FALLBACK LOGIC ---
+        if ((!physical || (typeof physical === 'object' && Object.keys(physical).length === 0)) && jobContext.fullHtmlContent) {
+            const extractedHeight = HtmlScanner.scan(jobContext.fullHtmlContent, 'HEIGHT', { gender: user.gender });
+            if (extractedHeight) {
+                physical = {};
+                const target = userGender === 'female' ? 'female' : 'male';
+                physical[target] = { ANY: { height: extractedHeight } };
+                physical.fromHtml = true;
+            }
+        }
+
         if (!physical || (typeof physical !== 'object')) {
             return { module: this.module, status: 'PASS', message: "Physical requirements isme mentioned nahi hain.", score: 100 };
         }
