@@ -9,10 +9,11 @@ class HumanExpertEngine {
     static async generateDostAdvice(user, report, jobTitle, notification = {}) {
         try {
             const userName = user.name || "Dost";
+            const firstName = userName.split(' ')[0];
             const ageStr = report.age_analysis?.exact_age?.formatted || "N/A";
             const userHeightCM = UnitConverter.heightToCM(user.height);
 
-            const profileStr = `Name: ${userName}, Gender: ${user.gender || 'Not specified'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
+            const profileStr = `User: ${firstName}, Gender: ${user.gender || 'MALE'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
 
             // Provide more context from notification for deeper logic
             const jobBrief = {
