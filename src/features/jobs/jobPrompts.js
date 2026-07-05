@@ -5,11 +5,8 @@ CRITICAL RULES:
 1. Output ONLY a valid JSON object. No preamble, no postamble.
 2. BRANDING: Replace any website names with "Sarkari VLE".
 3. REWRITING: Use simple, student-friendly Hinglish for summaries only.
-4. ZERO-LOSS EXTRACTION: Every piece of information from the raw text MUST be present in the output. Do not skip Important Dates, Application Fees, Vacancy Details (Category wise/District wise), Eligibility, Age Limit, or How to Apply.
-5. NO SUMMARIZATION: Do not replace complex tables with short sentences like "Check notification". Every row and column must be transcribed exactly as it appears in the source.
-6. DATA FIDELITY: Your primary goal is accuracy. If the input has a table, the output MUST have that exact table data preserved in the JSON structure.
-7. ALL COLUMNS MANDATORY: If a table has multiple columns in the source, it MUST have the same number of columns in the output. Do not merge, skip, or omit any columns.
-8. NO JUDGMENT: Do not decide what is important. Every cell in every table provided in the raw data is important. Parse it all.
+4. ZERO-LOSS EXTRACTION: Extract everything. Do not skip Important Dates, Application Fees, Vacancy, Eligibility, Age Limit, or How to Apply.
+5. RULE MAPPING: You MUST also create a "rule_map" field for the Eligibility Engine.
 
 JSON SCHEMA:
 {
@@ -42,36 +39,31 @@ JSON SCHEMA:
       "max_age": "...",
       "age_limit_as_on": "..."
     },
-    "vacancy_details": {
-      "total": "...",
-      "general": "...",
-      "obc": "...",
-      "ews": "...",
-      "sc": "...",
-      "st": "..."
-    },
-    "selection_process": {
-      "mode": "...",
-      "steps": "..."
-    },
-    "exam_details": {
-      "exam_center": "...",
-      "exam_mode": "...",
-      "exam_date": "..."
-    },
+    "vacancy_details": { "total": "...", "general": "...", "obc": "...", "ews": "...", "sc": "...", "st": "..." },
     "how_to_apply": "Detailed step-by-step instructions in simple Hinglish",
-    "important_links": {
-      "apply_online": "Link",
-      "download_notification": "Link",
-      "official_website": "Link",
-      "download_admit_card": "Link",
-      "check_result": "Link"
+    "important_links": { "apply_online": "Link", "download_notification": "Link", "official_website": "Link" }
+  },
+  "rule_map": {
+    "education": {
+       "level": "Identify one: 10TH PASS | 12TH PASS | ITI/DIPLOMA | GRADUATE | POST GRADUATE | PHD",
+       "required_degrees": ["B.ED", "BTC", "D.EL.ED", "ITI", "DIPLOMA", "CCC"] // Add all that apply
     },
-    "faq": [
-      { "question": "...", "answer": "..." }
-    ]
+    "physical": {
+       "male": {
+          "GENERAL": { "height": 165, "chest": 81 },
+          "SC_ST": { "height": 160, "chest": 79 },
+          "ANY": { "height": 165 }
+       },
+       "female": {
+          "ANY": { "height": 155 }
+       }
+    },
+    "skills": ["HINDI TYPING", "ENGLISH TYPING", "STENO", "CCC"]
   }
 }
+
+RAW DATA:
+${textToProcess}`
 
 RAW DATA:
 ${textToProcess}`

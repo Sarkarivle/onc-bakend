@@ -78,34 +78,37 @@ const importJob = async (req, res) => {
     };
 
     const jobObject = {
-      title: result.title || 'N/A',
-      organization: result.subtitle || 'N/A',
-      totalVacancy: toStr(result.job_overview?.total_vacancies),
-      salary: toStr(result.job_overview?.salary_approx),
+      title: result.structured_data?.title || result.title || 'N/A',
+      organization: result.structured_data?.subtitle || result.subtitle || 'N/A',
+      totalVacancy: toStr(result.structured_data?.job_overview?.total_vacancies || result.job_overview?.total_vacancies),
+      salary: toStr(result.structured_data?.job_overview?.salary_approx || result.job_overview?.salary_approx),
       category: category || 'Latest Jobs',
-      description: result.about_post || '',
-      applyLink: url || result.important_links?.apply_online || '',
-      lastDate: parseDate(result.important_dates?.last_date || result.job_overview?.last_date),
+      description: result.structured_data?.about_post || result.about_post || '',
+      applyLink: url || result.structured_data?.important_links?.apply_online || result.important_links?.apply_online || '',
+      lastDate: parseDate(result.structured_data?.important_dates?.last_date || result.important_dates?.last_date || result.job_overview?.last_date),
       fullHtmlContent: finalHtmlToSave,
       importantDates: {
-        applicationBegin: toStr(result.important_dates?.begin || result.job_overview?.application_start),
-        applicationLastDate: toStr(result.important_dates?.last_date || result.job_overview?.last_date),
-        feePaymentLastDate: toStr(result.important_dates?.fee_last_date),
-        examDate: toStr(result.important_dates?.exam_date)
+        applicationBegin: toStr(result.structured_data?.important_dates?.begin || result.important_dates?.begin || result.job_overview?.application_start),
+        applicationLastDate: toStr(result.structured_data?.important_dates?.last_date || result.important_dates?.last_date || result.job_overview?.last_date),
+        feePaymentLastDate: toStr(result.structured_data?.important_dates?.fee_last_date || result.important_dates?.fee_last_date),
+        examDate: toStr(result.structured_data?.important_dates?.exam_date || result.important_dates?.exam_date)
       },
       applicationFee: {
-        generalObcEws: toStr(result.application_fee?.gen_obc_ews),
-        scStPh: toStr(result.application_fee?.sc_st_ph),
-        female: toStr(result.application_fee?.female)
+        generalObcEws: toStr(result.structured_data?.application_fee?.gen_obc_ews || result.application_fee?.gen_obc_ews),
+        scStPh: toStr(result.structured_data?.application_fee?.sc_st_ph || result.application_fee?.sc_st_ph),
+        female: toStr(result.structured_data?.application_fee?.female || result.application_fee?.female)
       },
       eligibility: {
-        education: toStr(result.eligibility?.education),
-        minAge: toStr(result.eligibility?.min_age),
-        maxAge: toStr(result.eligibility?.max_age),
-        ageLimit: toStr(result.eligibility?.age_limit_as_on)
+        education: toStr(result.structured_data?.eligibility?.education || result.eligibility?.education),
+        minAge: toStr(result.structured_data?.eligibility?.min_age || result.eligibility?.min_age),
+        maxAge: toStr(result.structured_data?.eligibility?.max_age || result.eligibility?.max_age),
+        ageLimit: toStr(result.structured_data?.eligibility?.age_limit_as_on || result.eligibility?.age_limit_as_on)
       },
+      // Store the high-precision rule map for the Eligibility Engine
+      base_constraints: result.rule_map || result.base_constraints || null,
+
       jobSpecifications: result.job_specifications || [],
-      aiCoreSummary: { summary: result.about_post },
+      aiCoreSummary: { summary: result.structured_data?.about_post || result.about_post },
       fullData: result
     };
 

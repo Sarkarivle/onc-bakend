@@ -5,11 +5,13 @@ class EducationRule extends BaseRule {
 
     evaluate(user, constraints) {
         const rawRequired = constraints.education?.level;
+        const requiredDegrees = constraints.education?.required_degrees || []; // Array: ["B.ED", "BTC"]
+
         if (!rawRequired || rawRequired === 'N/A' || rawRequired === 'Check Notification') {
             return {
                 module: this.module,
                 status: 'PASS',
-                message: "Is job me koi khaas education level mentioned nahi hai. Ek baar notification check kar lein.",
+                message: "Education details isme explicitly mentioned nahi hain. Ek baar notification check kar lein.",
                 score: 100
             };
         }
@@ -25,13 +27,14 @@ class EducationRule extends BaseRule {
 
         const userLevel = String(user.education).toUpperCase();
         const reqText = String(rawRequired).toUpperCase();
+        const userProfDegrees = (user.professionalDegrees || []).map(d => d.toUpperCase());
 
         const levels = {
             '8TH PASS': 1, '10TH PASS': 2, '12TH PASS': 3, 'ITI/DIPLOMA': 4,
             'GRADUATE': 5, 'POST GRADUATE': 6, 'PHD': 7
         };
 
-        // Normalize messy requirement string to canonical level
+        // 1. Level Normalization
         let reqLevel = '8TH PASS';
         if (reqText.includes('PHD')) reqLevel = 'PHD';
         else if (reqText.includes('POST GRADUATE') || reqText.includes('PG ')) reqLevel = 'POST GRADUATE';
@@ -43,23 +46,36 @@ class EducationRule extends BaseRule {
         const userScore = levels[userLevel] || 0;
         const reqScore = levels[reqLevel] || 0;
 
+        // 2. Academic Level Check
         if (userScore < reqScore) {
             return {
                 module: this.module,
                 status: 'FAIL',
-                message: `Requirement match nahi hui. Kam se kam ${reqLevel} chahiye, lekin aapka profile ${userLevel} hai.`,
+                message: `Requirement match nahi hui. Is job ke liye kam se kam ${reqLevel} chahiye, lekin aapka profile ${userLevel} hai.`,
                 score: 0
             };
+        }
+
+        // 3. Professional Degree Check (The "AND" Logic)
+        if (requiredDegrees.length > 0) {
+            const missing = requiredDegrees.filter(d => !userProfDegrees.includes(d.toUpperCase()));
+            if (missing.length > 0) {
+                return {
+                    module: this.module,
+                    status: 'FAIL',
+                    message: `Aapke paas Degree toh hai, par ye Professional Degrees missing hain: ${missing.join(', ')}`,
+                    score: 50
+                };
+            }
         }
 
         return {
             module: this.module,
             status: 'PASS',
-            message: userScore > reqScore
-                ? `Aapki qualification (${userLevel}) required level (${reqLevel}) se upar hai. Perfect!`
-                : `Education Match: Aapki qualification ${userLevel} hai.`,
+            message: "Education Match: Aapki academic aur professional qualification sahi hai.",
             score: 100
         };
     }
 }
+
 module.exports = EducationRule;
