@@ -107,6 +107,16 @@ class LLMProvider {
     }
 
     /**
+     * Common headers for API calls
+     */
+    static getHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer no-key-needed'
+        };
+    }
+
+    /**
      * ROBUST JSON LOGIC ENGINE
      */
     static async generateLogic(prompt, retries = 2) {
@@ -139,6 +149,7 @@ class LLMProvider {
 
                 const response = await axios.post(fullUrl, payload, {
                     timeout: 45000,
+                    headers: this.getHeaders(),
                     httpAgent,
                     httpsAgent
                 });
@@ -198,11 +209,12 @@ class LLMProvider {
                 if (provider === 'ollama') {
                     payload.options = { temperature: 0.7 };
                 } else {
-                    payload.max_tokens = 2000;
+                    payload.max_tokens = 1000;
                 }
 
                 const response = await axios.post(fullUrl, payload, {
                     timeout: 90000,
+                    headers: this.getHeaders(),
                     httpAgent,
                     httpsAgent
                 });
@@ -251,12 +263,13 @@ class LLMProvider {
             if (provider === 'ollama') {
                 payload.options = { temperature: 0.7 };
             } else {
-                payload.max_tokens = 2000;
+                payload.max_tokens = 1000;
             }
 
             const response = await axios.post(fullUrl, payload, {
                 responseType: 'stream',
                 timeout: 90000,
+                headers: this.getHeaders(),
                 httpAgent,
                 httpsAgent
             });
