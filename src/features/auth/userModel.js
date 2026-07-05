@@ -55,6 +55,9 @@ const userSchema = new mongoose.Schema({
   maritalStatus: { type: String, enum: ['Single', 'Married', 'Widow', 'Divorcee'], default: 'Single' },
   serviceStatus: { type: String, enum: ['Fresh', 'Ex-Serviceman', 'Govt Employee'], default: 'Fresh' },
   serviceYears: { type: Number, default: 0 },
+  isDisabled: { type: Boolean, default: false },
+  disabilityPercentage: { type: Number, default: 0 },
+  languagesKnown: [{ type: String }], // ['Hindi', 'English', 'Marathi']
   domicileState: { type: String, default: 'Uttar Pradesh' },
   city: { type: String },
 

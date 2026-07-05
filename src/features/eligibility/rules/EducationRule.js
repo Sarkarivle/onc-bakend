@@ -46,13 +46,14 @@ class EducationRule extends BaseRule {
     }
 
     _checkAcademicLevel(user, reqLevel) {
+        const firstName = user.name?.split(' ')[0] || "Dost";
         const userLevel = (user.educationLevel || user.education || "").toUpperCase();
         const req = String(reqLevel).toUpperCase();
 
         const hierarchy = {
             '10TH PASS': 1,
             '12TH PASS': 2,
-            'ITI/DIPLOMA': 2, // 3-yr Diploma is equivalent to 12th
+            'ITI/DIPLOMA': 2,
             'GRADUATE': 3,
             'POST GRADUATE': 4,
             'PHD': 5
@@ -61,28 +62,40 @@ class EducationRule extends BaseRule {
         const userScore = hierarchy[userLevel] || 0;
         const reqScore = hierarchy[this._normalizeLevelName(req)] || 0;
 
+        if (!userLevel) {
+            return {
+                module: this.module,
+                status: 'INCOMPLETE',
+                message: `Bhai ${firstName}, aapne apni padhai ki detail nahi bhari hai.`,
+                score: 0,
+                field: 'education'
+            };
+        }
+
         if (userScore < reqScore) {
             return {
                 module: this.module,
                 status: 'FAIL',
-                message: `Is job ke liye ${req} chahiye, lekin aapka profile ${userLevel || 'None'} hai.`,
+                message: `Bhai ${firstName}, is job ke liye kam se kam ${req} chahiye, lekin aapka profile ${userLevel} hai.`,
                 score: 0
             };
         }
-        return { status: 'PASS', message: `Base education matched (${userLevel}).` };
+        return { status: 'PASS', message: `Bhai ${firstName}, aapki qualification (${userLevel}) is job ke liye sahi hai.` };
     }
 
     _checkStream(user, reqStream) {
+        const firstName = user.name?.split(' ')[0] || "Dost";
         const userStream = (user.educationHistory?.twelfth?.stream || "").toUpperCase();
-        if (!userStream) return { module: this.module, status: 'INCOMPLETE', message: "Aapki 12th stream (e.g. PCM) profile me missing hai.", score: 0 };
+        if (!userStream) return { module: this.module, status: 'INCOMPLETE', message: `Bhai ${firstName}, aapki 12th stream (e.g. PCM) profile me missing hai.`, score: 0, field: 'stream' };
 
         if (!userStream.includes(reqStream.toUpperCase())) {
-            return { module: this.module, status: 'FAIL', message: `Required Stream: ${reqStream}, Aapka: ${userStream}`, score: 0 };
+            return { module: this.module, status: 'FAIL', message: `Bhai ${firstName}, is job me ${reqStream} stream chahiye par aapka ${userStream} hai.`, score: 0 };
         }
         return { status: 'PASS' };
     }
 
     _checkProfessionalDegrees(user, required) {
+        const firstName = user.name?.split(' ')[0] || "Dost";
         const userDegrees = (user.professionalDegrees || []).map(d => d.toUpperCase());
         const missing = required.filter(req => !userDegrees.some(ud => ud.includes(req.toUpperCase())));
 
@@ -90,7 +103,7 @@ class EducationRule extends BaseRule {
             return {
                 module: this.module,
                 status: 'FAIL',
-                message: `Professional degree missing: ${missing.join(', ')}`,
+                message: `Bhai ${firstName}, aapke paas ye professional degree nahi hai: ${missing.join(', ')}`,
                 score: 50
             };
         }

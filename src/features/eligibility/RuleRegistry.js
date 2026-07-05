@@ -2,6 +2,8 @@ const AgeRule = require('./rules/AgeRule');
 const EducationRule = require('./rules/EducationRule');
 const PhysicalRule = require('./rules/PhysicalRule');
 const SkillRule = require('./rules/SkillRule');
+const DomicileRule = require('./rules/DomicileRule');
+const LanguageRule = require('./rules/LanguageRule');
 
 class RuleRegistry {
     constructor() {
@@ -10,6 +12,8 @@ class RuleRegistry {
             new EducationRule(),
             new PhysicalRule(),
             new SkillRule(),
+            new DomicileRule(),
+            new LanguageRule(),
         ];
     }
     getEnabledRules(constraints) {

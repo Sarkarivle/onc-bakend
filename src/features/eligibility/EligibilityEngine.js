@@ -8,6 +8,7 @@ const AgeCalculator = require('./utils/AgeCalculator');
 
 class EligibilityEngine {
     static async evaluate(user, notification) {
+        const firstName = user.name?.split(' ')[0] || "Dost";
         const report = {
             status: 'ELIGIBLE',
             match_score: 100,
@@ -49,10 +50,7 @@ class EligibilityEngine {
 
             // Indian Format for Cutoff Date
             const cutoffDateObj = new Date(cutoffDate);
-            const d = String(cutoffDateObj.getDate()).padStart(2, '0');
-            const m = String(cutoffDateObj.getMonth() + 1).padStart(2, '0');
-            const y = cutoffDateObj.getFullYear();
-            const indianCutoffDate = `${d}-${m}-${y}`;
+            const indianCutoffDate = `${String(cutoffDateObj.getDate()).padStart(2, '0')}-${String(cutoffDateObj.getMonth() + 1).padStart(2, '0')}-${cutoffDateObj.getFullYear()}`;
 
             report.age_analysis = {
                 exact_age: ageResult.success ? ageResult.data : null,
@@ -91,7 +89,19 @@ class EligibilityEngine {
             const totalModules = activeRules.length;
             const passedModules = report.applied_rules.length;
             report.match_score = totalModules > 0 ? Math.round((passedModules / totalModules) * 100) : 100;
-            report.ai_tip = this._generateAiTip(report);
+
+            // --- CONFIDENCE SCORING ---
+            report.confidence_score = this._calculateConfidence(notification, report);
+
+            // --- PERSONALIZED AI TIP ---
+            if (report.status === 'ELIGIBLE') {
+                report.ai_tip = `Bhai ${firstName}, aap is job ke liye ekdum fit ho! Padhai aur physical dono sahi hain. Apply kar do.`;
+            } else if (report.status === 'INELIGIBLE') {
+                const reasons = report.failed_rules.map(r => r.module).join(' aur ');
+                report.ai_tip = `Bhai ${firstName}, aapka ${reasons} requirement match nahi ho raha hai, isliye aap eligible nahi ho.`;
+            } else {
+                report.ai_tip = `Bhai ${firstName}, aapki profile me kuch details missing hain. Inhe bharo taaki main confirm kar sakoon.`;
+            }
 
             return report;
         } catch (error) {
@@ -100,11 +110,18 @@ class EligibilityEngine {
         }
     }
 
-    static _generateAiTip(report) {
-        if (report.status === 'ELIGIBLE') return "Bhai, aap is job ke liye bilkul fit ho! Mauka achha hai, apply kar do.";
-        if (report.status === 'INELIGIBLE') return "Bhai, aapki requirements match nahi ho rahi hain. Details check karein.";
-        if (report.status === 'INCOMPLETE_PROFILE') return "Aapki profile incomplete hai. Details bharo taaki main confirm kar sakoon.";
-        return "Jankari check karein.";
+    static _calculateConfidence(notif, report) {
+        let score = 100;
+        if (report.applied_rules.some(r => r.fromHtml) || report.failed_rules.some(r => r.fromHtml)) {
+            score -= 20;
+        }
+        if (!notif.base_constraints) {
+            score -= 15;
+        }
+        if (report.status === 'INCOMPLETE_PROFILE') {
+            score -= 10;
+        }
+        return score;
     }
 }
 
