@@ -14,7 +14,8 @@ class UserProfile {
         return {
             name: userName || "User",
             // Priority 1: Auth DB (Source of Truth)
-            qualification: dbUser?.education || sessionData.userQualification || null,
+            education: dbUser?.education || dbUser?.educationLevel || sessionData.userQualification || null,
+            qualification: dbUser?.education || dbUser?.educationLevel || sessionData.userQualification || null,
             stream: dbUser?.educationStream || null,
             percentage: dbUser?.educationPercentage || null,
             professionalDegrees: dbUser?.professionalDegrees || [],

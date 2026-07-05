@@ -20,7 +20,7 @@ class EducationRule extends BaseRule {
     }
 
     _runEvaluation(user, eduReq, firstName) {
-        const userLevel = (user.educationLevel || user.education || "").toUpperCase();
+        const userLevel = (user.education || user.qualification || "").toUpperCase();
 
         // 1. Check if user has even filled the basic level
         if (!userLevel) {

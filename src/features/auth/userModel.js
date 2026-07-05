@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
   category: { type: String, enum: ['General', 'OBC', 'SC', 'ST', 'EWS'], default: 'General' },
   dob: { type: Date },
   // --- ACADEMIC DEPTH (Multi-Level) ---
+  education: { type: String }, // General/Legacy field
   educationLevel: { type: String }, // Highest Level (10th, 12th, Graduate, etc.)
   educationHistory: {
     tenth: { year: Number, percentage: Number },
