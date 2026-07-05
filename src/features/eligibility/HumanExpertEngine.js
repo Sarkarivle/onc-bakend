@@ -21,8 +21,9 @@ class HumanExpertEngine {
 
             const prompt = expertPrompt(userName, profileStr, facts, jobTitle);
 
-            // Call the LLM to get the human-friendly reasoning
-            const response = await LLMProvider.generateLogic(prompt);
+            // Call the LLM to get the human-friendly reasoning (Using Chat for personality and text output)
+            const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }]);
+            const response = chatRes?.content;
 
             if (response && typeof response === 'string') {
                 // Parse bullet points into an array

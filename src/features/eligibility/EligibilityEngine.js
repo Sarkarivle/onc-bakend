@@ -104,6 +104,7 @@ class EligibilityEngine {
 
             // --- PERSONALIZED DOST ADVICE (v8.0) ---
             report.dost_advice = await HumanExpertEngine.generateDostAdvice(user, report, notification.title);
+            report.ai_tip = (report.dost_advice && report.dost_advice.length > 0) ? report.dost_advice[0] : null;
 
             return report;
         } catch (error) {
