@@ -155,12 +155,26 @@ const getAiMatchAdvice = async (req, res) => {
     // 3. Response Construction (Mapping New Engine Report to Legacy UI fields for compatibility)
     const ageInfo = report.age_analysis?.exact_age || {};
     let ageStatus = 'Fit';
-    const ageFail = report.failed_rules.find(r => r.module === 'AGE');
-    if (ageFail) {
-        ageStatus = (ageInfo.years < (report.age_analysis.base_min_age || 18)) ? 'Under' : 'Over';
+    let ageDesc = "Update Profile";
+
+    if (report.status === 'INCOMPLETE_PROFILE' && !user.dob) {
+        ageStatus = 'Need Data';
+        ageDesc = "N/A (Update Profile)";
+    } else {
+        const ageFail = report.failed_rules.find(r => r.module === 'AGE');
+        if (ageFail) {
+            ageStatus = (ageInfo.years < (report.age_analysis.base_min_age || 18)) ? 'Under' : 'Over';
+        }
+        ageDesc = `${ageInfo.years || '??'} Years (${ageStatus})`;
     }
 
     const eduStatus = report.failed_rules.some(r => r.module === 'EDUCATION') ? 'No Match' : 'Match';
+    let eduDesc = user.education || "N/A";
+    if (!user.education) {
+        eduDesc = "Update Profile";
+    } else {
+        eduDesc = `${user.education} (${eduStatus})`;
+    }
 
     const isReserved = (user.category || '').match(/SC|ST|PH/i);
     let feeText = isReserved ? (job.applicationFee?.scStPh || '0') : (job.applicationFee?.generalObcEws || 'N/A');
@@ -171,10 +185,10 @@ const getAiMatchAdvice = async (req, res) => {
         advice: report.ai_tip,
         urgency: urgencyResult.text,
         fee_text: feeText.includes('₹') ? feeText : `₹${feeText}`,
-        age_desc: `${ageInfo.years || '??'} Years (${ageStatus})`,
+        age_desc: ageDesc,
         age_status: ageStatus,
         vacancy_text: job.totalVacancy || 'Not Specified',
-        edu_desc: `${user.education || 'N/A'} (${eduStatus})`,
+        edu_desc: eduDesc,
         edu_status: eduStatus,
 
         // Detailed report for new UI features

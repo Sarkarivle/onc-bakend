@@ -14,16 +14,38 @@ class UserProfile {
         return {
             name: userName || "User",
             // Priority 1: Auth DB (Source of Truth)
-            // Priority 2: Session Data (Current request)
-            // This ensures profile data is never overwritten by temporary memory guesses.
-            qualification: dbUser?.education || sessionData.userQualification || sessionData.qualification || null,
-            dob: dbUser?.dob || sessionData.userDOB || sessionData.dob || null,
-            state: dbUser?.domicileState || sessionData.userLocation || sessionData.state || null,
-            category: dbUser?.category || sessionData.userCategory || sessionData.category || null,
+            qualification: dbUser?.education || sessionData.userQualification || null,
+            stream: dbUser?.educationStream || null,
+            percentage: dbUser?.educationPercentage || null,
+            professionalDegrees: dbUser?.professionalDegrees || [],
+
+            dob: dbUser?.dob || sessionData.userDOB || null,
+            state: dbUser?.domicileState || sessionData.userLocation || null,
+            category: dbUser?.category || sessionData.userCategory || null,
             gender: dbUser?.gender || sessionData.gender || null,
-            city: dbUser?.city || sessionData.userLocation || sessionData.city || null,
+            city: dbUser?.city || sessionData.city || null,
+
+            // Physical
+            height: dbUser?.height || null,
+            weight: dbUser?.weight || null,
+            chest: dbUser?.chest || null,
+            vision: dbUser?.vision || null,
+
+            // Skills & Special
+            certificates: dbUser?.certificates || [],
+            typing: dbUser?.typingSkills || [],
+            steno: dbUser?.stenoSkill || false,
+            license: dbUser?.drivingLicense || 'None',
+            ncc: dbUser?.nccCertificate || 'None',
+            sports: dbUser?.sportsLevel || 'None',
+
+            // Status
+            maritalStatus: dbUser?.maritalStatus || 'Single',
+            serviceStatus: dbUser?.serviceStatus || 'Fresh',
+            serviceYears: dbUser?.serviceYears || 0,
+
             isNewUser: !dbUser,
-            insights: dbUser ? `Previous user. Known qualification: ${dbUser.education || 'Unknown'}` : "New user."
+            insights: dbUser ? `Known qualification: ${dbUser.education || 'Unknown'}` : "New user."
         };
     }
 

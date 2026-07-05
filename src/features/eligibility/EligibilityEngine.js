@@ -23,8 +23,9 @@ class EligibilityEngine {
             if (!notification) throw new Error("NOTIFICATION_MISSING");
 
             // --- DATA NORMALIZATION FOR ENGINE ---
-            // If the job uses the legacy 'eligibility' field, map it to 'base_constraints'
             const legacy = notification.eligibility || {};
+            const fullData = notification.fullData || notification.full_data || {};
+
             const baseConstraints = notification.base_constraints || {
                 age: {
                     min: parseInt(legacy.minAge) || 18,
@@ -33,7 +34,9 @@ class EligibilityEngine {
                 },
                 education: {
                     level: legacy.education || 'N/A'
-                }
+                },
+                physical: fullData.physical_standards || fullData.physical || null,
+                skills: fullData.skills || fullData.required_skills || []
             };
             const cutoffDate = baseConstraints.age?.cutoff_date || notification.createdAt || new Date();
 

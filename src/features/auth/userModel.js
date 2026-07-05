@@ -11,11 +11,30 @@ const userSchema = new mongoose.Schema({
   // Personalization Fields
   gender: { type: String, enum: ['Male', 'Female', 'Other'] },
   category: { type: String, enum: ['General', 'OBC', 'SC', 'ST', 'EWS'], default: 'General' },
-  dob: { type: Date }, // Date of Birth for age calculation
-  education: { type: String }, // e.g. 10th, 12th, Graduate
+  dob: { type: Date },
+  education: { type: String },
+  educationStream: { type: String }, // PCM, Commerce, Agriculture, etc.
+  educationPercentage: { type: Number },
+  professionalDegrees: [{ type: String }], // B.Ed, ITI, Diploma, BTC, etc.
+
+  // Physical & Medical
   height: { type: Number }, // in cm
   weight: { type: Number }, // in kg
-  certificates: [{ type: String }], // e.g. ['CCC', 'NCC-B', 'O-Level']
+  chest: { type: Number }, // in cm (Male only usually)
+  vision: { type: String }, // 6/6, 6/9
+
+  // Skills & Special
+  certificates: [{ type: String }], // CCC, O-Level, Tally
+  typingSkills: [{ type: String }], // English, Hindi
+  stenoSkill: { type: Boolean, default: false },
+  drivingLicense: { type: String, enum: ['None', 'LMV', 'HMV'], default: 'None' },
+  nccCertificate: { type: String, enum: ['None', 'A', 'B', 'C'], default: 'None' },
+  sportsLevel: { type: String, enum: ['None', 'District', 'State', 'National'], default: 'None' },
+
+  // Status & Location
+  maritalStatus: { type: String, enum: ['Single', 'Married', 'Widow', 'Divorcee'], default: 'Single' },
+  serviceStatus: { type: String, enum: ['Fresh', 'Ex-Serviceman', 'Govt Employee'], default: 'Fresh' },
+  serviceYears: { type: Number, default: 0 },
   domicileState: { type: String, default: 'Uttar Pradesh' },
   city: { type: String },
 
