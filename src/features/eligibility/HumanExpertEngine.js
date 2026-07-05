@@ -15,10 +15,24 @@ class HumanExpertEngine {
 
             const profileStr = `User: ${firstName}, Gender: ${user.gender || 'MALE'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
 
+            const fullData = notification.fullData || notification.full_data || {};
+
+            // Prune fullData to fit context window
+            const prunedJobData = {
+                title: jobTitle,
+                eligibility: fullData.eligibility || fullData.structured_data?.eligibility,
+                age_limit: fullData.age_limit || fullData.structured_data?.age_limit,
+                physical_standard: fullData.physical_standard || fullData.structured_data?.physical_standard,
+                vacancy_details: fullData.vacancy_details || fullData.structured_data?.vacancy_details,
+                important_dates: fullData.important_dates || fullData.structured_data?.important_dates,
+                who_can_apply: fullData.who_can_apply,
+                extra_requirements: fullData.rule_map?.extra_requirements
+            };
+
             const jobBrief = {
                 title: jobTitle,
-                description: notification.description || "",
-                fullData: notification.fullData || notification.full_data || {}
+                description: (notification.description || "").substring(0, 300), // Truncate long descriptions
+                fullData: prunedJobData
             };
 
             const educationFact = (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'));
@@ -75,10 +89,24 @@ class HumanExpertEngine {
 
             const profileStr = `User: ${firstName}, Gender: ${user.gender || 'MALE'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
 
+            const fullData = notification.fullData || notification.full_data || {};
+
+            // Prune fullData to fit context window
+            const prunedJobData = {
+                title: jobTitle,
+                eligibility: fullData.eligibility || fullData.structured_data?.eligibility,
+                age_limit: fullData.age_limit || fullData.structured_data?.age_limit,
+                physical_standard: fullData.physical_standard || fullData.structured_data?.physical_standard,
+                vacancy_details: fullData.vacancy_details || fullData.structured_data?.vacancy_details,
+                important_dates: fullData.important_dates || fullData.structured_data?.important_dates,
+                who_can_apply: fullData.who_can_apply,
+                extra_requirements: fullData.rule_map?.extra_requirements
+            };
+
             const jobBrief = {
                 title: jobTitle,
-                description: notification.description || "",
-                fullData: notification.fullData || notification.full_data || {}
+                description: (notification.description || "").substring(0, 300), // Truncate long descriptions
+                fullData: prunedJobData
             };
 
             const educationFact = (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'));
