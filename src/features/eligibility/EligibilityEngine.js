@@ -20,21 +20,33 @@ class EligibilityEngine {
         };
 
         try {
-            if (!notification || !notification.base_constraints) {
-                throw new Error("NOTIFICATION_DATA_INCOMPLETE");
-            }
+            if (!notification) throw new Error("NOTIFICATION_MISSING");
 
-            const baseConstraints = notification.base_constraints;
+            // --- DATA NORMALIZATION FOR ENGINE ---
+            // If the job uses the legacy 'eligibility' field, map it to 'base_constraints'
+            const legacy = notification.eligibility || {};
+            const baseConstraints = notification.base_constraints || {
+                age: {
+                    min: parseInt(legacy.minAge) || 18,
+                    max: parseInt(legacy.maxAge) || 40,
+                    cutoff_date: notification.lastDate || legacy.ageLimit || new Date()
+                },
+                education: {
+                    level: legacy.education || 'N/A'
+                }
+            };
             const cutoffDate = baseConstraints.age?.cutoff_date || notification.createdAt || new Date();
 
             const ageResult = AgeCalculator.calculate(user.dob, cutoffDate);
             const ageRelaxation = RelaxationEngine.resolve(user, notification.relaxations, 'MAX_AGE');
 
+            const baseMinAge = Number(baseConstraints.age?.min) || 18;
             const baseMaxAge = Number(baseConstraints.age?.max) || 40;
             const effectiveMaxAge = baseMaxAge + ageRelaxation;
 
             report.age_analysis = {
                 exact_age: ageResult.success ? ageResult.data : null,
+                base_min_age: baseMinAge,
                 base_max_age: baseMaxAge,
                 relaxation_applied: ageRelaxation,
                 effective_max_age: effectiveMaxAge,

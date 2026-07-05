@@ -130,8 +130,12 @@ const getAiMatchAdvice = async (req, res) => {
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
 
     // 1. Run the New High-Precision Eligibility Engine
-    // We normalize the job model to match what EligibilityEngine expects if necessary
     const report = await EligibilityEngine.evaluate(user, job);
+
+    // Failsafe for engine errors
+    if (report.status === 'ERROR') {
+        throw new Error(report.message);
+    }
 
     // 2. ULTIMATE DATE SEARCH (Retained for frontend urgency display)
     let lastDateStr = "N/A";
@@ -150,7 +154,12 @@ const getAiMatchAdvice = async (req, res) => {
 
     // 3. Response Construction (Mapping New Engine Report to Legacy UI fields for compatibility)
     const ageInfo = report.age_analysis?.exact_age || {};
-    const ageStatus = report.failed_rules.some(r => r.module === 'AGE') ? 'Over' : 'Fit';
+    let ageStatus = 'Fit';
+    const ageFail = report.failed_rules.find(r => r.module === 'AGE');
+    if (ageFail) {
+        ageStatus = (ageInfo.years < (report.age_analysis.base_min_age || 18)) ? 'Under' : 'Over';
+    }
+
     const eduStatus = report.failed_rules.some(r => r.module === 'EDUCATION') ? 'No Match' : 'Match';
 
     const isReserved = (user.category || '').match(/SC|ST|PH/i);
