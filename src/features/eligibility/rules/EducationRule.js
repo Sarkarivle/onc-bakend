@@ -4,8 +4,8 @@ class EducationRule extends BaseRule {
     constructor() { super('EDUCATION'); }
 
     evaluate(user, constraints) {
-        const requiredLevel = constraints.education?.level;
-        if (!requiredLevel || requiredLevel === 'N/A') {
+        const rawRequired = constraints.education?.level;
+        if (!rawRequired || rawRequired === 'N/A' || rawRequired === 'Check Notification') {
             return {
                 module: this.module,
                 status: 'PASS',
@@ -24,12 +24,21 @@ class EducationRule extends BaseRule {
         }
 
         const userLevel = String(user.education).toUpperCase();
-        const reqLevel = String(requiredLevel).toUpperCase();
+        const reqText = String(rawRequired).toUpperCase();
 
         const levels = {
             '8TH PASS': 1, '10TH PASS': 2, '12TH PASS': 3, 'ITI/DIPLOMA': 4,
             'GRADUATE': 5, 'POST GRADUATE': 6, 'PHD': 7
         };
+
+        // Normalize messy requirement string to canonical level
+        let reqLevel = '8TH PASS';
+        if (reqText.includes('PHD')) reqLevel = 'PHD';
+        else if (reqText.includes('POST GRADUATE') || reqText.includes('PG ')) reqLevel = 'POST GRADUATE';
+        else if (reqText.includes('GRADUATE') || reqText.includes('DEGREE') || reqText.includes('BACHELOR')) reqLevel = 'GRADUATE';
+        else if (reqText.includes('ITI') || reqText.includes('DIPLOMA')) reqLevel = 'ITI/DIPLOMA';
+        else if (reqText.includes('12TH') || reqText.includes('10+2') || reqText.includes('INTERMEDIATE') || reqText.includes('SECONDARY')) reqLevel = '12TH PASS';
+        else if (reqText.includes('10TH') || reqText.includes('MATRIC')) reqLevel = '10TH PASS';
 
         const userScore = levels[userLevel] || 0;
         const reqScore = levels[reqLevel] || 0;
