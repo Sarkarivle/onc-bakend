@@ -15,7 +15,6 @@ class HumanExpertEngine {
 
             const profileStr = `User: ${firstName}, Gender: ${user.gender || 'MALE'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
 
-            // Provide more context from notification for deeper logic
             const jobBrief = {
                 title: jobTitle,
                 description: notification.description || "",
@@ -29,25 +28,9 @@ class HumanExpertEngine {
             const facts = {
                 overall_status: report.status,
                 engine_decisions: {
-                    education: educationFact ? {
-                        status: educationFact.status,
-                        user_qualification: educationFact.userHad,
-                        job_requirement: educationFact.requirement,
-                        friendly_msg: educationFact.message
-                    } : null,
-                    age: ageFact ? {
-                        status: ageFact.status,
-                        user_age: report.age_analysis?.exact_age?.formatted,
-                        min_allowed: report.age_analysis.base_min_age,
-                        max_allowed: report.age_analysis.effective_max_age,
-                        friendly_msg: ageFact.message
-                    } : null,
-                    physical: physicalFact ? {
-                        status: physicalFact.status,
-                        user_height: userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A',
-                        required_height: physicalFact.requirement,
-                        friendly_msg: physicalFact.message
-                    } : null
+                    education: educationFact ? { status: educationFact.status, user_qualification: educationFact.userHad, job_requirement: educationFact.requirement, friendly_msg: educationFact.message } : null,
+                    age: ageFact ? { status: ageFact.status, user_age: report.age_analysis?.exact_age?.formatted, min_allowed: report.age_analysis.base_min_age, max_allowed: report.age_analysis.effective_max_age, friendly_msg: ageFact.message } : null,
+                    physical: physicalFact ? { status: physicalFact.status, user_height: userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A', required_height: physicalFact.requirement, friendly_msg: physicalFact.message } : null
                 },
                 extra_notes: report.extra_notes || [],
                 missing_data: report.missing_data.map(r => r.message)
@@ -64,15 +47,12 @@ class HumanExpertEngine {
             const response = chatRes?.content;
 
             if (response && typeof response === 'string') {
-                // Parse bullet points into an array
                 const points = response
                     .split('\n')
                     .filter(line => line.trim().startsWith('-'))
                     .map(line => line.replace(/^-\s*\[POINT\]\s*/i, '').replace(/^- /i, '').replace(/^✅\s*/, '✅ ').replace(/^❌\s*/, '❌ ').trim());
 
                 if (points.length > 0) return points;
-
-                // Fallback if no bullet points found but we have a response
                 return [response.replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '').trim().substring(0, 500)];
             }
 
@@ -80,6 +60,54 @@ class HumanExpertEngine {
         } catch (error) {
             console.error("HumanExpertEngine Error:", error.message);
             return ["Bhai, abhi brain thoda busy hai. Manual report check kar lo niche."];
+        }
+    }
+
+    /**
+     * Streams the advice chunk by chunk.
+     */
+    static async streamDostAdvice(user, report, jobTitle, notification = {}, onChunk) {
+        try {
+            const userName = user.name || "Dost";
+            const firstName = userName.split(' ')[0];
+            const ageStr = report.age_analysis?.exact_age?.formatted || "N/A";
+            const userHeightCM = UnitConverter.heightToCM(user.height);
+
+            const profileStr = `User: ${firstName}, Gender: ${user.gender || 'MALE'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
+
+            const jobBrief = {
+                title: jobTitle,
+                description: notification.description || "",
+                fullData: notification.fullData || notification.full_data || {}
+            };
+
+            const educationFact = (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'));
+            const ageFact = (report.applied_rules.find(r => r.module === 'AGE') || report.failed_rules.find(r => r.module === 'AGE'));
+            const physicalFact = (report.applied_rules.find(r => r.module === 'PHYSICAL') || report.failed_rules.find(r => r.module === 'PHYSICAL'));
+
+            const facts = {
+                overall_status: report.status,
+                engine_decisions: {
+                    education: educationFact ? { status: educationFact.status, user_qualification: educationFact.userHad, job_requirement: educationFact.requirement, friendly_msg: educationFact.message } : null,
+                    age: ageFact ? { status: ageFact.status, user_age: report.age_analysis?.exact_age?.formatted, min_allowed: report.age_analysis.base_min_age, max_allowed: report.age_analysis.effective_max_age, friendly_msg: ageFact.message } : null,
+                    physical: physicalFact ? { status: physicalFact.status, user_height: userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A', required_height: physicalFact.requirement, friendly_msg: physicalFact.message } : null
+                },
+                extra_notes: report.extra_notes || [],
+                missing_data: report.missing_data.map(r => r.message)
+            };
+
+            const istDate = new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric'
+            }).format(new Date());
+
+            const prompt = expertPrompt(userName, profileStr, facts, jobBrief, istDate);
+
+            await LLMProvider.chatStream([{ role: 'user', content: prompt }], (chunk) => {
+                onChunk(chunk);
+            });
+        } catch (error) {
+            console.error("StreamDostAdvice Error:", error.message);
+            onChunk("Bhai, thoda system load le raha hai, par tu check karte reh!");
         }
     }
 }

@@ -6,7 +6,7 @@ module.exports = {
     AI_LOGIC_MODEL: "qwen2.5:7b",
 
     // 2. PERSONALITY ENGINE (Heavy Synthesis & High-Impact Voice)
-    AI_PERSONALITY_MODEL: "qwen3:14b",
+    AI_PERSONALITY_MODEL: "Qwen2.5-14B-Instruct-AWQ",
 
     // 3. REASONING ENGINE (Deep Career Analysis)
     AI_REASONING_MODEL: "qwen3:14b",

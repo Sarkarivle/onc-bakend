@@ -27,6 +27,7 @@ router.post('/admin/import', handle('importJob'));
 
 router.get('/:id', handle('getJob'));
 router.get('/:jobId/match-advice', handle('getAiMatchAdvice'));
+router.get('/:jobId/match-advice/stream', handle('getAiMatchAdviceStream'));
 router.patch('/:id', handle('updateJob'));
 router.delete('/:id', handle('deleteJob'));
 

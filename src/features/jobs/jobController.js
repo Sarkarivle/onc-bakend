@@ -221,6 +221,33 @@ const getAiMatchAdvice = async (req, res) => {
   }
 };
 
+const getAiMatchAdviceStream = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    if (!req.user || !req.user.id) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+
+    const user = await User.findById(req.user.id).lean();
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
+
+    const report = await EligibilityEngine.evaluate(user, job);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    await HumanExpertEngine.streamDostAdvice(user, report, job.title, job, (chunk) => {
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    });
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err) {
+    console.error("Stream Error:", err);
+    res.end();
+  }
+};
+
 const getAllJobs = async (req, res) => {
   try {
     const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
@@ -261,4 +288,4 @@ const deleteJob = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
-module.exports = { getAllJobs, getJob, getAiMatchAdvice, importJob, discoverNewJobs, updateJob, deleteJob, createJob };
+module.exports = { getAllJobs, getJob, getAiMatchAdvice, getAiMatchAdviceStream, importJob, discoverNewJobs, updateJob, deleteJob, createJob };
