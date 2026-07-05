@@ -68,9 +68,16 @@ class LLMProvider {
         url = url.replace(/\/api\/?$/i, ''); // Avoid double /api/api
         url = url.replace(/\/+$/, ''); // Clean again
 
-        // If the URL includes a standard path (/api/chat or /v1/), use it
+        // If the URL includes /v1, it's likely an OpenAI-compatible endpoint
         const lowerUrl = url.toLowerCase();
-        if (lowerUrl.includes('/api/chat') || lowerUrl.includes('/v1')) {
+        if (lowerUrl.includes('/v1')) {
+            const baseUrl = url.endsWith('/v1') ? `${url}/chat/completions` : url;
+            this.settingsCache = { baseUrl, expiresAt: now + this.SETTINGS_TTL_MS };
+            return baseUrl;
+        }
+
+        // If it includes /api/chat, use it as is (Ollama)
+        if (lowerUrl.includes('/api/chat')) {
             this.settingsCache = { baseUrl: url, expiresAt: now + this.SETTINGS_TTL_MS };
             return url;
         }
@@ -78,6 +85,7 @@ class LLMProvider {
         // Otherwise, assume it's just a domain and add default Ollama path
         const baseUrl = `${url}/api/chat`;
         this.settingsCache = { baseUrl, expiresAt: now + this.SETTINGS_TTL_MS };
+        console.log(`[LLMProvider] Using URL: ${baseUrl}`);
         return baseUrl;
     }
 
@@ -90,15 +98,19 @@ class LLMProvider {
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
-                const response = await axios.post(fullUrl, {
+                console.log(`[LLMProvider] Calling Logic Model: ${constants.AI_LOGIC_MODEL} at ${fullUrl}`);
+                const payload = {
                     model: constants.AI_LOGIC_MODEL,
                     messages: [
                         { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
                         { role: 'user', content: prompt }
                     ],
                     stream: false,
-                    options: { temperature: 0.1 }
-                }, {
+                    temperature: 0.1,
+                    options: { temperature: 0.1 } // Keep for Ollama
+                };
+
+                const response = await axios.post(fullUrl, payload, {
                     timeout: 45000,
                     httpAgent,
                     httpsAgent
@@ -145,20 +157,31 @@ class LLMProvider {
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
-                const response = await axios.post(fullUrl, {
+                console.log(`[LLMProvider] Calling Personality Model: ${constants.AI_PERSONALITY_MODEL} at ${fullUrl}`);
+                const payload = {
                     model: constants.AI_PERSONALITY_MODEL,
                     messages: messages,
                     stream: false,
-                    options: { temperature: 0.7 }
-                }, {
+                    temperature: 0.7,
+                    options: { temperature: 0.7 } // Keep for Ollama
+                };
+
+                const response = await axios.post(fullUrl, payload, {
                     timeout: 60000,
                     httpAgent,
                     httpsAgent
                 });
 
                 let content = "";
-                if (response.data.message) content = response.data.message.content;
-                else if (response.data.choices) content = response.data.choices[0].message.content;
+                if (response.data.message && response.data.message.content) {
+                    content = response.data.message.content;
+                } else if (response.data.choices && response.data.choices[0].message) {
+                    content = response.data.choices[0].message.content;
+                } else if (response.data.response) {
+                    content = response.data.response;
+                } else if (typeof response.data === 'string') {
+                    content = response.data;
+                }
 
                 return { content };
             } catch (error) {

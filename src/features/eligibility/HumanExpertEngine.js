@@ -8,7 +8,8 @@ class HumanExpertEngine {
     static async generateDostAdvice(user, report, jobTitle) {
         try {
             const userName = user.name || "Dost";
-            const profileStr = `Qualification: ${user.education || 'N/A'}, Age: ${user.age || 'N/A'}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}`;
+            const ageStr = report.age_analysis?.exact_age?.formatted || "N/A";
+            const profileStr = `Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}`;
 
             const facts = {
                 status: report.status,
@@ -27,10 +28,15 @@ class HumanExpertEngine {
 
             if (response && typeof response === 'string') {
                 // Parse bullet points into an array
-                return response
+                const points = response
                     .split('\n')
                     .filter(line => line.trim().startsWith('-'))
                     .map(line => line.replace(/^-\s*\[POINT\]\s*/i, '').replace(/^- /i, '').trim());
+
+                if (points.length > 0) return points;
+
+                // Fallback if no bullet points found but we have a response
+                return [response.replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '').trim().substring(0, 500)];
             }
 
             return ["Bhai, jankari process nahi ho paayi. Ek baar details check kar lo."];
