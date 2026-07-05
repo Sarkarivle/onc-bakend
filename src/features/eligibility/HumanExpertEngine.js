@@ -1,15 +1,25 @@
 const LLMProvider = require('../ai/generation/core_engine/llmProvider');
 const expertPrompt = require('./prompts/expert_reasoning');
+const UnitConverter = require('./utils/UnitConverter');
 
 class HumanExpertEngine {
     /**
      * Converts raw eligibility data into a friendly "Dost" conversation.
      */
-    static async generateDostAdvice(user, report, jobTitle) {
+    static async generateDostAdvice(user, report, jobTitle, notification = {}) {
         try {
             const userName = user.name || "Dost";
             const ageStr = report.age_analysis?.exact_age?.formatted || "N/A";
-            const profileStr = `Name: ${userName}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${user.height ? user.height + 'cm' : 'N/A'}`;
+            const userHeightCM = UnitConverter.heightToCM(user.height);
+
+            const profileStr = `Name: ${userName}, Gender: ${user.gender || 'Not specified'}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A'}`;
+
+            // Provide more context from notification for deeper logic
+            const jobBrief = {
+                title: jobTitle,
+                description: notification.description || "",
+                fullData: notification.fullData || notification.full_data || {}
+            };
 
             const facts = {
                 overall_status: report.status,
@@ -24,7 +34,11 @@ class HumanExpertEngine {
                 }
             };
 
-            const prompt = expertPrompt(userName, profileStr, facts, jobTitle);
+            const istDate = new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric'
+            }).format(new Date());
+
+            const prompt = expertPrompt(userName, profileStr, facts, jobBrief, istDate);
 
             // Call the LLM to get the human-friendly reasoning (Using Chat for personality and text output)
             const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }]);
@@ -35,7 +49,7 @@ class HumanExpertEngine {
                 const points = response
                     .split('\n')
                     .filter(line => line.trim().startsWith('-'))
-                    .map(line => line.replace(/^-\s*\[POINT\]\s*/i, '').replace(/^- /i, '').trim());
+                    .map(line => line.replace(/^-\s*\[POINT\]\s*/i, '').replace(/^- /i, '').replace(/^✅\s*/, '✅ ').replace(/^❌\s*/, '❌ ').trim());
 
                 if (points.length > 0) return points;
 
