@@ -21,17 +21,35 @@ class HumanExpertEngine {
                 fullData: notification.fullData || notification.full_data || {}
             };
 
+            const educationFact = (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'));
+            const ageFact = (report.applied_rules.find(r => r.module === 'AGE') || report.failed_rules.find(r => r.module === 'AGE'));
+            const physicalFact = (report.applied_rules.find(r => r.module === 'PHYSICAL') || report.failed_rules.find(r => r.module === 'PHYSICAL'));
+
             const facts = {
                 overall_status: report.status,
-                age_details: report.age_analysis,
-                failed_reasons: report.failed_rules.map(r => r.message),
-                passed_details: report.applied_rules.map(r => r.message),
-                missing_info: report.missing_data.map(r => r.message),
+                engine_decisions: {
+                    education: educationFact ? {
+                        status: educationFact.status,
+                        user_qualification: educationFact.userHad,
+                        job_requirement: educationFact.requirement,
+                        friendly_msg: educationFact.message
+                    } : null,
+                    age: ageFact ? {
+                        status: ageFact.status,
+                        user_age: report.age_analysis?.exact_age?.formatted,
+                        min_allowed: report.age_analysis.base_min_age,
+                        max_allowed: report.age_analysis.effective_max_age,
+                        friendly_msg: ageFact.message
+                    } : null,
+                    physical: physicalFact ? {
+                        status: physicalFact.status,
+                        user_height: userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A',
+                        required_height: physicalFact.requirement,
+                        friendly_msg: physicalFact.message
+                    } : null
+                },
                 extra_notes: report.extra_notes || [],
-                job_requirements: {
-                    education: (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'))?.requirement || "Not clearly specified",
-                    physical: (report.applied_rules.find(r => r.module === 'PHYSICAL') || report.failed_rules.find(r => r.module === 'PHYSICAL'))?.requirement || "Standard"
-                }
+                missing_data: report.missing_data.map(r => r.message)
             };
 
             const istDate = new Intl.DateTimeFormat('en-IN', {

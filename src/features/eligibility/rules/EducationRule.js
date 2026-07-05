@@ -75,7 +75,8 @@ class EducationRule extends BaseRule {
             status: 'PASS',
             message: `Perfect Match: Bhai ${firstName}, aapki qualification (${userLevel}) is job ke liye bilkul sahi hai!`,
             score: 100,
-            requirement: reqLevel
+            requirement: reqLevel,
+            userHad: userLevel
         };
     }
 
