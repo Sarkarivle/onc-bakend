@@ -80,6 +80,10 @@ class EligibilityEngine {
                 } else if (res.status === 'INCOMPLETE') {
                     if (report.status !== 'INELIGIBLE') report.status = 'INCOMPLETE_PROFILE';
                     report.missing_data.push(res);
+                    if (res.field) {
+                       report.missing_fields = report.missing_fields || [];
+                       report.missing_fields.push(res.field);
+                    }
                 }
                 report.summary.push(`${res.module}: ${res.message}`);
             });
