@@ -8,12 +8,7 @@ class LanguageRule extends BaseRule {
     evaluate(user, constraints) {
         const requiredLang = constraints.language?.required;
         if (!requiredLang || requiredLang === 'ANY') {
-            return {
-                module: this.module,
-                status: 'PASS',
-                message: "Khaas bhasha ki koi shart nahi hai.",
-                score: 100
-            };
+            return { module: this.module, status: 'NA', message: "Not required" };
         }
 
         const userLangs = (user.languagesKnown || []).map(l => l.toUpperCase());

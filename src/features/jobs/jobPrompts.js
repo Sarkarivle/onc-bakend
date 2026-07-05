@@ -45,20 +45,16 @@ JSON SCHEMA:
   },
   "rule_map": {
     "education": {
-       "level": "Identify one: 10TH PASS | 12TH PASS | ITI/DIPLOMA | GRADUATE | POST GRADUATE | PHD",
-       "required_degrees": ["B.ED", "BTC", "D.EL.ED", "ITI", "DIPLOMA", "CCC"] // Add all that apply
+       "level": "Identify: 10TH PASS | 12TH PASS | ITI/DIPLOMA | GRADUATE | POST GRADUATE",
+       "required_degrees": ["B.ED", "BTC", "D.EL.ED", "ITI", "DIPLOMA", "CCC"]
     },
     "physical": {
-       "male": {
-          "GENERAL": { "height": 165, "chest": 81 },
-          "SC_ST": { "height": 160, "chest": 79 },
-          "ANY": { "height": 165 }
-       },
-       "female": {
-          "ANY": { "height": 155 }
-       }
+       "male": { "GENERAL": { "height": 165 }, "ANY": { "height": 160 } },
+       "female": { "ANY": { "height": 155 } }
     },
-    "skills": ["HINDI TYPING", "ENGLISH TYPING", "STENO", "CCC"]
+    "extra_requirements": [
+        "List any specific skills, license, running distance, typing speed, or other notes here in simple Hinglish"
+    ]
   }
 }
 

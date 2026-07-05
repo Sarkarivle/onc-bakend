@@ -8,12 +8,7 @@ class SkillRule extends BaseRule {
     evaluate(user, constraints) {
         const reqSkills = constraints.skills || [];
         if (!reqSkills || reqSkills.length === 0) {
-            return {
-                module: this.module,
-                status: 'PASS',
-                message: "No specific skill certificates required.",
-                score: 100
-            };
+            return { module: this.module, status: 'NA', message: "Not required" };
         }
 
         const missing = [];

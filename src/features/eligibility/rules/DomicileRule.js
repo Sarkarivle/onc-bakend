@@ -8,12 +8,7 @@ class DomicileRule extends BaseRule {
     evaluate(user, constraints) {
         const requiredState = constraints.domicile?.state;
         if (!requiredState || requiredState === 'ANY') {
-            return {
-                module: this.module,
-                status: 'PASS',
-                message: "Ye job kisi bhi state ke candidate ke liye open hai.",
-                score: 100
-            };
+            return { module: this.module, status: 'NA', message: "Not required" };
         }
 
         const userState = (user.domicileState || "").toUpperCase();

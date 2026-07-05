@@ -197,6 +197,7 @@ const getAiMatchAdvice = async (req, res) => {
         // Detailed report for new UI features
         full_report: report,
         missing_fields: report.missing_fields || [],
+        extra_notes: report.extra_notes || [],
 
         // Legacy fields for stability
         loc_desc: "Location aapke profile ke hisab se sahi hai.",

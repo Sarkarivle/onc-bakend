@@ -23,8 +23,8 @@ class PhysicalRule extends BaseRule {
             }
         }
 
-        if (!physical || (typeof physical !== 'object')) {
-            return { module: this.module, status: 'PASS', message: "Physical requirements isme mentioned nahi hain.", score: 100 };
+        if (!physical || (typeof physical !== 'object' && !physical)) {
+            return { module: this.module, status: 'NA', message: "Not required" };
         }
 
         // 1. Get Gender Specific Rules

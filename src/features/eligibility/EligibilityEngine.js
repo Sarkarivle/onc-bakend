@@ -72,23 +72,29 @@ class EligibilityEngine {
             evaluations.forEach(res => {
                 if (res.status === 'PASS') {
                     report.applied_rules.push(res);
+                    report.summary.push(`${res.module}: ${res.message}`);
                 } else if (res.status === 'FAIL') {
                     report.status = 'INELIGIBLE';
                     report.failed_rules.push(res);
+                    report.summary.push(`${res.module}: ${res.message}`);
                 } else if (res.status === 'INCOMPLETE') {
                     if (report.status !== 'INELIGIBLE') report.status = 'INCOMPLETE_PROFILE';
                     report.missing_data.push(res);
+                    report.summary.push(`${res.module}: ${res.message}`);
                     if (res.field) {
                        report.missing_fields = report.missing_fields || [];
                        report.missing_fields.push(res.field);
                     }
                 }
-                report.summary.push(`${res.module}: ${res.message}`);
+                // status 'NA' will be completely ignored
             });
 
             const totalModules = activeRules.length;
             const passedModules = report.applied_rules.length;
             report.match_score = totalModules > 0 ? Math.round((passedModules / totalModules) * 100) : 100;
+
+            // --- ADD EXTRA REQUIREMENTS (Informational) ---
+            report.extra_notes = baseConstraints.extra_requirements || [];
 
             // --- CONFIDENCE SCORING ---
             report.confidence_score = this._calculateConfidence(notification, report);
