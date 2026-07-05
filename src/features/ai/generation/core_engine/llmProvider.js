@@ -11,7 +11,8 @@ const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
 class LLMProvider {
     static settingsCache = {
         baseUrl: null,
-        expiresAt: 0
+        expiresAt: 0,
+        provider: null
     };
     static SETTINGS_TTL_MS = Number(process.env.LLM_SETTINGS_TTL_MS || 60_000);
 
@@ -30,8 +31,18 @@ class LLMProvider {
         return { ...this.callStats };
     }
 
-    static getProvider() {
-        return (process.env.LLM_PROVIDER || 'ollama').toLowerCase();
+    /**
+     * Determines if we are using Ollama or OpenAI/vLLM based on env or URL analysis
+     */
+    static getProvider(url = '') {
+        const envProvider = process.env.LLM_PROVIDER;
+        if (envProvider) return envProvider.toLowerCase();
+
+        // Auto-detect based on URL
+        if (url.toLowerCase().includes('/v1') || url.toLowerCase().includes('openai') || url.toLowerCase().includes('runpod')) {
+            return 'vllm';
+        }
+        return 'ollama';
     }
 
     static async getBaseUrl() {
@@ -40,22 +51,13 @@ class LLMProvider {
             return this.settingsCache.baseUrl;
         }
 
-        const provider = this.getProvider();
-        let url = process.env.LLM_BASE_URL;
+        let url = (process.env.LLM_BASE_URL || '').trim();
 
         if (!url) {
             const setting = Settings.db?.readyState === 1
                 ? await Settings.findOne({ key: 'RUNPOD_URL' })
                 : null;
-            url = (setting?.value || constants.DEFAULT_RUNPOD_URL).trim();
-        }
-
-        if (!url) {
-            const defaultUrl = provider === 'vllm' || provider === 'openai'
-                ? 'http://127.0.0.1:8000/v1'
-                : constants.DEFAULT_RUNPOD_URL;
-            this.settingsCache = { baseUrl: defaultUrl, expiresAt: now + this.SETTINGS_TTL_MS };
-            return defaultUrl;
+            url = (setting?.value || constants.DEFAULT_RUNPOD_URL || '').trim();
         }
 
         // ULTRA-ROBUST CLEANING
@@ -67,35 +69,35 @@ class LLMProvider {
         url = url.trim().replace(/['"]/g, ''); // Remove quotes
         url = url.replace(/^(https?:\/\/)+/i, (m) => m.toLowerCase().includes('https') ? 'https://' : 'http://');
         if (!url.startsWith('http')) url = `https://${url}`;
+
+        // Remove all trailing slashes and common endpoints to get a clean base
         url = url.replace(/\/+$/, '');
+        url = url.replace(/\/chat\/completions\/?$/i, '');
+        url = url.replace(/\/api\/chat\/?$/i, '');
+        url = url.replace(/\/v1\/?$/i, '');
+        url = url.replace(/\/api\/?$/i, '');
 
+        const provider = this.getProvider(url);
+
+        let finalUrl = url;
         if (provider === 'vllm' || provider === 'openai') {
-            // Ensure v1 path exists and ends with /chat/completions
-            url = url.replace(/\/chat\/completions\/?$/i, '');
-            if (!url.toLowerCase().endsWith('/v1')) {
-                url = `${url}/v1`;
-            }
-            url = `${url}/chat/completions`;
+            finalUrl = `${url}/v1/chat/completions`;
         } else {
-            // Ollama logic
-            url = url.replace(/\/api\/(tags|generate|push|pull|show|copy|delete)\/?$/i, '');
-            url = url.replace(/\/v1\/(models|chat|completions)\/?$/i, '');
-            url = url.replace(/\/api\/?$/i, '');
-            url = url.replace(/\/+$/, '');
-
-            if (!url.toLowerCase().includes('/api/chat')) {
-                url = `${url}/api/chat`;
-            }
+            finalUrl = `${url}/api/chat`;
         }
 
-        this.settingsCache = { baseUrl: url, expiresAt: now + this.SETTINGS_TTL_MS };
-        console.log(`[LLMProvider] Using URL: ${url} (Provider: ${provider})`);
-        return url;
+        this.settingsCache = {
+            baseUrl: finalUrl,
+            expiresAt: now + this.SETTINGS_TTL_MS,
+            provider: provider
+        };
+
+        console.log(`[LLMProvider] Final URL: ${finalUrl} (Auto-Detected Provider: ${provider})`);
+        return finalUrl;
     }
 
     static getModel(type) {
         if (process.env.LLM_MODEL) return process.env.LLM_MODEL;
-
         if (type === 'logic') return constants.AI_LOGIC_MODEL;
         return constants.AI_PERSONALITY_MODEL;
     }
@@ -106,12 +108,13 @@ class LLMProvider {
     static async generateLogic(prompt, retries = 2) {
         this.callStats.logic++;
         this.callStats.total++;
-        const provider = this.getProvider();
-        const model = this.getModel('logic');
 
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
+                const provider = this.settingsCache.provider;
+                const model = this.getModel('logic');
+
                 console.log(`[LLMProvider] Calling Logic Model: ${model} at ${fullUrl}`);
 
                 const payload = {
@@ -172,12 +175,13 @@ class LLMProvider {
     static async chat(messages, retries = 1) {
         this.callStats.chat++;
         this.callStats.total++;
-        const provider = this.getProvider();
-        const model = this.getModel('personality');
 
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
+                const provider = this.settingsCache.provider;
+                const model = this.getModel('personality');
+
                 console.log(`[LLMProvider] Calling Personality Model: ${model} at ${fullUrl}`);
 
                 const payload = {
@@ -225,12 +229,12 @@ class LLMProvider {
     static async chatStream(messages, onChunk) {
         this.callStats.stream++;
         this.callStats.total++;
-        const provider = this.getProvider();
-        const model = this.getModel('personality');
 
-        let fullUrl = "";
         try {
-            fullUrl = await this.getBaseUrl();
+            const fullUrl = await this.getBaseUrl();
+            const provider = this.settingsCache.provider;
+            const model = this.getModel('personality');
+
             console.log(`📡 Starting Stream: ${fullUrl} with model ${model} (Provider: ${provider})`);
 
             const payload = {
@@ -313,7 +317,7 @@ class LLMProvider {
                 });
             });
         } catch (error) {
-            console.error(`❌ LLM Stream Connection Error (${fullUrl}):`, error.message);
+            console.error(`❌ LLM Stream Connection Error:`, error.message);
             throw error;
         }
     }
