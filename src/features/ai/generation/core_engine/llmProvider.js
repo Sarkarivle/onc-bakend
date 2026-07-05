@@ -39,7 +39,8 @@ class LLMProvider {
         if (envProvider) return envProvider.toLowerCase();
 
         // Auto-detect based on URL
-        if (url.toLowerCase().includes('/v1') || url.toLowerCase().includes('openai') || url.toLowerCase().includes('runpod')) {
+        const lowerUrl = url.toLowerCase();
+        if (lowerUrl.includes('/v1') || lowerUrl.includes('openai') || lowerUrl.includes('runpod') || lowerUrl.includes('cloudflare')) {
             return 'vllm';
         }
         return 'ollama';
@@ -51,16 +52,17 @@ class LLMProvider {
             return this.settingsCache.baseUrl;
         }
 
-        let url = (process.env.LLM_BASE_URL || '').trim();
+        let rawUrl = (process.env.LLM_BASE_URL || '').trim();
 
-        if (!url) {
+        if (!rawUrl) {
             const setting = Settings.db?.readyState === 1
                 ? await Settings.findOne({ key: 'RUNPOD_URL' })
                 : null;
-            url = (setting?.value || constants.DEFAULT_RUNPOD_URL || '').trim();
+            rawUrl = (setting?.value || constants.DEFAULT_RUNPOD_URL || '').trim();
         }
 
         // ULTRA-ROBUST CLEANING
+        let url = rawUrl;
         if (url.includes('http')) {
             const match = url.match(/https?:\/\/[^\s'"]+/);
             if (match) url = match[0];
@@ -70,14 +72,16 @@ class LLMProvider {
         url = url.replace(/^(https?:\/\/)+/i, (m) => m.toLowerCase().includes('https') ? 'https://' : 'http://');
         if (!url.startsWith('http')) url = `https://${url}`;
 
+        // DETECT PROVIDER BEFORE STRIPPING
+        const provider = this.getProvider(url);
+
         // Remove all trailing slashes and common endpoints to get a clean base
         url = url.replace(/\/+$/, '');
         url = url.replace(/\/chat\/completions\/?$/i, '');
         url = url.replace(/\/api\/chat\/?$/i, '');
         url = url.replace(/\/v1\/?$/i, '');
         url = url.replace(/\/api\/?$/i, '');
-
-        const provider = this.getProvider(url);
+        url = url.replace(/\/+$/, '');
 
         let finalUrl = url;
         if (provider === 'vllm' || provider === 'openai') {
@@ -92,7 +96,7 @@ class LLMProvider {
             provider: provider
         };
 
-        console.log(`[LLMProvider] Final URL: ${finalUrl} (Auto-Detected Provider: ${provider})`);
+        console.log(`[LLMProvider] Configured URL: ${finalUrl} (Detected Provider: ${provider})`);
         return finalUrl;
     }
 
@@ -194,7 +198,7 @@ class LLMProvider {
                 if (provider === 'ollama') {
                     payload.options = { temperature: 0.7 };
                 } else {
-                    payload.max_tokens = 1000;
+                    payload.max_tokens = 2000;
                 }
 
                 const response = await axios.post(fullUrl, payload, {
@@ -247,7 +251,7 @@ class LLMProvider {
             if (provider === 'ollama') {
                 payload.options = { temperature: 0.7 };
             } else {
-                payload.max_tokens = 1000;
+                payload.max_tokens = 2000;
             }
 
             const response = await axios.post(fullUrl, payload, {
