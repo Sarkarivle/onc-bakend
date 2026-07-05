@@ -34,6 +34,14 @@ class AgeCalculator {
 
             const isLeapBaby = dob.getMonth() === 1 && dob.getDate() === 29;
 
+            // Indian Date Format: DD-MM-YYYY
+            const formatDate = (date) => {
+                const d = String(date.getDate()).padStart(2, '0');
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const y = date.getFullYear();
+                return `${d}-${m}-${y}`;
+            };
+
             return {
                 success: true,
                 data: {
@@ -42,7 +50,7 @@ class AgeCalculator {
                     days,
                     formatted: `${years}y ${months}m ${days}d`,
                     is_leap_baby: isLeapBaby,
-                    as_on_date: ref.toISOString().split('T')[0]
+                    as_on_date: formatDate(ref)
                 }
             };
         } catch (error) {

@@ -44,13 +44,20 @@ class EligibilityEngine {
             const baseMaxAge = Number(baseConstraints.age?.max) || 40;
             const effectiveMaxAge = baseMaxAge + ageRelaxation;
 
+            // Indian Format for Cutoff Date
+            const cutoffDateObj = new Date(cutoffDate);
+            const d = String(cutoffDateObj.getDate()).padStart(2, '0');
+            const m = String(cutoffDateObj.getMonth() + 1).padStart(2, '0');
+            const y = cutoffDateObj.getFullYear();
+            const indianCutoffDate = `${d}-${m}-${y}`;
+
             report.age_analysis = {
                 exact_age: ageResult.success ? ageResult.data : null,
                 base_min_age: baseMinAge,
                 base_max_age: baseMaxAge,
                 relaxation_applied: ageRelaxation,
                 effective_max_age: effectiveMaxAge,
-                cutoff_date: cutoffDate
+                cutoff_date: indianCutoffDate
             };
 
             const effectiveConstraints = {
