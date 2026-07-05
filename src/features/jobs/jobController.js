@@ -128,7 +128,10 @@ const importJob = async (req, res) => {
 const getAiMatchAdvice = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const user = req.user;
+    // CRITICAL FIX: Re-fetch full user profile from DB to ensure no data is missing
+    const User = require('../auth/userModel');
+    const user = await User.findById(req.user.id).lean();
+
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
 

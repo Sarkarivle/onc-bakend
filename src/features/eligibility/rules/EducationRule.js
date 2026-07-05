@@ -20,7 +20,7 @@ class EducationRule extends BaseRule {
             return { module: this.module, status: 'PASS', message: `Bhai ${firstName}, is job me koi khaas education level mentioned nahi hai.`, score: 100 };
         }
 
-        const userLevel = (user.education || user.educationLevel || "").toUpperCase();
+        const userLevel = (user.education || user.educationLevel || user.qualification || "").toUpperCase();
 
         // 2. CHECK IF DATA IS MISSING
         if (!userLevel) {
