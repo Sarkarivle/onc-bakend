@@ -117,6 +117,22 @@ class LLMProvider {
     }
 
     /**
+     * Ensures messages are in the correct format for OpenAI/vLLM
+     */
+    static sanitizeMessages(messages) {
+        if (!Array.isArray(messages)) return [];
+        return messages
+            .filter(m => m && typeof m === 'object' && ['system', 'user', 'assistant'].includes(m.role))
+            .map(m => {
+                let content = m.content;
+                if (content === null || content === undefined) content = "";
+                if (typeof content === 'object') content = JSON.stringify(content);
+                return { role: m.role, content: String(content) };
+            })
+            .filter(m => m.content.trim() !== "");
+    }
+
+    /**
      * ROBUST JSON LOGIC ENGINE
      */
     static async generateLogic(prompt, retries = 2) {
@@ -129,22 +145,29 @@ class LLMProvider {
                 const provider = this.settingsCache.provider;
                 const model = this.getModel('logic');
 
-                console.log(`[LLMProvider] Calling Logic Model: ${model} at ${fullUrl}`);
-
-                const payload = {
-                    model: model,
-                    messages: [
-                        { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    stream: false,
-                    temperature: 0.1
-                };
-
-                if (provider === 'ollama') {
-                    payload.options = { temperature: 0.1 };
+                let payload = {};
+                if (provider === 'vllm' || provider === 'openai') {
+                    payload = {
+                        model: model,
+                        messages: this.sanitizeMessages([
+                            { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
+                            { role: 'user', content: prompt }
+                        ]),
+                        max_tokens: 1000,
+                        temperature: 0.1,
+                        stream: false
+                    };
+                    console.log("[LLMProvider] vLLM Logic Payload:", JSON.stringify(payload, null, 2));
                 } else {
-                    payload.max_tokens = 1000;
+                    payload = {
+                        model: model,
+                        messages: [
+                            { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        stream: false,
+                        options: { temperature: 0.1 }
+                    };
                 }
 
                 const response = await axios.post(fullUrl, payload, {
@@ -177,6 +200,10 @@ class LLMProvider {
 
                 return JSON.parse(jsonMatch[0]);
             } catch (error) {
+                if (error.response) {
+                    console.error("[LLMProvider] Logic Error status:", error.response.status);
+                    console.error("[LLMProvider] Logic Error body:", JSON.stringify(error.response.data, null, 2));
+                }
                 console.warn(`⚠️ LLM Logic Attempt ${i + 1} failed: ${error.message}`);
                 if (i === retries) {
                     console.error("❌ LLM Logic Engine Error after retries:", error.message);
@@ -197,19 +224,23 @@ class LLMProvider {
                 const provider = this.settingsCache.provider;
                 const model = this.getModel('personality');
 
-                console.log(`[LLMProvider] Calling Personality Model: ${model} at ${fullUrl}`);
-
-                const payload = {
-                    model: model,
-                    messages: messages,
-                    stream: false,
-                    temperature: 0.7
-                };
-
-                if (provider === 'ollama') {
-                    payload.options = { temperature: 0.7 };
+                let payload = {};
+                if (provider === 'vllm' || provider === 'openai') {
+                    payload = {
+                        model: model,
+                        messages: this.sanitizeMessages(messages),
+                        max_tokens: 1000,
+                        temperature: 0.7,
+                        stream: false
+                    };
+                    console.log("[LLMProvider] vLLM Chat Payload:", JSON.stringify(payload, null, 2));
                 } else {
-                    payload.max_tokens = 1000;
+                    payload = {
+                        model: model,
+                        messages: messages,
+                        stream: false,
+                        options: { temperature: 0.7 }
+                    };
                 }
 
                 const response = await axios.post(fullUrl, payload, {
@@ -232,6 +263,10 @@ class LLMProvider {
 
                 return { content };
             } catch (error) {
+                if (error.response) {
+                    console.error("[LLMProvider] Chat Error status:", error.response.status);
+                    console.error("[LLMProvider] Chat Error body:", JSON.stringify(error.response.data, null, 2));
+                }
                 console.warn(`⚠️ Personality Engine Attempt ${i + 1} failed: ${error.message}`);
                 if (i === retries) {
                     console.error("❌ Personality Engine Error after retries:", error.message);
@@ -251,19 +286,23 @@ class LLMProvider {
             const provider = this.settingsCache.provider;
             const model = this.getModel('personality');
 
-            console.log(`📡 Starting Stream: ${fullUrl} with model ${model} (Provider: ${provider})`);
-
-            const payload = {
-                model: model,
-                messages: messages,
-                stream: true,
-                temperature: 0.7
-            };
-
-            if (provider === 'ollama') {
-                payload.options = { temperature: 0.7 };
+            let payload = {};
+            if (provider === 'vllm' || provider === 'openai') {
+                payload = {
+                    model: model,
+                    messages: this.sanitizeMessages(messages),
+                    max_tokens: 1000,
+                    temperature: 0.7,
+                    stream: true
+                };
+                console.log("[LLMProvider] vLLM Stream Payload:", JSON.stringify(payload, null, 2));
             } else {
-                payload.max_tokens = 1000;
+                payload = {
+                    model: model,
+                    messages: messages,
+                    stream: true,
+                    options: { temperature: 0.7 }
+                };
             }
 
             const response = await axios.post(fullUrl, payload, {
@@ -334,6 +373,11 @@ class LLMProvider {
                 });
             });
         } catch (error) {
+            if (error.response) {
+                console.error("[LLMProvider] Stream Error status:", error.response.status);
+                // For streams, data might be a stream too
+                console.error("[LLMProvider] Stream Error body:", error.response.data);
+            }
             console.error(`❌ LLM Stream Connection Error:`, error.message);
             throw error;
         }
