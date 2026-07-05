@@ -5,6 +5,7 @@
 const RuleRegistry = require('./RuleRegistry');
 const RelaxationEngine = require('./RelaxationEngine');
 const AgeCalculator = require('./utils/AgeCalculator');
+const HumanExpertEngine = require('./HumanExpertEngine');
 
 class EligibilityEngine {
     static async evaluate(user, notification) {
@@ -101,15 +102,8 @@ class EligibilityEngine {
 
             report.confidence_score = this._calculateConfidence(notification, report);
 
-            // --- PERSONALIZED AI TIP ---
-            if (report.status === 'ELIGIBLE') {
-                report.ai_tip = `Bhai ${firstName}, aap is job ke liye ekdum fit ho! Padhai aur physical dono sahi hain. Apply kar do.`;
-            } else if (report.status === 'INELIGIBLE') {
-                const reasons = report.failed_rules.map(r => r.module).join(' aur ');
-                report.ai_tip = `Bhai ${firstName}, aapka ${reasons} requirement match nahi ho raha hai. Is wajah se aap eligible nahi ho.`;
-            } else {
-                report.ai_tip = `Bhai ${firstName}, aapki profile me kuch basic details (jaise Age ya Degree) missing hain. Inhe bharo taaki main confirm kar sakoon.`;
-            }
+            // --- PERSONALIZED DOST ADVICE (v8.0) ---
+            report.dost_advice = await HumanExpertEngine.generateDostAdvice(user, report, notification.title);
 
             return report;
         } catch (error) {

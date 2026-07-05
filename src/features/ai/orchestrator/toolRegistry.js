@@ -112,27 +112,31 @@ registry.register('AGE_CALCULATOR', {
     safeFallback: () => ({ success: false, result: "DOB not available" })
 });
 
-// 6. ELIGIBILITY CHECKER Tool
+// 6. ELIGIBILITY CHECKER Tool (Neural Reasoning Version)
 registry.register('ELIGIBILITY_CHECKER', {
-    timeout: 3000,
+    timeout: 5000,
     validate: () => {},
     execute: async (input, context) => {
         const profile = context.profile || {};
         const jobData = context.plan?.jobData || context.execResult?.outputs?.rag?.documents?.[0];
 
-        if (!jobData) {
-            return { success: false, message: "Job data missing for eligibility check." };
-        }
+        if (!jobData) return { success: false, message: "Job data missing for eligibility check." };
 
-        const result = await EligibilityEngine.evaluate(profile, jobData);
+        const engineResult = await EligibilityEngine.evaluate(profile, jobData);
         return {
             success: true,
-            eligible: result.status === 'ELIGIBLE',
-            report: result,
-            ai_tip: result.ai_tip
+            facts: {
+                exactAge: engineResult.age_analysis?.exact_age?.formatted,
+                isEligible: engineResult.status === 'ELIGIBLE',
+                appliedRules: engineResult.applied_rules,
+                failedRules: engineResult.failed_rules,
+                extraRequirements: engineResult.extra_notes,
+                confidence: engineResult.confidence_score
+            },
+            instruction: "Bhai, in facts ka use karke user ko samjhao ki wo eligible hai ya nahi. Address them by their first name."
         };
     },
-    safeFallback: () => ({ success: false, eligible: null, reasons: ["Eligibility service unavailable"] })
+    safeFallback: () => ({ success: false, reasons: ["Intelligence service unavailable"] })
 });
 
 // 7. LLM Tool retained for registry completeness; ExecutionEngine keeps final LLM after PromptBuilder.
