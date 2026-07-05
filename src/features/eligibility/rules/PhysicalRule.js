@@ -27,9 +27,6 @@ class PhysicalRule extends BaseRule {
             return { module: this.module, status: 'PASS', message: "Physical requirements isme mentioned nahi hain.", score: 100 };
         }
 
-        const userGender = (user.gender || 'MALE').toLowerCase();
-        const userCategory = (user.category || 'GENERAL').toUpperCase();
-
         // 1. Get Gender Specific Rules
         const genderRules = physical[userGender] || (userGender === 'male' ? physical.male : physical.female);
         if (!genderRules) return { module: this.module, status: 'PASS', message: "Aapke gender ke liye koi physical rule nahi mila.", score: 100 };
