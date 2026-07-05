@@ -17,13 +17,14 @@ class EligibilityEngine {
             failed_rules: [],
             missing_data: [],
             summary: [],
+            extra_notes: [],
             timestamp: new Date().toISOString()
         };
 
         try {
             if (!notification) throw new Error("NOTIFICATION_MISSING");
 
-            // --- DATA NORMALIZATION FOR ENGINE ---
+            // --- DATA NORMALIZATION ---
             const legacy = notification.eligibility || {};
             const fullData = notification.fullData || notification.full_data || {};
 
@@ -72,31 +73,32 @@ class EligibilityEngine {
             evaluations.forEach(res => {
                 if (res.status === 'PASS') {
                     report.applied_rules.push(res);
-                    report.summary.push(`${res.module}: ${res.message}`);
+                    if (res.isExtraMissing) {
+                        report.extra_notes.push(`Jaruri Degree Missing: ${res.missingDegrees.join(', ')}`);
+                    }
                 } else if (res.status === 'FAIL') {
                     report.status = 'INELIGIBLE';
                     report.failed_rules.push(res);
-                    report.summary.push(`${res.module}: ${res.message}`);
                 } else if (res.status === 'INCOMPLETE') {
                     if (report.status !== 'INELIGIBLE') report.status = 'INCOMPLETE_PROFILE';
                     report.missing_data.push(res);
-                    report.summary.push(`${res.module}: ${res.message}`);
                     if (res.field) {
                        report.missing_fields = report.missing_fields || [];
                        report.missing_fields.push(res.field);
                     }
                 }
-                // status 'NA' will be completely ignored
+                if (res.status !== 'NA') report.summary.push(`${res.module}: ${res.message}`);
             });
 
             const totalModules = activeRules.length;
             const passedModules = report.applied_rules.length;
             report.match_score = totalModules > 0 ? Math.round((passedModules / totalModules) * 100) : 100;
 
-            // --- ADD EXTRA REQUIREMENTS (Informational) ---
-            report.extra_notes = baseConstraints.extra_requirements || [];
+            // Add manual extra notes if provided in notification
+            if (baseConstraints.extra_requirements) {
+                report.extra_notes = [...report.extra_notes, ...baseConstraints.extra_requirements];
+            }
 
-            // --- CONFIDENCE SCORING ---
             report.confidence_score = this._calculateConfidence(notification, report);
 
             // --- PERSONALIZED AI TIP ---
@@ -104,9 +106,9 @@ class EligibilityEngine {
                 report.ai_tip = `Bhai ${firstName}, aap is job ke liye ekdum fit ho! Padhai aur physical dono sahi hain. Apply kar do.`;
             } else if (report.status === 'INELIGIBLE') {
                 const reasons = report.failed_rules.map(r => r.module).join(' aur ');
-                report.ai_tip = `Bhai ${firstName}, aapka ${reasons} requirement match nahi ho raha hai, isliye aap eligible nahi ho.`;
+                report.ai_tip = `Bhai ${firstName}, aapka ${reasons} requirement match nahi ho raha hai. Is wajah se aap eligible nahi ho.`;
             } else {
-                report.ai_tip = `Bhai ${firstName}, aapki profile me kuch details missing hain. Inhe bharo taaki main confirm kar sakoon.`;
+                report.ai_tip = `Bhai ${firstName}, aapki profile me kuch basic details (jaise Age ya Degree) missing hain. Inhe bharo taaki main confirm kar sakoon.`;
             }
 
             return report;
@@ -118,15 +120,9 @@ class EligibilityEngine {
 
     static _calculateConfidence(notif, report) {
         let score = 100;
-        if (report.applied_rules.some(r => r.fromHtml) || report.failed_rules.some(r => r.fromHtml)) {
-            score -= 20;
-        }
-        if (!notif.base_constraints) {
-            score -= 15;
-        }
-        if (report.status === 'INCOMPLETE_PROFILE') {
-            score -= 10;
-        }
+        if (report.applied_rules.some(r => r.fromHtml)) score -= 20;
+        if (!notif.base_constraints) score -= 15;
+        if (report.status === 'INCOMPLETE_PROFILE') score -= 10;
         return score;
     }
 }

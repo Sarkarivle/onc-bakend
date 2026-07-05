@@ -5,109 +5,77 @@ class EducationRule extends BaseRule {
     constructor() { super('EDUCATION'); }
 
     evaluate(user, constraints, jobContext = {}) {
+        const firstName = user.name?.split(' ')[0] || "Dost";
         const eduReq = constraints.education;
+
         if (!eduReq || (!eduReq.level && !eduReq.required_degrees)) {
-            // Check HTML Fallback if JSON is empty
             if (jobContext.fullHtmlContent) {
                 const extracted = HtmlScanner.scan(jobContext.fullHtmlContent, 'EDUCATION');
-                if (extracted) {
-                   return this._runEvaluation(user, { level: extracted });
-                }
+                if (extracted) return this._runEvaluation(user, { level: extracted }, firstName);
             }
-            return { module: this.module, status: 'PASS', message: "Education details isme mentioned nahi hain.", score: 100 };
+            return { module: this.module, status: 'PASS', message: `Bhai ${firstName}, is job me koi khaas education level mentioned nahi hai.`, score: 100 };
         }
 
-        return this._runEvaluation(user, eduReq);
+        return this._runEvaluation(user, eduReq, firstName);
     }
 
-    _runEvaluation(user, eduReq) {
-        const report = { module: this.module, status: 'PASS', message: "Education criteria match ho raha hai.", score: 100 };
-
-        // 1. Academic Level Check (with Equivalency)
-        if (eduReq.level && eduReq.level !== 'N/A') {
-            const result = this._checkAcademicLevel(user, eduReq.level);
-            if (result.status !== 'PASS') return result;
-            report.message = result.message;
-        }
-
-        // 2. Stream Check
-        if (eduReq.stream && eduReq.stream !== 'ANY') {
-            const streamResult = this._checkStream(user, eduReq.stream);
-            if (streamResult.status !== 'PASS') return streamResult;
-        }
-
-        // 3. Professional Degree Check (The "AND" condition)
-        if (eduReq.required_degrees && eduReq.required_degrees.length > 0) {
-            const profResult = this._checkProfessionalDegrees(user, eduReq.required_degrees);
-            if (profResult.status !== 'PASS') return profResult;
-        }
-
-        return report;
-    }
-
-    _checkAcademicLevel(user, reqLevel) {
-        const firstName = user.name?.split(' ')[0] || "Dost";
+    _runEvaluation(user, eduReq, firstName) {
         const userLevel = (user.educationLevel || user.education || "").toUpperCase();
-        const req = String(reqLevel).toUpperCase();
 
-        const hierarchy = {
-            '10TH PASS': 1,
-            '12TH PASS': 2,
-            'ITI/DIPLOMA': 2,
-            'GRADUATE': 3,
-            'POST GRADUATE': 4,
-            'PHD': 5
-        };
-
-        const userScore = hierarchy[userLevel] || 0;
-        const reqScore = hierarchy[this._normalizeLevelName(req)] || 0;
-
+        // 1. Check if user has even filled the basic level
         if (!userLevel) {
             return {
                 module: this.module,
                 status: 'INCOMPLETE',
-                message: `Bhai ${firstName}, aapne apni padhai ki detail nahi bhari hai.`,
+                message: `Bhai ${firstName}, aapne apni padhai ki detail (10th/12th/Grad) nahi bhari hai.`,
                 score: 0,
                 field: 'education'
             };
         }
 
-        if (userScore < reqScore) {
-            return {
-                module: this.module,
-                status: 'FAIL',
-                message: `Bhai ${firstName}, is job ke liye kam se kam ${req} chahiye, lekin aapka profile ${userLevel} hai.`,
-                score: 0
-            };
+        // 2. BASIC ACADEMIC MATCH (The Foundation)
+        if (eduReq.level && eduReq.level !== 'N/A') {
+            const hierarchy = { '10TH PASS': 1, '12TH PASS': 2, 'ITI/DIPLOMA': 2, 'GRADUATE': 3, 'POST GRADUATE': 4, 'PHD': 5 };
+            const normalizedReq = this._normalizeLevelName(eduReq.level.toUpperCase());
+
+            const userScore = hierarchy[userLevel] || 0;
+            const reqScore = hierarchy[normalizedReq] || 0;
+
+            if (userScore < reqScore) {
+                return {
+                    module: this.module,
+                    status: 'FAIL',
+                    message: `Bhai ${firstName}, is job ke liye kam se kam ${normalizedReq} chahiye, lekin aapka profile ${userLevel} hai.`,
+                    score: 0,
+                    isBasicMismatch: true
+                };
+            }
         }
-        return { status: 'PASS', message: `Bhai ${firstName}, aapki qualification (${userLevel}) is job ke liye sahi hai.` };
-    }
 
-    _checkStream(user, reqStream) {
-        const firstName = user.name?.split(' ')[0] || "Dost";
-        const userStream = (user.educationHistory?.twelfth?.stream || "").toUpperCase();
-        if (!userStream) return { module: this.module, status: 'INCOMPLETE', message: `Bhai ${firstName}, aapki 12th stream (e.g. PCM) profile me missing hai.`, score: 0, field: 'stream' };
+        // 3. PROFESSIONAL DEGREES (The Add-ons)
+        const requiredDegrees = eduReq.required_degrees || [];
+        const userProfDegrees = (user.professionalDegrees || []).map(d => d.toUpperCase());
 
-        if (!userStream.includes(reqStream.toUpperCase())) {
-            return { module: this.module, status: 'FAIL', message: `Bhai ${firstName}, is job me ${reqStream} stream chahiye par aapka ${userStream} hai.`, score: 0 };
+        if (requiredDegrees.length > 0) {
+            const missing = requiredDegrees.filter(req => !userProfDegrees.some(ud => ud.includes(req.toUpperCase())));
+            if (missing.length > 0) {
+                return {
+                    module: this.module,
+                    status: 'PASS', // Basic level matched, so we don't Hard Fail
+                    message: `Bhai ${firstName}, aapki base qualification sahi hai, par isme ye Professional degrees bhi chahiye: ${missing.join(', ')}`,
+                    score: 80,
+                    isExtraMissing: true,
+                    missingDegrees: missing
+                };
+            }
         }
-        return { status: 'PASS' };
-    }
 
-    _checkProfessionalDegrees(user, required) {
-        const firstName = user.name?.split(' ')[0] || "Dost";
-        const userDegrees = (user.professionalDegrees || []).map(d => d.toUpperCase());
-        const missing = required.filter(req => !userDegrees.some(ud => ud.includes(req.toUpperCase())));
-
-        if (missing.length > 0) {
-            return {
-                module: this.module,
-                status: 'FAIL',
-                message: `Bhai ${firstName}, aapke paas ye professional degree nahi hai: ${missing.join(', ')}`,
-                score: 50
-            };
-        }
-        return { status: 'PASS' };
+        return {
+            module: this.module,
+            status: 'PASS',
+            message: `Bhai ${firstName}, aapki qualification (${userLevel}) is job ke liye bilkul sahi hai!`,
+            score: 100
+        };
     }
 
     _normalizeLevelName(text) {
