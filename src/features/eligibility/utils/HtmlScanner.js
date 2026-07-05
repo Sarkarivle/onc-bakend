@@ -47,11 +47,11 @@ class HtmlScanner {
 
     static _extractEducation(text) {
         const levels = {
-            'PHD': /PHD|DOCTORATE/i,
-            'POST GRADUATE': /POST GRADUATE|MASTER|PG /i,
-            'GRADUATE': /GRADUATE|DEGREE|BACHELOR|SNATAK/i,
-            '12TH PASS': /12TH|INTERMEDIATE|10\+2|SECONDARY/i,
-            '10TH PASS': /10TH|MATRIC|HIGH SCHOOL/i
+            'PHD': /PHD|DOCTORATE|RESEARCH SCHOLAR/i,
+            'POST GRADUATE': /POST GRADUATE|MASTER|PG |M\.SC|M\.A|M\.COM|M\.TECH|MBA/i,
+            'GRADUATE': /GRADUATE|DEGREE|BACHELOR|SNATAK|B\.A|B\.SC|B\.COM|B\.TECH|B\.E\b/i,
+            '12TH PASS': /12TH|INTERMEDIATE|10\+2|SECONDARY|INTER\b/i,
+            '10TH PASS': /10TH|MATRIC|HIGH SCHOOL|SSC\b/i
         };
 
         for (let [level, regex] of Object.entries(levels)) {

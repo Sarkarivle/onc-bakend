@@ -9,15 +9,19 @@ class HumanExpertEngine {
         try {
             const userName = user.name || "Dost";
             const ageStr = report.age_analysis?.exact_age?.formatted || "N/A";
-            const profileStr = `Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}`;
+            const profileStr = `Name: ${userName}, Qualification: ${user.educationLevel || user.education || 'N/A'}, Age: ${ageStr}, Category: ${user.category || 'GENERAL'}, State: ${user.domicileState || 'N/A'}, Height: ${user.height ? user.height + 'cm' : 'N/A'}`;
 
             const facts = {
-                status: report.status,
-                age: report.age_analysis?.exact_age?.formatted,
-                failed_rules: report.failed_rules.map(r => ({ module: r.module, msg: r.message })),
-                applied_rules: report.applied_rules.map(r => ({ module: r.module, msg: r.message })),
-                missing_fields: report.missing_fields || [],
-                extra_notes: report.extra_notes || []
+                overall_status: report.status,
+                age_details: report.age_analysis,
+                failed_reasons: report.failed_rules.map(r => r.message),
+                passed_details: report.applied_rules.map(r => r.message),
+                missing_info: report.missing_data.map(r => r.message),
+                extra_notes: report.extra_notes || [],
+                job_requirements: {
+                    education: (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'))?.requirement || "Not clearly specified",
+                    physical: (report.applied_rules.find(r => r.module === 'PHYSICAL') || report.failed_rules.find(r => r.module === 'PHYSICAL'))?.requirement || "Standard"
+                }
             };
 
             const prompt = expertPrompt(userName, profileStr, facts, jobTitle);

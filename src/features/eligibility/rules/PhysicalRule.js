@@ -45,12 +45,13 @@ class PhysicalRule extends BaseRule {
                     module: this.module,
                     status: 'FAIL',
                     message: `Height Mismatch: Bhai ${firstName}, isme ${reqHeight}cm height chahiye, par aapki ${userHeightCM}cm hai. Aap eligible nahi ho sakte.`,
-                    score: 0
+                    score: 0,
+                    requirement: `${reqHeight}cm`
                 };
             }
         }
 
-        return { module: this.module, status: 'PASS', message: `Physical Match: Bhai ${firstName}, aapki physical details rules ke hisab se ekdum fit hain!`, score: 100 };
+        return { module: this.module, status: 'PASS', message: `Physical Match: Bhai ${firstName}, aapki physical details rules ke hisab se ekdum fit hain!`, score: 100, requirement: reqHeight ? `${reqHeight}cm` : 'No specific height rule' };
     }
 }
 

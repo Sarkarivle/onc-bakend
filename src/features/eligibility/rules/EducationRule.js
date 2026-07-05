@@ -20,10 +20,11 @@ class EducationRule extends BaseRule {
             return { module: this.module, status: 'PASS', message: `Bhai ${firstName}, is job me koi khaas education level mentioned nahi hai.`, score: 100 };
         }
 
-        const userLevel = (user.education || user.educationLevel || user.qualification || "").toUpperCase();
+        const userLevelRaw = (user.education || user.educationLevel || user.qualification || "").toUpperCase();
+        const userLevel = this._normalizeLevelName(userLevelRaw);
 
         // 2. CHECK IF DATA IS MISSING
-        if (!userLevel) {
+        if (!userLevel || userLevel === 'N/A') {
             return {
                 module: this.module,
                 status: 'INCOMPLETE',
@@ -36,16 +37,18 @@ class EducationRule extends BaseRule {
         const hierarchy = { '8TH PASS': 0, '10TH PASS': 1, '12TH PASS': 2, 'ITI/DIPLOMA': 2, 'GRADUATE': 3, 'POST GRADUATE': 4, 'PHD': 5 };
         const reqLevel = this._normalizeLevelName(String(eduReq.level || "").toUpperCase());
 
-        const userScore = hierarchy[userLevel] || 0;
-        const reqScore = hierarchy[reqLevel] || 0;
+        const userScore = hierarchy[userLevel] !== undefined ? hierarchy[userLevel] : -1;
+        const reqScore = hierarchy[reqLevel] !== undefined ? hierarchy[reqLevel] : 0;
 
         // 3. STRICT ACADEMIC HIERARCHY CHECK
         if (reqScore > 0 && userScore < reqScore) {
             return {
                 module: this.module,
                 status: 'FAIL',
-                message: `Galti: Bhai ${firstName}, is job ke liye kam se kam ${reqLevel} chahiye, lekin aapka profile ${userLevel} hai. Aap eligible nahi hain.`,
-                score: 0
+                message: `Education Mismatch: Bhai ${firstName}, isme ${reqLevel} manga hai, par aapne ${userLevel} kiya hai. Qualification match nahi ho rahi.`,
+                score: 0,
+                requirement: reqLevel,
+                userHad: userLevel
             };
         }
 
@@ -71,17 +74,20 @@ class EducationRule extends BaseRule {
             module: this.module,
             status: 'PASS',
             message: `Perfect Match: Bhai ${firstName}, aapki qualification (${userLevel}) is job ke liye bilkul sahi hai!`,
-            score: 100
+            score: 100,
+            requirement: reqLevel
         };
     }
 
     _normalizeLevelName(text) {
-        if (text.includes('PHD')) return 'PHD';
-        if (text.includes('POST GRADUATE') || text.includes('PG')) return 'POST GRADUATE';
-        if (text.includes('GRADUATE') || text.includes('DEGREE') || text.includes('BACHELOR')) return 'GRADUATE';
-        if (text.includes('12TH') || text.includes('INTERMEDIATE') || text.includes('10+2')) return '12TH PASS';
-        if (text.includes('10TH') || text.includes('MATRIC')) return '10TH PASS';
-        return text;
+        const t = String(text || "").toUpperCase();
+        if (t.includes('PHD')) return 'PHD';
+        if (t.includes('POST GRADUATE') || t.includes('PG') || t.includes('MASTER')) return 'POST GRADUATE';
+        if (t.includes('GRADUATE') || t.includes('DEGREE') || t.includes('BACHELOR') || t.includes('B.A') || t.includes('B.SC') || t.includes('B.COM') || t.includes('B.TECH')) return 'GRADUATE';
+        if (t.includes('12TH') || t.includes('INTERMEDIATE') || t.includes('10+2') || t.includes('HSC')) return '12TH PASS';
+        if (t.includes('10TH') || t.includes('MATRIC') || t.includes('SSC')) return '10TH PASS';
+        if (t.includes('8TH')) return '8TH PASS';
+        return t;
     }
 }
 
