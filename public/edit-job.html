@@ -461,7 +461,7 @@
                 const container = document.getElementById('dynamic-form-container');
                 container.innerHTML = ''; // Clear existing
 
-                const excludeKeys = ['_id', 'searchVector', '__v', 'fullHtmlContent', 'title', 'organization', 'applyLink', 'category', 'isActive', 'createdAt', 'updatedAt'];
+                const excludeKeys = ['_id', 'searchVector', '__v', 'fullHtmlContent', 'title', 'organization', 'applyLink', 'category', 'isActive', 'createdAt', 'updatedAt', 'importantDates', 'applicationFee', 'eligibility', 'aiCoreSummary'];
 
                 function buildForm(obj, parentPath = '') {
                     for (const key in obj) {
@@ -504,7 +504,7 @@
                 }
 
                 buildForm(data);
-                console.log("Dynamic form generated from JSON.");
+                console.log("Dynamic form generated (filtered).");
             } catch (e) {
                 console.warn("Could not sync JSON to Form: Invalid JSON", e);
             }
