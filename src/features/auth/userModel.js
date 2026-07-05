@@ -12,10 +12,30 @@ const userSchema = new mongoose.Schema({
   gender: { type: String, enum: ['Male', 'Female', 'Other'] },
   category: { type: String, enum: ['General', 'OBC', 'SC', 'ST', 'EWS'], default: 'General' },
   dob: { type: Date },
-  education: { type: String },
-  educationStream: { type: String }, // PCM, Commerce, Agriculture, etc.
-  educationPercentage: { type: Number },
-  professionalDegrees: [{ type: String }], // B.Ed, ITI, Diploma, BTC, etc.
+  // --- ACADEMIC DEPTH (Multi-Level) ---
+  educationLevel: { type: String }, // Highest Level (10th, 12th, Graduate, etc.)
+  educationHistory: {
+    tenth: { year: Number, percentage: Number },
+    twelfth: {
+        year: Number,
+        percentage: Number,
+        stream: { type: String, enum: ['Science (PCM)', 'Science (PCB)', 'Commerce', 'Arts', 'Agriculture', 'Other'] },
+        isDiploma: { type: Boolean, default: false } // If user did 3-yr Diploma instead of 12th
+    },
+    graduation: {
+        year: Number,
+        percentage: Number,
+        degree: String, // B.A, B.Sc, B.Tech, etc.
+        isAppearing: { type: Boolean, default: false }
+    },
+    postGraduation: {
+        year: Number,
+        percentage: Number,
+        degree: String,
+        isAppearing: { type: Boolean, default: false }
+    }
+  },
+  professionalDegrees: [{ type: String }], // B.Ed, BTC, ITI, etc.
 
   // Physical & Medical
   height: { type: Number }, // in cm
