@@ -453,7 +453,7 @@
             }
         }
 
-        // --- Dynamic JSON <-> Form Synchronization ---
+        // --- App-Focused JSON <-> Form Synchronization ---
         function syncJsonToForm() {
             try {
                 const jsonText = document.getElementById('job-json').value;
@@ -461,50 +461,56 @@
                 const container = document.getElementById('dynamic-form-container');
                 container.innerHTML = ''; // Clear existing
 
-                const excludeKeys = ['_id', 'searchVector', '__v', 'fullHtmlContent', 'title', 'organization', 'applyLink', 'category', 'isActive', 'createdAt', 'updatedAt', 'importantDates', 'applicationFee', 'eligibility', 'aiCoreSummary'];
+                // Only show fields that are actually visible in the Flutter App UI
+                const visibleFields = [
+                    { path: 'importantDates.applicationBegin', label: 'Application Start' },
+                    { path: 'importantDates.applicationLastDate', label: 'Last Date to Apply' },
+                    { path: 'importantDates.feePaymentLastDate', label: 'Last Date for Fee' },
+                    { path: 'importantDates.examDate', label: 'Exam Date' },
+                    { path: 'applicationFee.generalObcEws', label: 'General/OBC/EWS Fee' },
+                    { path: 'applicationFee.scStPh', label: 'SC/ST/PH Fee' },
+                    { path: 'applicationFee.female', label: 'Female Fee' },
+                    { path: 'eligibility.education', label: 'Education (Eligibility)' },
+                    { path: 'eligibility.minAge', label: 'Minimum Age' },
+                    { path: 'eligibility.maxAge', label: 'Maximum Age' },
+                    { path: 'totalVacancy', label: 'Total Vacancy' },
+                    { path: 'salary', label: 'Salary/Pay Scale' },
+                    { path: 'aiCoreSummary.summary', label: 'AI Summary (App Home)' }
+                ];
 
-                function buildForm(obj, parentPath = '') {
-                    for (const key in obj) {
-                        if (excludeKeys.includes(key) && parentPath === '') continue;
-
-                        const value = obj[key];
-                        const currentPath = parentPath ? `${parentPath}.${key}` : key;
-
-                        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                            // Recursively build for nested objects
-                            buildForm(value, currentPath);
-                        } else {
-                            // Create input for primitive values or arrays
-                            const fieldDiv = document.createElement('div');
-                            fieldDiv.className = "flex flex-col gap-1";
-
-                            const label = document.createElement('label');
-                            label.className = "text-[10px] font-bold text-gray-400 uppercase truncate";
-                            label.title = currentPath;
-                            label.innerText = currentPath.split('.').join(' ➔ ');
-
-                            let input;
-                            if (typeof value === 'string' && value.length > 50) {
-                                input = document.createElement('textarea');
-                                input.rows = 2;
-                            } else {
-                                input = document.createElement('input');
-                                input.type = "text";
-                            }
-
-                            input.className = "dynamic-field w-full border border-gray-200 rounded px-3 py-2 text-xs bg-gray-50 focus:bg-white focus:border-blue-400 outline-none transition";
-                            input.dataset.path = currentPath;
-                            input.value = (typeof value === 'object') ? JSON.stringify(value) : (value || "");
-
-                            fieldDiv.appendChild(label);
-                            fieldDiv.appendChild(input);
-                            container.appendChild(fieldDiv);
-                        }
+                visibleFields.forEach(field => {
+                    const path = field.path.split('.');
+                    let val = data;
+                    for (const part of path) {
+                        val = val ? val[part] : "";
                     }
-                }
 
-                buildForm(data);
-                console.log("Dynamic form generated (filtered).");
+                    const fieldDiv = document.createElement('div');
+                    fieldDiv.className = "flex flex-col gap-1 p-2 border-l-2 border-indigo-100 bg-indigo-50/20 rounded";
+
+                    const label = document.createElement('label');
+                    label.className = "text-[10px] font-black text-indigo-400 uppercase tracking-tighter";
+                    label.innerText = field.label;
+
+                    let input;
+                    if (field.path === 'aiCoreSummary.summary' || field.path === 'eligibility.education') {
+                        input = document.createElement('textarea');
+                        input.rows = 2;
+                    } else {
+                        input = document.createElement('input');
+                        input.type = "text";
+                    }
+
+                    input.className = "dynamic-field w-full border border-gray-200 rounded px-3 py-2 text-xs bg-white focus:border-indigo-400 outline-none transition";
+                    input.dataset.path = field.path;
+                    input.value = val || "";
+
+                    fieldDiv.appendChild(label);
+                    fieldDiv.appendChild(input);
+                    container.appendChild(fieldDiv);
+                });
+
+                console.log("Visual App fields generated.");
             } catch (e) {
                 console.warn("Could not sync JSON to Form: Invalid JSON", e);
             }
