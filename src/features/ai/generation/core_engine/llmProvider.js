@@ -167,7 +167,7 @@ class LLMProvider {
                 };
 
                 const response = await axios.post(fullUrl, payload, {
-                    timeout: 30000, // Reduced from 60s to 30s for faster user feedback
+                    timeout: 90000, // Increased for heavy models like 14B
                     httpAgent,
                     httpsAgent
                 });
