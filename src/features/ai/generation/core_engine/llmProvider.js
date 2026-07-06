@@ -53,12 +53,21 @@ class LLMProvider {
         }
 
         let rawUrl = (process.env.LLM_BASE_URL || '').trim();
+        let source = 'Environment';
 
         if (!rawUrl) {
+            // Check Database Settings
             const setting = Settings.db?.readyState === 1
                 ? await Settings.findOne({ key: 'RUNPOD_URL' })
                 : null;
-            rawUrl = (setting?.value || constants.DEFAULT_RUNPOD_URL || '').trim();
+
+            if (setting?.value) {
+                rawUrl = setting.value.trim();
+                source = 'Database';
+            } else {
+                rawUrl = constants.DEFAULT_RUNPOD_URL.trim();
+                source = 'Default Constants';
+            }
         }
 
         // ULTRA-ROBUST CLEANING
@@ -96,7 +105,7 @@ class LLMProvider {
             provider: provider
         };
 
-        console.log(`[LLMProvider] Configured URL: ${finalUrl} (Detected Provider: ${provider})`);
+        console.log(`[LLMProvider] Source: ${source} | URL: ${finalUrl} | Provider: ${provider}`);
         return finalUrl;
     }
 
