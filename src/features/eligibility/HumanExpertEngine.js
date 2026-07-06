@@ -6,7 +6,7 @@ class HumanExpertEngine {
     /**
      * Converts raw eligibility data into a friendly "Dost" conversation.
      */
-    static async generateDostAdvice(user, report, jobTitle, notification = {}) {
+    static async generateDostAdvice(user, report, jobTitle, notification = {}, maxTokens = 350) {
         try {
             const userName = user.name || "Dost";
             const firstName = userName.split(' ')[0];
@@ -57,7 +57,7 @@ class HumanExpertEngine {
             const prompt = expertPrompt(userName, profileStr, facts, jobBrief, istDate);
 
             // Call the LLM to get the human-friendly reasoning (Using Chat for personality and text output)
-            const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }]);
+            const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }], 1, { max_tokens: maxTokens });
             const response = chatRes?.content;
 
             if (response && typeof response === 'string') {
@@ -75,6 +75,56 @@ class HumanExpertEngine {
             console.error("HumanExpertEngine Error:", error.message);
             return ["Bhai, abhi brain thoda busy hai. Manual report check kar lo niche."];
         }
+    }
+
+    /**
+     * Generates a fast, rule-based advice without LLM for instant response.
+     */
+    static generateInstantAdvice(user, report, jobTitle) {
+        const firstName = (user.name || "Dost").split(' ')[0];
+        const status = report.status === 'ELIGIBLE' ? '✅' : '❌';
+        const age = report.age_analysis?.exact_age?.formatted || "??";
+        const edu = (user.educationLevel || user.education || 'N/A').toUpperCase();
+
+        const bullets = [];
+
+        // 1. Greeting & Basic Status
+        if (report.status === 'ELIGIBLE') {
+            bullets.push(`${status} ${firstName} bhai, tere liye mast khabar hai! Tu is job ke liye eligible hai.`);
+        } else if (report.status === 'INCOMPLETE_PROFILE') {
+            bullets.push(`⚠️ ${firstName} bhai, teri profile thodi adhuri hai. Details bharke check kar.`);
+        } else {
+            bullets.push(`${status} ${firstName} bhai, is job me teri baat banti dikh nahi rahi.`);
+        }
+
+        // 2. Core Logic (Age/Edu)
+        const eduFail = report.failed_rules.find(r => r.module === 'EDUCATION');
+        const ageFail = report.failed_rules.find(r => r.module === 'AGE');
+
+        if (eduFail) {
+            bullets.push(`Tu abhi ${edu} hai, par isme ${eduFail.requirement} manga hai.`);
+        } else if (ageFail) {
+            bullets.push(`Teri age (${age}) is job ki limit se bahar hai.`);
+        } else {
+            bullets.push(`Teri qualification (${edu}) aur age is job ke liye sahi hai.`);
+        }
+
+        // 3. Physicals/Category
+        const physicalFail = report.failed_rules.find(r => r.module === 'PHYSICAL');
+        if (physicalFail) {
+            bullets.push(`Height/Chest me thodi dikat hai: ${physicalFail.message}`);
+        } else {
+            bullets.push(`Teri physical details aur category benefits ekdum sahi hain.`);
+        }
+
+        // 4. Action
+        if (report.status === 'ELIGIBLE') {
+            bullets.push(`Bhai deri mat kar, turant apply karde! Syllabus chahiye toh bol dena.`);
+        } else {
+            bullets.push(`Chinta mat kar, tera bhai tere liye dusri job dhund lega!`);
+        }
+
+        return bullets;
     }
 
     /**

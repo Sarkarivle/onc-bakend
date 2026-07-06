@@ -1,5 +1,6 @@
 module.exports = {
-    DEFAULT_RUNPOD_URL: "https://prices-seed-disc-stick.trycloudflare.com/v1/chat/completions",
+    DEFAULT_RUNPOD_URL: "https://api.groq.com/openai/v1/chat/completions",
+    DEFAULT_GROQ_MODEL: "llama-3.3-70b-versatile",
 
     // 1. INTENT & PLANNER ENGINE (Fast & Logical Architect)
     // qwen2.5:1.5b is the sweet spot for logic and speed (< 1-2s)

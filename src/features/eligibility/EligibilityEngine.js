@@ -8,7 +8,7 @@ const AgeCalculator = require('./utils/AgeCalculator');
 const HumanExpertEngine = require('./HumanExpertEngine');
 
 class EligibilityEngine {
-    static async evaluate(user, notification) {
+    static async evaluate(user, notification, options = {}) {
         const firstName = user.name?.split(' ')[0] || "Dost";
         const report = {
             status: 'ELIGIBLE',
@@ -103,6 +103,12 @@ class EligibilityEngine {
             report.confidence_score = this._calculateConfidence(notification, report);
 
             // --- PERSONALIZED DOST ADVICE (v8.0) ---
+            if (options.skipLLM) {
+                report.dost_advice = HumanExpertEngine.generateInstantAdvice(user, report, notification.title);
+                report.ai_tip = report.dost_advice[0];
+                return report;
+            }
+
             try {
                 report.dost_advice = await HumanExpertEngine.generateDostAdvice(user, report, notification.title, notification);
             } catch (adviceErr) {

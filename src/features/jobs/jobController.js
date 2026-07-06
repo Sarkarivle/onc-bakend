@@ -9,6 +9,8 @@ const EligibilityEngine = require('../eligibility/EligibilityEngine');
 const LLMProvider = require('../ai/generation/core_engine/llmProvider');
 const VectorService = require('../ai/knowledge/vectorService');
 const DateTool = require('../ai/tools/dateTool');
+const cache = require('../ai/utils/cache');
+const HumanExpertEngine = require('../eligibility/HumanExpertEngine');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -129,12 +131,10 @@ const importJob = async (req, res) => {
 };
 
 const getAiMatchAdvice = async (req, res) => {
+  const startTime = Date.now();
   try {
     const { jobId } = req.params;
-    // Ensure we have a valid user ID from auth middleware
-    if (!req.user || !req.user.id) {
-        return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-    }
+    if (!req.user || !req.user.id) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
 
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ status: 'error', message: 'User profile not found' });
@@ -142,55 +142,66 @@ const getAiMatchAdvice = async (req, res) => {
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
 
-    // 1. Run the New High-Precision Eligibility Engine
-    const report = await EligibilityEngine.evaluate(user, job);
+    // 1. Check Cache
+    const cacheKey = cache.generateKey(jobId, user);
+    const cachedAdvice = cache.get(cacheKey);
 
-    // Failsafe for engine errors
-    if (report.status === 'ERROR') {
-        throw new Error(report.message);
-    }
+    let report;
+    let llmCalled = false;
 
-    // 2. ULTIMATE DATE SEARCH (Retained for frontend urgency display)
-    let lastDateStr = "N/A";
-    if (job.lastDate && !isNaN(new Date(job.lastDate).getTime())) {
-        lastDateStr = job.lastDate.toISOString();
+    if (cachedAdvice) {
+        console.log(`[JobController] cache_hit true | key: ${cacheKey}`);
+        report = await EligibilityEngine.evaluate(user, job, { skipLLM: true });
+        report.dost_advice = cachedAdvice;
+        report.ai_tip = cachedAdvice[0];
     } else {
-        const checkFields = [
-            job.importantDates?.applicationLastDate,
-            job.fullData?.job_overview?.last_date,
-            job.fullData?.important_dates?.last_date
-        ];
-        lastDateStr = checkFields.find(f => f && f !== 'N/A' && f !== '') || "N/A";
+        console.log(`[JobController] cache_hit false | key: ${cacheKey}`);
+        // 2. Generate Instant Response
+        report = await EligibilityEngine.evaluate(user, job, { skipLLM: true });
+
+        // 3. Trigger LLM in background (Non-blocking)
+        llmCalled = true;
+        (async () => {
+            const llmStartTime = Date.now();
+            try {
+                // background call with reduced max_tokens (220) for speed
+                const aiAdvice = await HumanExpertEngine.generateDostAdvice(user, report, job.title, job, 220);
+                if (aiAdvice && aiAdvice.length > 0) {
+                    cache.set(cacheKey, aiAdvice);
+                    console.log(`[JobController] Background LLM saved to cache. duration: ${Date.now() - llmStartTime}ms`);
+                }
+            } catch (err) {
+                console.error("[JobController] Background LLM Failed:", err.message);
+            }
+        })();
     }
 
+    if (report.status === 'ERROR') throw new Error(report.message);
+
+    // 4. Response Construction (Compatibility Layer)
+    let lastDateStr = job.lastDate ? job.lastDate.toISOString() : "N/A";
+    if (lastDateStr === "N/A") {
+        const checkFields = [job.importantDates?.applicationLastDate, job.fullData?.job_overview?.last_date];
+        lastDateStr = checkFields.find(f => f && f !== 'N/A') || "N/A";
+    }
     const urgencyResult = DateTool.calculateUrgency(lastDateStr);
 
-    // 3. Response Construction (Mapping New Engine Report to Legacy UI fields for compatibility)
     const ageInfo = report.age_analysis?.exact_age || {};
     let ageStatus = 'Fit';
-    let ageDesc = "Update Profile";
-
-    if (report.status === 'INCOMPLETE_PROFILE' && !user.dob) {
-        ageStatus = 'Need Data';
-        ageDesc = "N/A (Update Profile)";
-    } else {
-        const ageFail = report.failed_rules.find(r => r.module === 'AGE');
-        if (ageFail) {
-            ageStatus = (ageInfo.years < (report.age_analysis.base_min_age || 18)) ? 'Under' : 'Over';
-        }
-        ageDesc = `${ageInfo.years || '??'} Years (${ageStatus})`;
+    let ageDesc = user.dob ? `${ageInfo.years || '??'} Years` : "Update Profile";
+    if (report.failed_rules.some(r => r.module === 'AGE')) {
+        ageStatus = (ageInfo.years < report.age_analysis.base_min_age) ? 'Under' : 'Over';
+        ageDesc += ` (${ageStatus})`;
     }
 
     const eduStatus = report.failed_rules.some(r => r.module === 'EDUCATION') ? 'No Match' : 'Match';
-    let eduDesc = user.education || "N/A";
-    if (!user.education) {
-        eduDesc = "Update Profile";
-    } else {
-        eduDesc = `${user.education} (${eduStatus})`;
-    }
+    const eduDesc = user.education ? `${user.education} (${eduStatus})` : "Update Profile";
 
     const isReserved = (user.category || '').match(/SC|ST|PH/i);
     let feeText = isReserved ? (job.applicationFee?.scStPh || '0') : (job.applicationFee?.generalObcEws || 'N/A');
+
+    const instantDuration = Date.now() - startTime;
+    console.log(`[JobController] instant_response_ms: ${instantDuration} | llm_called: ${llmCalled}`);
 
     res.status(200).json({
         status: 'success',
@@ -203,17 +214,13 @@ const getAiMatchAdvice = async (req, res) => {
         vacancy_text: job.totalVacancy || 'Not Specified',
         edu_desc: eduDesc,
         edu_status: eduStatus,
-
-        // Detailed report for new UI features
         full_report: report,
         missing_fields: report.missing_fields || [],
         extra_notes: report.extra_notes || [],
-
-        // Legacy fields for stability
-        loc_desc: "Location aapke profile ke hisab se sahi hai.",
-        cat_desc: "Aapki category me vacancies available hain.",
-        comp_desc: "Isme selection ke chances acche hain.",
-        success_desc: report.status === 'ELIGIBLE' ? "Strong match detected." : "Requirements mismatch."
+        loc_desc: "Aapke profile ke hisab se sahi hai.",
+        cat_desc: "Category vacancies available hain.",
+        comp_desc: "Selection chances acche hain.",
+        success_desc: report.status === 'ELIGIBLE' ? "Strong match." : "Mismatch."
     });
   } catch (err) {
     console.error("Match Advice Error:", err);

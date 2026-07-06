@@ -12,7 +12,8 @@ class LLMProvider {
     static settingsCache = {
         baseUrl: null,
         expiresAt: 0,
-        provider: null
+        provider: null,
+        apiKey: null
     };
     static SETTINGS_TTL_MS = Number(process.env.LLM_SETTINGS_TTL_MS || 60_000);
 
@@ -32,14 +33,14 @@ class LLMProvider {
     }
 
     /**
-     * Determines if we are using Ollama or OpenAI/vLLM based on env or URL analysis
+     * Determines if we are using Groq, vLLM/OpenAI or Ollama
      */
     static getProvider(url = '') {
         const envProvider = process.env.LLM_PROVIDER;
         if (envProvider) return envProvider.toLowerCase();
 
-        // Auto-detect based on URL
         const lowerUrl = url.toLowerCase();
+        if (lowerUrl.includes('groq.com')) return 'groq';
         if (lowerUrl.includes('/v1') || lowerUrl.includes('openai') || lowerUrl.includes('runpod') || lowerUrl.includes('cloudflare')) {
             return 'vllm';
         }
@@ -54,20 +55,21 @@ class LLMProvider {
 
         let rawUrl = (process.env.LLM_BASE_URL || '').trim();
         let source = 'Environment';
+        let dbApiKey = null;
 
         if (!rawUrl) {
             // Check Database Settings
-            const setting = Settings.db?.readyState === 1
-                ? await Settings.findOne({ key: 'RUNPOD_URL' })
-                : null;
+            const urlSetting = Settings.db?.readyState === 1 ? await Settings.findOne({ key: 'RUNPOD_URL' }) : null;
+            const keySetting = Settings.db?.readyState === 1 ? await Settings.findOne({ key: 'GROQ_API_KEY' }) : null;
 
-            if (setting?.value) {
-                rawUrl = setting.value.trim();
+            if (urlSetting?.value) {
+                rawUrl = urlSetting.value.trim();
                 source = 'Database';
             } else {
                 rawUrl = constants.DEFAULT_RUNPOD_URL.trim();
                 source = 'Default Constants';
             }
+            dbApiKey = keySetting?.value;
         }
 
         // ULTRA-ROBUST CLEANING
@@ -77,11 +79,10 @@ class LLMProvider {
             if (match) url = match[0];
         }
 
-        url = url.trim().replace(/['"]/g, ''); // Remove quotes
+        url = url.trim().replace(/['"]/g, '');
         url = url.replace(/^(https?:\/\/)+/i, (m) => m.toLowerCase().includes('https') ? 'https://' : 'http://');
         if (!url.startsWith('http')) url = `https://${url}`;
 
-        // DETECT PROVIDER BEFORE STRIPPING
         const provider = this.getProvider(url);
 
         // Remove all trailing slashes and common endpoints to get a clean base
@@ -93,7 +94,9 @@ class LLMProvider {
         url = url.replace(/\/+$/, '');
 
         let finalUrl = url;
-        if (provider === 'vllm' || provider === 'openai') {
+        if (provider === 'groq') {
+            finalUrl = `https://api.groq.com/openai/v1/chat/completions`;
+        } else if (provider === 'vllm' || provider === 'openai') {
             finalUrl = `${url}/v1/chat/completions`;
         } else {
             finalUrl = `${url}/api/chat`;
@@ -102,7 +105,8 @@ class LLMProvider {
         this.settingsCache = {
             baseUrl: finalUrl,
             expiresAt: now + this.SETTINGS_TTL_MS,
-            provider: provider
+            provider: provider,
+            apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || dbApiKey || 'no-key-needed'
         };
 
         console.log(`[LLMProvider] Source: ${source} | URL: ${finalUrl} | Provider: ${provider}`);
@@ -111,23 +115,22 @@ class LLMProvider {
 
     static getModel(type) {
         if (process.env.LLM_MODEL) return process.env.LLM_MODEL;
+
+        const provider = this.settingsCache.provider;
+        if (provider === 'groq') return constants.DEFAULT_GROQ_MODEL;
+
         if (type === 'logic') return constants.AI_LOGIC_MODEL;
         return constants.AI_PERSONALITY_MODEL;
     }
 
-    /**
-     * Common headers for API calls
-     */
     static getHeaders() {
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer no-key-needed'
-        };
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.settingsCache.apiKey && this.settingsCache.apiKey !== 'no-key-needed') {
+            headers['Authorization'] = `Bearer ${this.settingsCache.apiKey}`;
+        }
+        return headers;
     }
 
-    /**
-     * Ensures messages are in the correct format for OpenAI/vLLM
-     */
     static sanitizeMessages(messages) {
         if (!Array.isArray(messages)) return [];
         return messages
@@ -155,27 +158,23 @@ class LLMProvider {
                 const provider = this.settingsCache.provider;
                 const model = this.getModel('logic');
 
+                console.log(`[LLMProvider] Calling Logic Model: ${model} at ${fullUrl}`);
+
                 let payload = {};
-                if (provider === 'vllm' || provider === 'openai') {
+                if (provider === 'ollama') {
                     payload = {
                         model: model,
-                        messages: this.sanitizeMessages([
-                            { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
-                            { role: 'user', content: prompt }
-                        ]),
-                        max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
-                        temperature: Number(process.env.LLM_TEMPERATURE || 0.1),
-                        stream: false
+                        messages: [{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' }, { role: 'user', content: prompt }],
+                        stream: false,
+                        options: { temperature: 0.1 }
                     };
                 } else {
                     payload = {
                         model: model,
-                        messages: [
-                            { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
-                            { role: 'user', content: prompt }
-                        ],
-                        stream: false,
-                        options: { temperature: 0.1 }
+                        messages: this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' }, { role: 'user', content: prompt }]),
+                        max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
+                        temperature: Number(process.env.LLM_TEMPERATURE || 0.1),
+                        stream: false
                     };
                 }
 
@@ -216,16 +215,13 @@ class LLMProvider {
                     console.error("[LLMProvider] Logic Error body:", JSON.stringify(error.response.data, null, 2));
                 }
                 console.warn(`⚠️ LLM Logic Attempt ${i + 1} failed: ${error.message}`);
-                if (i === retries) {
-                    console.error("❌ LLM Logic Engine Error after retries:", error.message);
-                    return null;
-                }
+                if (i === retries) return null;
                 await new Promise(r => setTimeout(r, 1000 * (i + 1)));
             }
         }
     }
 
-    static async chat(messages, retries = 1) {
+    static async chat(messages, retries = 1, optionsOverride = {}) {
         const startTime = Date.now();
         this.callStats.chat++;
         this.callStats.total++;
@@ -236,22 +232,26 @@ class LLMProvider {
                 const provider = this.settingsCache.provider;
                 const model = this.getModel('personality');
 
+                console.log(`[LLMProvider] Calling Personality Model: ${model} at ${fullUrl}`);
+
                 let payload = {};
-                if (provider === 'vllm' || provider === 'openai') {
-                    payload = {
-                        model: model,
-                        messages: this.sanitizeMessages(messages),
-                        max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
-                        temperature: Number(process.env.LLM_TEMPERATURE || 0.5),
-                        stream: false
-                    };
-                    console.log("[LLMProvider] vLLM Chat Payload (max_tokens:", payload.max_tokens, ")");
-                } else {
+                if (provider === 'ollama') {
                     payload = {
                         model: model,
                         messages: messages,
                         stream: false,
-                        options: { temperature: 0.7 }
+                        options: {
+                            temperature: optionsOverride.temperature || 0.7,
+                            num_predict: optionsOverride.max_tokens
+                        }
+                    };
+                } else {
+                    payload = {
+                        model: model,
+                        messages: this.sanitizeMessages(messages),
+                        max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
+                        temperature: optionsOverride.temperature || Number(process.env.LLM_TEMPERATURE || 0.5),
+                        stream: false
                     };
                 }
 
@@ -262,7 +262,8 @@ class LLMProvider {
                     httpsAgent
                 });
 
-                console.log(`[LLMProvider] Chat duration: ${Date.now() - startTime}ms`);
+                const duration = Date.now() - startTime;
+                console.log(`[LLMProvider] Chat duration: ${duration}ms | Provider: ${provider}`);
 
                 let content = "";
                 if (response.data.choices && response.data.choices[0].message) {
@@ -282,10 +283,7 @@ class LLMProvider {
                     console.error("[LLMProvider] Chat Error body:", JSON.stringify(error.response.data, null, 2));
                 }
                 console.warn(`⚠️ Personality Engine Attempt ${i + 1} failed: ${error.message}`);
-                if (i === retries) {
-                    console.error("❌ Personality Engine Error after retries:", error.message);
-                    throw error;
-                }
+                if (i === retries) throw error;
                 await new Promise(r => setTimeout(r, 2000));
             }
         }
@@ -301,21 +299,23 @@ class LLMProvider {
             const provider = this.settingsCache.provider;
             const model = this.getModel('personality');
 
+            console.log(`📡 Starting Stream: ${fullUrl} with model ${model} (Provider: ${provider})`);
+
             let payload = {};
-            if (provider === 'vllm' || provider === 'openai') {
+            if (provider === 'ollama') {
+                payload = {
+                    model: model,
+                    messages: messages,
+                    stream: true,
+                    options: { temperature: 0.7 }
+                };
+            } else {
                 payload = {
                     model: model,
                     messages: this.sanitizeMessages(messages),
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
                     temperature: Number(process.env.LLM_TEMPERATURE || 0.5),
                     stream: true
-                };
-            } else {
-                payload = {
-                    model: model,
-                    messages: messages,
-                    stream: true,
-                    options: { temperature: 0.7 }
                 };
             }
 
@@ -329,7 +329,6 @@ class LLMProvider {
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
-
                 response.data.on('data', chunk => {
                     buffer += chunk.toString();
                     const lines = buffer.split('\n');
@@ -339,9 +338,7 @@ class LLMProvider {
                         let text = line.trim();
                         if (!text) continue;
 
-                        if (text.startsWith('data: ')) {
-                            text = text.slice(6).trim();
-                        }
+                        if (text.startsWith('data: ')) text = text.slice(6).trim();
                         if (text === '[DONE]') {
                             console.log(`[LLMProvider] Stream duration: ${Date.now() - startTime}ms`);
                             resolve();
@@ -353,24 +350,13 @@ class LLMProvider {
                             const content = (json.choices && json.choices[0].delta && json.choices[0].delta.content) ||
                                           (json.message && json.message.content) ||
                                           json.response;
-                            if (content) {
-                                onChunk(content);
-                            }
-                            if (json.done) {
-                                console.log(`[LLMProvider] Stream duration: ${Date.now() - startTime}ms`);
-                                resolve();
-                            }
-                        } catch (e) {
-                            // Partial JSON
-                        }
+                            if (content) onChunk(content);
+                            if (json.done) resolve();
+                        } catch (e) {}
                     }
                 });
 
-                response.data.on('error', (err) => {
-                    console.error("❌ Stream Data Error:", err.message);
-                    reject(err);
-                });
-
+                response.data.on('error', (err) => reject(err));
                 response.data.on('end', () => {
                     if (buffer.trim()) {
                         try {
@@ -387,9 +373,6 @@ class LLMProvider {
                 });
             });
         } catch (error) {
-            if (error.response) {
-                console.error("[LLMProvider] Stream Error status:", error.response.status);
-            }
             console.error(`❌ LLM Stream Connection Error:`, error.message);
             throw error;
         }
