@@ -145,6 +145,7 @@ class LLMProvider {
      * ROBUST JSON LOGIC ENGINE
      */
     static async generateLogic(prompt, retries = 2) {
+        const startTime = Date.now();
         this.callStats.logic++;
         this.callStats.total++;
 
@@ -162,11 +163,10 @@ class LLMProvider {
                             { role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' },
                             { role: 'user', content: prompt }
                         ]),
-                        max_tokens: 1000,
-                        temperature: 0.1,
+                        max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
+                        temperature: Number(process.env.LLM_TEMPERATURE || 0.1),
                         stream: false
                     };
-                    console.log("[LLMProvider] vLLM Logic Payload:", JSON.stringify(payload, null, 2));
                 } else {
                     payload = {
                         model: model,
@@ -185,6 +185,8 @@ class LLMProvider {
                     httpAgent,
                     httpsAgent
                 });
+
+                console.log(`[LLMProvider] Logic duration: ${Date.now() - startTime}ms`);
 
                 let raw = "";
                 if (response.data.choices && response.data.choices[0].message) {
@@ -224,6 +226,7 @@ class LLMProvider {
     }
 
     static async chat(messages, retries = 1) {
+        const startTime = Date.now();
         this.callStats.chat++;
         this.callStats.total++;
 
@@ -238,11 +241,11 @@ class LLMProvider {
                     payload = {
                         model: model,
                         messages: this.sanitizeMessages(messages),
-                        max_tokens: 1000,
-                        temperature: 0.7,
+                        max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
+                        temperature: Number(process.env.LLM_TEMPERATURE || 0.5),
                         stream: false
                     };
-                    console.log("[LLMProvider] vLLM Chat Payload:", JSON.stringify(payload, null, 2));
+                    console.log("[LLMProvider] vLLM Chat Payload (max_tokens:", payload.max_tokens, ")");
                 } else {
                     payload = {
                         model: model,
@@ -258,6 +261,8 @@ class LLMProvider {
                     httpAgent,
                     httpsAgent
                 });
+
+                console.log(`[LLMProvider] Chat duration: ${Date.now() - startTime}ms`);
 
                 let content = "";
                 if (response.data.choices && response.data.choices[0].message) {
@@ -287,6 +292,7 @@ class LLMProvider {
     }
 
     static async chatStream(messages, onChunk) {
+        const startTime = Date.now();
         this.callStats.stream++;
         this.callStats.total++;
 
@@ -300,11 +306,10 @@ class LLMProvider {
                 payload = {
                     model: model,
                     messages: this.sanitizeMessages(messages),
-                    max_tokens: 1000,
-                    temperature: 0.7,
+                    max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
+                    temperature: Number(process.env.LLM_TEMPERATURE || 0.5),
                     stream: true
                 };
-                console.log("[LLMProvider] vLLM Stream Payload:", JSON.stringify(payload, null, 2));
             } else {
                 payload = {
                     model: model,
@@ -324,10 +329,8 @@ class LLMProvider {
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
-                let chunkCount = 0;
 
                 response.data.on('data', chunk => {
-                    chunkCount++;
                     buffer += chunk.toString();
                     const lines = buffer.split('\n');
                     buffer = lines.pop();
@@ -340,6 +343,7 @@ class LLMProvider {
                             text = text.slice(6).trim();
                         }
                         if (text === '[DONE]') {
+                            console.log(`[LLMProvider] Stream duration: ${Date.now() - startTime}ms`);
                             resolve();
                             continue;
                         }
@@ -353,6 +357,7 @@ class LLMProvider {
                                 onChunk(content);
                             }
                             if (json.done) {
+                                console.log(`[LLMProvider] Stream duration: ${Date.now() - startTime}ms`);
                                 resolve();
                             }
                         } catch (e) {
@@ -384,8 +389,6 @@ class LLMProvider {
         } catch (error) {
             if (error.response) {
                 console.error("[LLMProvider] Stream Error status:", error.response.status);
-                // For streams, data might be a stream too
-                console.error("[LLMProvider] Stream Error body:", error.response.data);
             }
             console.error(`❌ LLM Stream Connection Error:`, error.message);
             throw error;
