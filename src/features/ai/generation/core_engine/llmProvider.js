@@ -162,23 +162,14 @@ class LLMProvider {
 
                 console.log(`[LLMProvider] Calling Logic Model: ${model} at ${fullUrl}`);
 
-                let payload = {};
-                if (provider === 'ollama') {
-                    payload = {
-                        model: model,
-                        messages: [{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' }, { role: 'user', content: prompt }],
-                        stream: false,
-                        options: { temperature: 0.1 }
-                    };
-                } else {
-                    payload = {
-                        model: model,
-                        messages: this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' }, { role: 'user', content: prompt }]),
-                        max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
-                        temperature: Number(process.env.LLM_TEMPERATURE || 0.1),
-                        stream: false
-                    };
-                }
+                let payload = {
+                    model: model,
+                    messages: this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' }, { role: 'user', content: prompt }]),
+                    max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
+                    temperature: 0.2, // Low for logic consistency
+                    frequency_penalty: 0.3,
+                    stream: false
+                };
 
                 const response = await axios.post(fullUrl, payload, {
                     timeout: 45000,
@@ -200,13 +191,25 @@ class LLMProvider {
 
                 if (!raw) throw new Error("Empty response from LLM");
 
-                // Aggressive JSON extraction: Find the first '{' and the last '}'
+                // ADVANCED EXTRACTION: Handle stuttering at the end of JSON (e.g. "}}", "}.")
                 const firstBrace = raw.indexOf('{');
-                const lastBrace = raw.lastIndexOf('}');
+                if (firstBrace === -1) throw new Error("No JSON start found");
 
-                if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-                    throw new Error("No valid JSON object found in response");
+                let bracketCount = 0;
+                let lastBrace = -1;
+
+                for (let j = firstBrace; j < raw.length; j++) {
+                    if (raw[j] === '{') bracketCount++;
+                    else if (raw[j] === '}') {
+                        bracketCount--;
+                        if (bracketCount === 0) {
+                            lastBrace = j;
+                            break;
+                        }
+                    }
                 }
+
+                if (lastBrace === -1) throw new Error("Incomplete JSON structure");
 
                 const jsonString = raw.substring(firstBrace, lastBrace + 1);
                 return JSON.parse(jsonString);
@@ -253,7 +256,7 @@ class LLMProvider {
                         max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
                         temperature: 0.7,
                         top_p: 1.0,
-                        frequency_penalty: 0.1,
+                        frequency_penalty: 0.4,
                         presence_penalty: 0.1,
                         stream: false
                     };
@@ -320,7 +323,7 @@ class LLMProvider {
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
                     temperature: 0.7,
                     top_p: 1.0,
-                    frequency_penalty: 0.1,
+                    frequency_penalty: 0.4,
                     presence_penalty: 0.1,
                     stream: true
                 };
