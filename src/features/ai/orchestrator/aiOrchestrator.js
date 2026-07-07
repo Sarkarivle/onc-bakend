@@ -302,19 +302,19 @@ class AIOrchestrator {
                     hasPushedAnyContent = true;
                 }
 
-                // ANTI-OVERLAP LOGIC: Skip chunks that are identical to the tail of the current content
-                const newTokens = String(chunk || "");
-                if (fullContent.endsWith(newTokens)) return;
+                // Aggressive Stream Filtering
+                fullContent += chunk;
 
-                fullContent += newTokens;
-
+                // Clean the entire accumulated content to fix real-time stuttering
                 let cleanDisplay = fullContent
                     .replace(/<think>[\s\S]*?<\/think>/gi, '')
                     .replace(/<think>[\s\S]*/gi, '')
                     .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
                     .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '')
-                    .replace(/<\/?USER_MESSAGE>/gi, '')
-                    .trimStart();
+                    .replace(/<\/?USER_MESSAGE>/gi, '');
+
+                // Real-time Syllable Deduplication (Aggressive for Stream)
+                cleanDisplay = cleanDisplay.replace(/(.{3,10}?)\1+/gi, '$1');
 
                 if (cleanDisplay.length > totalPushedLength) {
                     const newChunk = cleanDisplay.substring(totalPushedLength);
