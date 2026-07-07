@@ -109,19 +109,22 @@ class LLMProvider {
             apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || dbApiKey || 'no-key-needed'
         };
 
-        console.log(`[LLMProvider] Source: ${source} | URL: ${finalUrl} | Provider: ${provider}`);
         return finalUrl;
     }
 
     static getModel(type) {
-        // Force stable models for production stability
         const envModel = process.env.LLM_MODEL;
-        if (envModel && !envModel.toLowerCase().includes('qwen')) return envModel;
+        if (envModel) return envModel;
 
         const provider = this.settingsCache.provider;
-        if (provider === 'groq') return "llama-3.3-70b-versatile";
 
-        if (type === 'logic') return constants.AI_LOGIC_MODEL || "llama-3.3-70b-versatile";
+        // Use small model for Logic/Planner tasks to avoid Rate Limits (429)
+        if (type === 'logic') {
+            return provider === 'groq' ? "llama-3.1-8b-instant" : (constants.AI_LOGIC_MODEL || "llama-3.1-8b-instant");
+        }
+
+        // Use large model for high-quality Personality/Chat
+        if (provider === 'groq') return "llama-3.3-70b-versatile";
         return constants.AI_PERSONALITY_MODEL || "llama-3.3-70b-versatile";
     }
 
@@ -146,6 +149,33 @@ class LLMProvider {
             .filter(m => m.content.trim() !== "");
     }
 
+    static _logAIEvent(type, payload, response, duration, usage = null, url = '') {
+        console.log('\n================== AI DEBUG LOG START ==================');
+        console.log(`Type     : ${type}`);
+        console.log(`Model    : ${payload.model}`);
+        console.log(`Duration : ${duration}ms`);
+        if (url) console.log(`URL      : ${url}`);
+
+        console.log('\n--- DATA SENT TO AI ---');
+        if (payload.messages) {
+            payload.messages.forEach(m => {
+                console.log(`[${m.role.toUpperCase()}]: ${m.content}`);
+            });
+        }
+
+        console.log('\n--- AI RESPONSE ---');
+        const respStr = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
+        console.log(respStr);
+
+        if (usage) {
+            console.log('\n--- TOKEN USAGE ---');
+            console.log(`Prompt Tokens     : ${usage.prompt_tokens || usage.prompt_eval_count || 0}`);
+            console.log(`Completion Tokens : ${usage.completion_tokens || usage.eval_count || 0}`);
+            console.log(`Total Tokens      : ${usage.total_tokens || ((usage.prompt_eval_count || 0) + (usage.eval_count || 0))}`);
+        }
+        console.log('================== AI DEBUG LOG END ====================\n');
+    }
+
     /**
      * ROBUST JSON LOGIC ENGINE
      */
@@ -159,8 +189,6 @@ class LLMProvider {
                 const fullUrl = await this.getBaseUrl();
                 const provider = this.settingsCache.provider;
                 const model = this.getModel('logic');
-
-                console.log(`[LLMProvider] Calling Logic Model: ${model} at ${fullUrl}`);
 
                 let payload = {
                     model: model,
@@ -178,8 +206,7 @@ class LLMProvider {
                     httpsAgent
                 });
 
-                console.log(`[LLMProvider] Logic duration: ${Date.now() - startTime}ms`);
-
+                const duration = Date.now() - startTime;
                 let raw = "";
                 if (response.data.choices && response.data.choices[0].message) {
                     raw = response.data.choices[0].message.content;
@@ -188,6 +215,9 @@ class LLMProvider {
                 } else if (response.data.response) {
                     raw = response.data.response;
                 }
+
+                // Log detailed AI event
+                this._logAIEvent('LOGIC_GEN', payload, raw, duration, response.data.usage, fullUrl);
 
                 if (!raw) throw new Error("Empty response from LLM");
 
@@ -236,8 +266,6 @@ class LLMProvider {
                 const provider = this.settingsCache.provider;
                 const model = this.getModel('personality');
 
-                console.log(`[LLMProvider] Calling Personality Model: ${model} at ${fullUrl}`);
-
                 let payload = {};
                 if (provider === 'ollama') {
                     payload = {
@@ -269,8 +297,6 @@ class LLMProvider {
                 });
 
                 const duration = Date.now() - startTime;
-                console.log(`[LLMProvider] Chat duration: ${duration}ms | Provider: ${provider}`);
-
                 let content = "";
                 if (response.data.choices && response.data.choices[0].message) {
                     content = response.data.choices[0].message.content;
@@ -281,6 +307,9 @@ class LLMProvider {
                 } else if (typeof response.data === 'string') {
                     content = response.data;
                 }
+
+                // Log detailed AI event
+                this._logAIEvent('CHAT_GEN', payload, content, duration, response.data.usage, fullUrl);
 
                 return { content };
             } catch (error) {
@@ -305,8 +334,6 @@ class LLMProvider {
             const provider = this.settingsCache.provider;
             const model = this.getModel('personality');
 
-            console.log(`📡 Starting Stream: ${fullUrl} with model ${model} (Provider: ${provider})`);
-
             let payload = {};
             if (provider === 'ollama') {
                 payload = {
@@ -323,7 +350,8 @@ class LLMProvider {
                     temperature: 0.2,
                     top_p: 0.9,
                     frequency_penalty: 0.3,
-                    stream: true
+                    stream: true,
+                    stream_options: { include_usage: true }
                 };
             }
 
@@ -337,6 +365,9 @@ class LLMProvider {
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
+                let fullResponse = '';
+                let usage = null;
+
                 response.data.on('data', chunk => {
                     buffer += chunk.toString();
                     const lines = buffer.split('\n');
@@ -347,18 +378,23 @@ class LLMProvider {
                         if (!text) continue;
 
                         if (text.startsWith('data: ')) text = text.slice(6).trim();
-                        if (text === '[DONE]') {
-                            console.log(`[LLMProvider] Stream duration: ${Date.now() - startTime}ms`);
-                            resolve();
-                            continue;
-                        }
+                        if (text === '[DONE]') continue;
 
                         try {
                             const json = JSON.parse(text);
+
+                            // Track usage if available (OpenAI/Groq style)
+                            if (json.usage) usage = json.usage;
+                            // Ollama style usage
+                            if (json.prompt_eval_count) usage = json;
+
                             const content = (json.choices && json.choices[0].delta && json.choices[0].delta.content) ||
                                           (json.message && json.message.content) ||
                                           json.response;
-                            if (content) onChunk(content);
+                            if (content) {
+                                fullResponse += content;
+                                onChunk(content);
+                            }
                             if (json.done) resolve();
                         } catch (e) {}
                     }
@@ -371,12 +407,21 @@ class LLMProvider {
                             const text = buffer.startsWith('data: ') ? buffer.slice(6).trim() : buffer.trim();
                             if (text !== '[DONE]') {
                                 const json = JSON.parse(text);
+                                if (json.usage) usage = json.usage;
+                                if (json.prompt_eval_count) usage = json;
+
                                 const content = (json.choices && json.choices[0].delta && json.choices[0].delta.content) ||
                                               (json.message && json.message.content) || json.response;
-                                if (content) onChunk(content);
+                                if (content) {
+                                    fullResponse += content;
+                                    onChunk(content);
+                                }
                             }
                         } catch (e) {}
                     }
+
+                    const duration = Date.now() - startTime;
+                    this._logAIEvent('STREAM_GEN', payload, fullResponse, duration, usage, fullUrl);
                     resolve();
                 });
             });
