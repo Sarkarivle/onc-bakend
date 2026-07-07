@@ -34,7 +34,9 @@ class AgentLoop {
         ];
 
         let iterations = 0;
-        const maxIterations = 3; // Prevent infinite loops
+        const maxIterations = 3;
+        let finalIntent = "GENERAL";
+        let capturedData = { jobs: "", documents: [] };
 
         try {
             while (iterations < maxIterations) {
@@ -59,8 +61,6 @@ class AgentLoop {
                 });
 
                 const assistantMessage = response.data.choices[0].message;
-
-                // OpenAI/Groq might return null content when tool_calls are present
                 if (assistantMessage.content === null) assistantMessage.content = "";
 
                 messages.push(assistantMessage);
@@ -70,8 +70,13 @@ class AgentLoop {
 
                     for (const toolCall of assistantMessage.tool_calls) {
                         const functionName = toolCall.function.name;
-                        let functionArgs = {};
 
+                        // Infer intent from tool name
+                        if (functionName === 'search_jobs') finalIntent = 'JOB_SEARCH';
+                        if (functionName === 'get_exam_info') finalIntent = 'EXAM_INFO';
+                        if (functionName === 'counsel_student') finalIntent = 'CAREER_GUIDANCE';
+
+                        let functionArgs = {};
                         try {
                             functionArgs = JSON.parse(toolCall.function.arguments);
                         } catch (e) {
@@ -83,6 +88,11 @@ class AgentLoop {
 
                         if (implementation) {
                             toolResult = await implementation(functionArgs, context);
+                            // Capture data for upstream orchestrator
+                            if (functionName === 'search_jobs' && toolResult.jobs) {
+                                capturedData.jobs = toolResult.jobs;
+                                capturedData.documents = toolResult.documents || [];
+                            }
                         } else {
                             toolResult = { error: `Tool ${functionName} is not implemented.` };
                         }
@@ -94,18 +104,24 @@ class AgentLoop {
                             content: JSON.stringify(toolResult)
                         });
                     }
-                    // Continue loop to give tool results back to LLM
                 } else {
-                    // No more tool calls, we have the final response
                     console.log("✅ AgentLoop: Final response received.");
-                    return assistantMessage.content;
+                    return {
+                        content: assistantMessage.content,
+                        intent: finalIntent,
+                        capturedData,
+                        messages
+                    };
                 }
             }
 
-            return "Bhai, kaafi koshish ki par sahi jawab nahi nikal paya. Ek baar phir se try karein?";
+            return {
+                content: "Bhai, kaafi koshish ki par sahi jawab nahi nikal paya. Ek baar phir se try karein?",
+                intent: "GENERAL",
+                capturedData
+            };
         } catch (error) {
             console.error("❌ AgentLoop Error:", error.message);
-            if (error.response) console.error("API Error Body:", JSON.stringify(error.response.data, null, 2));
             throw error;
         }
     }

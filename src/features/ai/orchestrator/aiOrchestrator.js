@@ -24,6 +24,8 @@ const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/
 
 const PlannerLog = require('../models/PlannerLog');
 
+const AgentLoop = require('../reasoning/agentLoop');
+
 class AIOrchestrator {
     static async _logDecision(query, plan, meta) {
         try {
@@ -39,7 +41,7 @@ class AIOrchestrator {
     }
 
     /**
-     * Standard Synchronous Request
+     * Standard Synchronous Request (UPGRADED TO AGENTIC LOOP)
      */
     static async processRequest(input) {
         const userMessage = normalizeRequest(input);
@@ -53,11 +55,6 @@ class AIOrchestrator {
             );
             if (gatewayStatus.status === 'BLOCK') {
                 const safeResponse = this._safeGatewayResponse(gatewayStatus.reason);
-                const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
-                await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                    () => PromptComposer.build(['SAFETY'], {}, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
-                );
-                Telemetry.setContext(traceId, { intent: 'SAFETY_BLOCK', confidence: 1 });
                 traceFinalized = true;
                 Telemetry.endTrace(traceId);
                 return { ...shapeResponse(safeResponse), requestId: traceId };
@@ -67,252 +64,98 @@ class AIOrchestrator {
                 () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             );
 
-            const cognitiveContract = await Telemetry.trackStage(traceId, 'QUERY_UNDERSTANDING_ENGINE',
-                () => IntentEngine.classify(userMessage, state, profile)
+            // --- AGENTIC LOOP (Replaces IntentEngine + Planner + ExecutionEngine) ---
+            const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
+                () => AgentLoop.run(userMessage, state.history || [], { profile, sessionId })
             );
 
-            this._printPlannerSummary(cognitiveContract);
+            const { content, intent, capturedData } = agentResult;
 
-            Telemetry.setContext(traceId, {
-                intent: cognitiveContract.intent,
-                confidence: cognitiveContract.confidence,
-                cognitiveMap: cognitiveContract.cognitiveMap
-            });
+            Telemetry.setContext(traceId, { intent, cognitiveMap: { Goal: intent } });
 
-            const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
-                () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
-            );
-
-            // --- SHADOW LOGGING: Save decision for future training ---
-            this._logDecision(userMessage, plan, { userName, sessionId, latency: 0 });
-
-            const fixedResponse = this._fixedSimpleResponse(plan.intent);
-            if (fixedResponse) {
-                const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
-                await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                    () => PromptComposer.build([plan.intent], profile, {}, { plan, currentDate: istDate })
-                );
-                const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
-                await this._persist(userName, sessionId, userMessage, fixedResponse, suggestions);
-                await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
-                    () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: fixedResponse, plan, execResult: null, suggestions })
-                );
-                traceFinalized = true;
-                Telemetry.endTrace(traceId);
-                return { ...shapeResponse(fixedResponse, { suggestions }), requestId: traceId };
-            }
-
-            const execResult = await Telemetry.trackStage(traceId, 'EXECUTION_ENGINE',
-                () => ExecutionEngine.executePlan(plan, { userMessage: plan.refinedQuery || userMessage, originalUserMessage: userMessage, profile, state, sessionId, plan })
-            );
-
-            // Manual mapping for telemetry (Search/Database/Ranking)
-            if (plan.needsRAG) {
-                Telemetry.logStageManual(traceId, 'SEARCH_ENGINE', Math.floor(execResult.metrics.latency * 0.6));
-                Telemetry.logStageManual(traceId, 'DATABASE_ENGINE', Math.floor(execResult.metrics.latency * 0.2));
-                Telemetry.logStageManual(traceId, 'RANKING_ENGINE', Math.floor(execResult.metrics.latency * 0.2));
-            }
-
-            const liveData = {
-                jobs: execResult.outputs.rag?.jobs || "",
-                memory: execResult.outputs.memory || {},
-                calculator: execResult.outputs.calculator?.result || ""
-            };
-
-            const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
-            const promptData = await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                () => PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: istDate })
-            );
-
-            const aiResponse = await Telemetry.trackStage(traceId, 'FINAL_LLM',
-                () => LLMProvider.chat([
-                    { role: 'system', content: promptData.systemPrompt },
-                    { role: 'user', content: userMessage }
-                ])
-            );
-
-            let finalContent = aiResponse.content;
-
-            const allowLlmValidation = !(plan.searchStrategy?.skipLlmExpansion && plan.searchStrategy?.skipLlmRerank);
-            const outputStatus = await Telemetry.trackStage(traceId, 'SAFETY_GUARDRAILS',
-                () => ValidationEngine.validateOutput(userMessage, finalContent, liveData, { allowLlm: allowLlmValidation })
-            );
-            if (outputStatus.status === 'REPLACE') finalContent = outputStatus.content;
-
-            const formatted = EliteFormatter.format(finalContent, { intent: plan.intent, userProfile: profile });
-            const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
+            const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
+            const suggestions = SuggestionEngine.generate({ intent }, { topic: state.topic, jobs: capturedData.jobs });
 
             await this._persist(userName, sessionId, userMessage, formatted, suggestions);
 
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
-                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: formatted, plan, execResult, suggestions })
+                () => BackgroundServices.runAll({
+                    traceId, userName, userMessage,
+                    finalContent: formatted,
+                    plan: { intent },
+                    execResult: { outputs: capturedData },
+                    suggestions
+                })
             );
+
             traceFinalized = true;
             Telemetry.endTrace(traceId);
-
-            return { ...shapeResponse(formatted, { suggestions, cognitiveMap: plan.cognitiveMap }), requestId: traceId };
+            return { ...shapeResponse(formatted, { suggestions }), requestId: traceId };
 
         } catch (error) {
-            console.error("❌ Neural Pipeline Error:", error);
+            console.error("❌ Agentic Pipeline Error:", error);
             if (!traceFinalized) Telemetry.endTrace(traceId);
             return { ...shapeResponse(SAFE_RESPONSES.GENERIC_FALLBACK), success: false, requestId: traceId };
         }
     }
 
     /**
-     * Production-Grade Streaming Request
+     * Production-Grade Streaming Request (UPGRADED TO AGENTIC LOOP)
      */
     static async processRequestStream(input, res) {
         const userMessage = normalizeRequest(input);
         const { userName, sessionId = `session_${Date.now()}` } = input;
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage, input.requestId);
-        const overallStart = Date.now();
         let stream = null;
         let traceFinalized = false;
 
-        console.log(`\n[PIPELINE_START] User: ${userName} | Query: "${userMessage}"`);
-
         try {
-            const prefetchStart = Date.now();
             const [gatewayStatus, [state, profile]] = await Promise.all([
                 SmartGateway.validate(userMessage),
                 Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             ]);
-            Telemetry.logStageManual(traceId, 'GATEWAY_VALIDATION', Date.now() - prefetchStart);
-            Telemetry.logStageManual(traceId, 'CONTEXT_LOADING', Date.now() - prefetchStart);
 
             stream = new StreamingEngine(res, { turbo: false });
             const firstName = userName.split(' ')[0] || "Dost";
-            stream.startThinking(`${firstName} bhai, bas ek minute, sab check kar loon...`);
 
             if (gatewayStatus.status === 'BLOCK') {
-                const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
-                await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                    () => PromptComposer.build(['SAFETY'], profile, {}, { plan: { intent: 'SAFETY_BLOCK' }, currentDate: istDate })
-                );
                 stream.error(new Error(this._safeGatewayResponse(gatewayStatus.reason)));
                 traceFinalized = true;
                 Telemetry.endTrace(traceId);
                 return;
             }
 
-            const intentStart = Date.now();
-            const intentPromise = IntentEngine.classify(userMessage, state, profile);
+            stream.startThinking(`${firstName} bhai, sab check kar loon...`);
 
-            let speculativeRagPromise = null;
-            const lastMsg = state.history?.length > 0 ? state.history[state.history.length-1].assistant : "";
-
-            if (userMessage.length > 5 && !['hi', 'hello', 'ok'].includes(userMessage.toLowerCase())) {
-                if (gatewayStatus.likelyIntent === 'JOB_SEARCH' || lastMsg.toLowerCase().includes('job')) {
-                    stream.startThinking(`${firstName} bhai, tumhare liye sateek vacancy dhund raha hoon...`);
-                } else {
-                    stream.startThinking(`${firstName} bhai, tumhare sawal par gaur kar raha hoon...`);
-                }
-                speculativeRagPromise = RetrievalEngine.searchJobs(userMessage, profile, { searchStrategy: { skipLlmExpansion: true, skipLlmRerank: true } });
-            }
-
-            const cognitiveContract = await intentPromise;
-            Telemetry.logStageManual(traceId, 'QUERY_UNDERSTANDING_ENGINE', Date.now() - intentStart);
-
-            this._printPlannerSummary(cognitiveContract);
-
-            Telemetry.setContext(traceId, {
-                intent: cognitiveContract.intent,
-                confidence: cognitiveContract.confidence,
-                cognitiveMap: cognitiveContract.cognitiveMap
-            });
-
-            const plan = await Telemetry.trackStage(traceId, 'PLANNER_ENGINE',
-                () => AgenticPlanner.generatePlan(userMessage, cognitiveContract, { state, profile, sessionId })
+            // --- AGENTIC LOOP (Handles tools before streaming final answer) ---
+            const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
+                () => AgentLoop.run(userMessage, state.history || [], { profile, sessionId })
             );
 
-            // --- SHADOW LOGGING: Save decision for future training ---
-            this._logDecision(userMessage, plan, { userName, sessionId, latency: 0 });
+            const { content, intent, capturedData, messages } = agentResult;
 
-            if (plan.canAnswerInstantly && plan.directResponse) {
-                const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: "" });
-                await stream.pushChunk(plan.directResponse);
-                await stream.finishStream();
-                await this._persist(userName, sessionId, userMessage, plan.directResponse, suggestions);
-                await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
-                    () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: plan.directResponse, plan })
-                );
-                traceFinalized = true;
-                Telemetry.endTrace(traceId);
-                return;
-            }
+            Telemetry.setContext(traceId, { intent });
 
-            const isTurbo = plan.reasoning === "⚡ Fast Semantic Intelligence" || plan.needsPlanning === false;
-            const execStart = Date.now();
-            let execResult = { outputs: {} };
+            // Stream the final content
+            const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
+            const suggestions = SuggestionEngine.generate({ intent }, { topic: state.topic, jobs: capturedData.jobs });
 
-            if (!isTurbo) {
-                const actionText = plan.intent === 'JOB_SEARCH' ? "sarkari database scan kar raha hoon" : "best jankari nikal raha hoon";
-                stream.startThinking(`${firstName} bhai, ab ${actionText}...`);
-            }
-
-            let ragOutput = null;
-            if (speculativeRagPromise) ragOutput = await speculativeRagPromise;
-
-            const needsRAG = plan.needsRAG || plan.need_database || plan.need_search || (plan.need_tools && plan.need_tools.includes('RAG'));
-
-            if (needsRAG && (!ragOutput || ragOutput.count === 0)) {
-                ragOutput = await RetrievalEngine.searchJobs(plan.refinedQuery || userMessage, profile, plan);
-            }
-
-            execResult = await ExecutionEngine.executePlan(plan, {
-                userMessage: plan.refinedQuery || userMessage,
-                originalUserMessage: userMessage,
-                profile, state, sessionId, plan
-            });
-
-            if (needsRAG) {
-                execResult.outputs.rag = ragOutput;
-                const totalExecTime = Date.now() - execStart;
-                Telemetry.logStageManual(traceId, 'SEARCH_ENGINE', Math.floor(totalExecTime * 0.6));
-                Telemetry.logStageManual(traceId, 'DATABASE_ENGINE', Math.floor(totalExecTime * 0.2));
-                Telemetry.logStageManual(traceId, 'RANKING_ENGINE', Math.floor(totalExecTime * 0.2));
-            }
-            Telemetry.logStageManual(traceId, 'EXECUTION_ENGINE', Date.now() - execStart);
-
-            const liveData = {
-                jobs: execResult.outputs.rag?.jobs || "",
-                memory: execResult.outputs.memory || {},
-                calculator: execResult.outputs.calculator?.result || ""
-            };
-
-            const istDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
-            const promptData = await Telemetry.trackStage(traceId, 'PROMPT_BUILDER',
-                () => PromptComposer.build([plan.intent], profile, liveData, { plan, currentDate: istDate })
-            );
-
-            const llmStart = Date.now();
-            const reinforcedUserMessage = isTurbo
-                ? `${userMessage} (Direct jawab do, no tags needed)`
-                : `${userMessage}\n\n(Note: Jawab Hinglish में दें)`;
-
-            const streamResult = await StreamingHandler.handle(
-                (onChunk) => LLMProvider.chatStream([
-                    { role: 'system', content: promptData.systemPrompt },
-                    { role: 'user', content: reinforcedUserMessage }
-                ], onChunk),
-                stream,
-                { intent: plan.intent, profile }
-            );
-
-            const finalEliteFormatted = streamResult.verifiedAnswer;
-            Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
-
-            const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
-            const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions, finalAnswer: finalEliteFormatted })}`;
+            await stream.pushChunk(formatted);
+            const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions, finalAnswer: formatted })}`;
             await stream.pushChunk(metadataStr);
-
             await stream.finishStream();
 
-            await this._persist(userName, sessionId, userMessage, finalEliteFormatted, suggestions);
+            await this._persist(userName, sessionId, userMessage, formatted, suggestions);
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
-                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: finalEliteFormatted, plan, execResult, suggestions })
+                () => BackgroundServices.runAll({
+                    traceId, userName, userMessage,
+                    finalContent: formatted,
+                    plan: { intent },
+                    execResult: { outputs: capturedData },
+                    suggestions
+                })
             );
+
             traceFinalized = true;
             Telemetry.endTrace(traceId);
 
