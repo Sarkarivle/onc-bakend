@@ -1,63 +1,31 @@
 module.exports = {
-    IMPORT_JOB_PROMPT: (textToProcess) => `You are a Principal Data Architect and Template Generator. Your task is to extract job info into a structured JSON format.
+    IMPORT_JOB_PROMPT: (textToProcess) => `Extract job info to JSON.
+Rules:
+1. JSON ONLY. No preamble.
+2. Branding: Use "JOBO".
+3. Hinglish: Summaries/instructions in simple Hinglish.
+4. Zero-loss: Include all dates, fees, vacancies, eligibility, age.
+5. Create "rule_map" for eligibility.
 
-CRITICAL RULES:
-1. Output ONLY a valid JSON object. No preamble, no postamble.
-2. BRANDING: Replace any website names with "Sarkari VLE".
-3. REWRITING: Use simple, student-friendly Hinglish for summaries only.
-4. ZERO-LOSS EXTRACTION: Extract everything. Do not skip Important Dates, Application Fees, Vacancy, Eligibility, Age Limit, or How to Apply.
-5. RULE MAPPING: You MUST also create a "rule_map" field for the Eligibility Engine.
-
-JSON SCHEMA:
+Schema:
 {
   "structured_data": {
-    "title": "Full Post Name",
-    "subtitle": "Department/Organization Name",
-    "about_post": "Short summary in Hinglish",
-    "job_overview": {
-      "department": "...",
-      "post_name": "...",
-      "total_vacancies": "...",
-      "application_start": "...",
-      "last_date": "...",
-      "salary_approx": "..."
-    },
-    "important_dates": {
-      "begin": "...",
-      "last_date": "...",
-      "fee_last_date": "...",
-      "exam_date": "..."
-    },
-    "application_fee": {
-      "gen_obc_ews": "...",
-      "sc_st_ph": "...",
-      "female": "..."
-    },
-    "eligibility": {
-      "education": "Brief description",
-      "min_age": "...",
-      "max_age": "...",
-      "age_limit_as_on": "..."
-    },
-    "vacancy_details": { "total": "...", "general": "...", "obc": "...", "ews": "...", "sc": "...", "st": "..." },
-    "how_to_apply": "Detailed step-by-step instructions in simple Hinglish",
-    "important_links": { "apply_online": "Link", "download_notification": "Link", "official_website": "Link" }
+    "title": "", "subtitle": "", "about_post": "Hinglish summary",
+    "job_overview": { "department": "", "post_name": "", "total_vacancies": "", "application_start": "", "last_date": "", "salary_approx": "" },
+    "important_dates": { "begin": "", "last_date": "", "fee_last_date": "", "exam_date": "" },
+    "application_fee": { "gen_obc_ews": "", "sc_st_ph": "", "female": "" },
+    "eligibility": { "education": "", "min_age": "", "max_age": "", "age_limit_as_on": "" },
+    "vacancy_details": { "total": "", "general": "", "obc": "", "ews": "", "sc": "", "st": "" },
+    "how_to_apply": "Hinglish steps",
+    "important_links": { "apply_online": "", "download_notification": "", "official_website": "" }
   },
   "rule_map": {
-    "education": {
-       "level": "Identify: 10TH PASS | 12TH PASS | ITI/DIPLOMA | GRADUATE | POST GRADUATE",
-       "required_degrees": ["B.ED", "BTC", "D.EL.ED", "ITI", "DIPLOMA", "CCC"]
-    },
-    "physical": {
-       "male": { "GENERAL": { "height": 165 }, "ANY": { "height": 160 } },
-       "female": { "ANY": { "height": 155 } }
-    },
-    "extra_requirements": [
-        "List any specific skills, license, running distance, typing speed, or other notes here in simple Hinglish"
-    ]
+    "education": { "level": "10TH|12TH|ITI/DIPLOMA|GRADUATE|PG", "required_degrees": [] },
+    "physical": { "male": { "GENERAL": { "height": 165 }, "ANY": { "height": 160 } }, "female": { "ANY": { "height": 155 } } },
+    "extra_requirements": ["Hinglish notes"]
   }
 }
 
-RAW DATA:
+Data:
 ${textToProcess}`
 };
