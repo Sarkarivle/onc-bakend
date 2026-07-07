@@ -139,14 +139,18 @@ class LLMProvider {
     static sanitizeMessages(messages) {
         if (!Array.isArray(messages)) return [];
         return messages
-            .filter(m => m && typeof m === 'object' && ['system', 'user', 'assistant'].includes(m.role))
+            .filter(m => m && typeof m === 'object' && ['system', 'user', 'assistant', 'tool'].includes(m.role))
             .map(m => {
-                let content = m.content;
-                if (content === null || content === undefined) content = "";
-                if (typeof content === 'object') content = JSON.stringify(content);
-                return { role: m.role, content: String(content) };
-            })
-            .filter(m => m.content.trim() !== "");
+                const sanitized = { role: m.role, content: m.content || "" };
+                if (m.tool_calls) sanitized.tool_calls = m.tool_calls;
+                if (m.tool_call_id) sanitized.tool_call_id = m.tool_call_id;
+                if (m.name) sanitized.name = m.name;
+
+                if (typeof sanitized.content === 'object') {
+                    sanitized.content = JSON.stringify(sanitized.content);
+                }
+                return sanitized;
+            });
     }
 
     static _logAIEvent(type, payload, response, duration, usage = null, url = '') {
