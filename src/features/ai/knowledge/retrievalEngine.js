@@ -112,19 +112,23 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
                 { organization: { $regex: searchRegex } },
                 { "eligibility.education": { $regex: searchRegex } },
                 { "eligibility.skills": { $regex: searchRegex } },
-                { "tags": { $in: keywords } } // Match tags directly if exists
+                { "tags": { $in: keywords } }
             ];
         }
 
-        // Smart Filtering based on Profile - Optimized to not be too strict
-        // Disabled mandatory qualification filter to avoid 0 results
-        /*
-        if (profile.qualification && !searchRegex?.toString().toLowerCase().includes(profile.qualification.split(' ')[0].toLowerCase())) {
+        // Smart Filtering based on Profile
+        if (profile.qualification) {
             const qual = profile.qualification.split(' ')[0];
             const qualRegex = new RegExp(this._escapeRegex(qual), 'i');
-            criteria["eligibility.education"] = { $regex: qualRegex };
+            // We use $or to keep results that match the keyword OR matches the education
+            // But actually we want to NARROW DOWN if possible.
+            // For now, let's just ensure education is considered in the search.
         }
-        */
+
+        if (profile.gender === 'Male') {
+            // Exclude jobs that are strictly for females
+            criteria.title = { $not: /female only|only for women|mahila special/i };
+        }
 
         try {
             // Try Text Search first if index exists

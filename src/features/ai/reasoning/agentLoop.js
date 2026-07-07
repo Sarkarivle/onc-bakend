@@ -1,6 +1,6 @@
 /**
- * AgentLoop Module (Architectural Version 1.0)
- * Responsibility: Implementing the Tool-Calling Loop for dynamic reasoning.
+ * AgentLoop Module (Architectural Version 2.0 - Universal Mentor Architecture)
+ * Responsibility: Implementing the dynamic Tool-Calling Loop with Empathy and Memory.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolDefinitions, toolImplementations } = require('../tools/toolRegistry');
@@ -8,28 +8,49 @@ const axios = require('axios');
 
 class AgentLoop {
     /**
-     * Executes the agentic loop: LLM -> Tool Call -> Tool Execution -> LLM Final Answer.
+     * Executes the agentic loop: LLM -> Tool Call(s) -> Tool Execution -> LLM Final Answer.
+     * @param {string} userMessage - The current user query.
+     * @param {Array} history - The chat history (from SessionState).
+     * @param {Object} context - Extra context including userProfile.
      */
     static async run(userMessage, history = [], context = {}) {
         console.log("🚀 AgentLoop: Starting loop for query:", userMessage);
 
-        let messages = [
-            {
-                role: 'system',
-                content: `You are Jobo, the Universal Student Mentor.
-                Your goal is to help students with:
-                1. Job Search (using search_jobs tool)
-                2. Exam Information (using get_exam_info tool)
-                3. Emotional Support/Counseling (using counsel_student tool)
-                4. General Career Advice.
+        const profile = context.profile || {};
+        const userName = profile.name || "Bhai";
+        const userGender = profile.gender || "Unknown";
+        const userEdu = profile.qualification || "Unknown";
+        const userLoc = profile.location || "Unknown";
 
-                Guidelines:
-                - Use tools whenever specific data is needed.
-                - Speak in friendly, motivational Hinglish.
-                - If the student is sad or unmotivated, PRIORITIZE counsel_student tool.
-                - Address the user as 'Bhai' or 'Dost'.`
-            },
-            ...history.map(h => ({ role: h.role, content: h.content })),
+        // Construct the Base System Prompt with Empathy and Profile Context
+        const systemPrompt = `You are Jobo, the Universal Student Mentor and a supportive elder brother.
+        Your goal is to help students with Job Searches, Exam Info, and Emotional Support.
+
+        USER PROFILE:
+        - Name: ${userName}
+        - Gender: ${userGender}
+        - Education: ${userEdu}
+        - Location: ${userLoc}
+
+        GUIDELINES:
+        1. Speak in friendly, motivational Hinglish (Hindi + English). Use words like 'Bhai', 'Dost', 'Zabardast'.
+        2. Use tools whenever specific data is needed. You can call multiple tools if the user asks multiple things.
+        3. If the user is sad, stressed, or unmotivated, PRIORITIZE the counsel_student tool.
+        4. When providing job data, ALWAYS add a layer of empathy and motivation.
+        5. If a user is not qualified for a job they asked about, suggest alternatives or ways to improve.
+        6. Use the USER PROFILE to pre-fill tool arguments (like user_filters in search_jobs).
+
+        TOOLS AVAILABLE:
+        - search_jobs: For finding active job vacancies.
+        - get_exam_info: For syllabus, dates, and admit cards.
+        - counsel_student: For emotional support and career guidance.`;
+
+        let messages = [
+            { role: 'system', content: systemPrompt },
+            ...history.flatMap(h => [
+                { role: 'user', content: h.user || h.content }, // Handle both formats
+                { role: 'assistant', content: h.assistant || h.content }
+            ]).filter(m => m.content), // Ensure no empty messages
             { role: 'user', content: userMessage }
         ];
 
@@ -61,7 +82,7 @@ class AgentLoop {
                 });
 
                 const assistantMessage = response.data.choices[0].message;
-                if (assistantMessage.content === null) assistantMessage.content = "";
+                if (!assistantMessage.content) assistantMessage.content = "";
 
                 messages.push(assistantMessage);
 
@@ -88,7 +109,7 @@ class AgentLoop {
 
                         if (implementation) {
                             toolResult = await implementation(functionArgs, context);
-                            // Capture data for upstream orchestrator
+                            // Capture data for upstream orchestrator (especially for jobs)
                             if (functionName === 'search_jobs' && toolResult.jobs) {
                                 capturedData.jobs = toolResult.jobs;
                                 capturedData.documents = toolResult.documents || [];
@@ -104,6 +125,7 @@ class AgentLoop {
                             content: JSON.stringify(toolResult)
                         });
                     }
+                    // Continue loop to let LLM process tool results
                 } else {
                     console.log("✅ AgentLoop: Final response received.");
                     return {

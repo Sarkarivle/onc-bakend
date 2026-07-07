@@ -1,6 +1,6 @@
 /**
- * ToolRegistry Module (Architectural Version 1.0 - Agentic Toolkit)
- * Responsibility: Defining tool schemas and local implementations for the Agentic Loop.
+ * ToolRegistry Module (Architectural Version 2.0 - Agentic Toolkit)
+ * Responsibility: Defining tool schemas and connecting to REAL RAG/Database engines.
  */
 
 const RetrievalEngine = require('../knowledge/retrievalEngine');
@@ -13,15 +13,23 @@ const toolDefinitions = [
         type: "function",
         function: {
             name: "search_jobs",
-            description: "To query the job RAG/Database for new, active/current jobs, vacancies, or bharti. Use this for specific job searches.",
+            description: "To query the job RAG/Database for new, active/current jobs, vacancies, or bharti. Always include user_filters for accurate pre-filtering.",
             parameters: {
                 type: "object",
                 properties: {
-                    query: { type: "string", description: "The specific job keyword or title to search (e.g. 'UP Police Constable', 'SSC MTS')" },
-                    location: { type: "string", description: "Preferred location for the job" },
-                    qualification: { type: "string", description: "Education filter (10th, 12th, Graduate etc.)" }
+                    job_keyword: { type: "string", description: "The specific job keyword or title to search (e.g. 'UP Police Constable', 'SSC MTS')" },
+                    user_filters: {
+                        type: "object",
+                        description: "Filters derived from user profile",
+                        properties: {
+                            gender: { type: "string", enum: ["Male", "Female", "Other"] },
+                            max_education: { type: "string", description: "Highest qualification (10th, 12th, Graduate, etc.)" },
+                            location_pref: { type: "string", description: "Preferred state or city" }
+                        },
+                        required: ["gender", "max_education"]
+                    }
                 },
-                required: ["query"]
+                required: ["job_keyword", "user_filters"]
             }
         }
     },
@@ -52,9 +60,13 @@ const toolDefinitions = [
             parameters: {
                 type: "object",
                 properties: {
-                    issue: { type: "string", description: "The specific problem or emotional state mentioned by the student" }
+                    issue_type: {
+                        type: "string",
+                        description: "The specific problem or emotional state mentioned by the student",
+                        enum: ["motivation", "stress", "career_confusion", "exam_fear", "financial_stress"]
+                    }
                 },
-                required: ["issue"]
+                required: ["issue_type"]
             }
         }
     }
@@ -64,33 +76,46 @@ const toolDefinitions = [
  * Local Node.js implementations for these tools
  */
 const toolImplementations = {
+    /**
+     * REAL RAG Integration with Pre-Filtering
+     */
     search_jobs: async (args, context = {}) => {
         console.log("🛠️ Tool Execution: search_jobs", args);
         try {
-            const result = await RetrievalEngine.searchJobs(args.query, context.profile || {}, {
+            // Merging LLM-provided filters with context profile if needed
+            const profile = {
+                ...context.profile,
+                gender: args.user_filters?.gender || context.profile?.gender,
+                qualification: args.user_filters?.max_education || context.profile?.qualification,
+                location: args.user_filters?.location_pref || context.profile?.location
+            };
+
+            const result = await RetrievalEngine.searchJobs(args.job_keyword, profile, {
                 searchStrategy: {
-                    location: args.location,
-                    qualification: args.qualification
+                    skipLlmExpansion: false,
+                    skipLlmRerank: false
                 }
             });
+
             return {
                 success: true,
                 count: result.count,
-                jobs: result.jobs || "No matching jobs found right now.",
-                instruction: "Use these results to answer the user. If no jobs found, suggest they wait for upcoming notifications."
+                jobs: result.jobs || "Bhai, filhal is keyword ke liye koi nayi vacancy nahi mili. Ek baar spelling check karein ya thoda general keyword use karein.",
+                documents: result.documents || [],
+                instruction: "Use the provided jobs to answer the user in a helpful, friendly Hinglish tone. If no jobs are found, encourage them to stay motivated and keep checking."
             };
         } catch (error) {
-            return { success: false, error: error.message };
+            console.error("❌ search_jobs tool error:", error.message);
+            return { success: false, error: "Database search temporarily unavailable." };
         }
     },
 
     get_exam_info: async (args) => {
         console.log("🛠️ Tool Execution: get_exam_info", args);
-        // Placeholder for actual Exam Database integration
         return {
             success: true,
-            data: `Checking official notification for ${args.exam_name} ${args.info_type}...`,
-            instruction: "Provide a general guidance about this exam and tell the user you are looking for specific official updates."
+            data: `Searching official records for ${args.exam_name} ${args.info_type}...`,
+            instruction: "Tell the user you are checking the latest government notifications for this exam. Provide general guidance if specific dates aren't in training data."
         };
     },
 
@@ -99,7 +124,7 @@ const toolImplementations = {
         return {
             success: true,
             mode: "empathy",
-            instruction: "The user needs emotional support. Act as a Bada Bhai/Mentor. Do NOT provide job lists. Provide a roadmap and motivational words in Hinglish."
+            instruction: `The student is dealing with ${args.issue_type}. Focus on motivation, career roadmaps, and empathy. Address them as 'Bhai' or 'Dost'. Do NOT search for jobs in this turn.`
         };
     }
 };

@@ -5,25 +5,16 @@
 const Chat = require('../../chat/chatModel');
 const SessionState = require('../context/sessionState');
 const UserProfile = require('../context/userProfile');
-const IntentEngine = require('../intent/intentEngine');
-const AgenticPlanner = require('../reasoning/agenticPlanner');
-const ExecutionEngine = require('./executionEngine');
-const PromptComposer = require('../generation/promptComposer');
 const LLMProvider = require('../generation/core_engine/llmProvider');
-const ValidationEngine = require('../quality/validationEngine');
 const SmartGateway = require('../quality/smartGateway');
 const EliteFormatter = require('../quality/eliteFormatter');
 const SuggestionEngine = require('../ux/suggestionEngine');
 const StreamingEngine = require('./streamingEngine');
-const StreamingHandler = require('./streamingHandler');
 const Telemetry = require('./telemetryEngine');
 const BackgroundServices = require('./backgroundServices');
-const RetrievalEngine = require('../knowledge/retrievalEngine');
-const SemanticRouter = require('../intent/SemanticRouter');
 const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/safetyGuard');
 
 const PlannerLog = require('../models/PlannerLog');
-
 const AgentLoop = require('../reasoning/agentLoop');
 
 class AIOrchestrator {
@@ -216,7 +207,6 @@ class AIOrchestrator {
 }
 
 // Warm up engines
-console.log("🧠 Warming up Neural Engines...");
-SemanticRouter.init().catch(e => console.error("Router Warmup Error:", e));
+console.log("🧠 Warming up Agentic Loop...");
 
 module.exports = AIOrchestrator;
