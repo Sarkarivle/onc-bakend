@@ -32,6 +32,7 @@ Rules:
 - Short, peer-like Hinglish (use 'yaar', 'bhai').
 - No filler ("I understand", "Searching...").
 - Max 2 sentences or strict JSON if data extraction is needed.
+- Provide clear, professional output. Do not repeat words, characters, or syllables. Ensure spelling is completely correct and natural. Avoid stuttering completely.
 """
 
 # --- CONSTRAINT 1: SLIDING WINDOW MEMORY (k=2) ---
@@ -44,7 +45,8 @@ memory = ConversationBufferWindowMemory(
 llm = ChatGroq(
     model="llama3-8b-8192",
     groq_api_key=os.getenv("GROQ_API_KEY", "your_key_here"),
-    temperature=0.1
+    temperature=0.3,
+    model_kwargs={"frequency_penalty": 0.6}
 )
 
 prompt = ChatPromptTemplate.from_messages([
@@ -58,7 +60,22 @@ agent = create_openai_functions_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory, verbose=False)
 
 def ask_jobo(user_query):
-    # --- CONSTRAINT 5: DEBUG LOGGING ---
+    # --- SMART MEMORY ROUTER ---
+    # Analyze if the new query is a follow-up or a fresh start
+    history = memory.load_memory_variables({})["chat_history"]
+    history_text = "\n".join([f"{m.type}: {m.content}" for m in history])
+
+    if history:
+        router_prompt = f"Previous Chat:\n{history_text}\n\nNew Message: {user_query}\n\nDoes this new message logically follow up on the previous conversation? Answer strictly with 'True' or 'False'."
+        router_response = llm.invoke(router_prompt).content.strip()
+
+        is_followup = "true" in router_response.lower()
+        print(f"[DEBUG] Memory Router Decision: {'FOLLOW-UP (Keeping History)' if is_followup else 'NEW QUERY (Clearing History)'}")
+
+        if not is_followup:
+            memory.clear()
+
+    # --- DEBUG LOGGING ---
     history = memory.load_memory_variables({})["chat_history"]
     history_text = "".join([m.content for m in history])
 
