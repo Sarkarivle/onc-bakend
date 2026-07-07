@@ -192,7 +192,7 @@ class LLMProvider {
 
                 let payload = {
                     model: model,
-                    messages: this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON.' }, { role: 'user', content: prompt }]),
+                    messages: this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON. No markdown backticks, no preamble, no thinking tags.' }, { role: 'user', content: prompt }]),
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
                     temperature: 0.2, // Low for logic consistency
                     frequency_penalty: 0.3,
@@ -227,16 +227,25 @@ class LLMProvider {
 
                 let bracketCount = 0;
                 let lastBrace = -1;
+                let inString = false;
+                let escaped = false;
 
                 for (let j = firstBrace; j < raw.length; j++) {
-                    if (raw[j] === '{') bracketCount++;
-                    else if (raw[j] === '}') {
-                        bracketCount--;
-                        if (bracketCount === 0) {
-                            lastBrace = j;
-                            break;
+                    const char = raw[j];
+                    if (char === '"' && !escaped) inString = !inString;
+
+                    if (!inString) {
+                        if (char === '{') bracketCount++;
+                        else if (char === '}') {
+                            bracketCount--;
+                            if (bracketCount === 0) {
+                                lastBrace = j;
+                                break;
+                            }
                         }
                     }
+                    if (char === '\\') escaped = !escaped;
+                    else escaped = false;
                 }
 
                 if (lastBrace === -1) throw new Error("Incomplete JSON structure");
@@ -282,7 +291,7 @@ class LLMProvider {
                         model: model,
                         messages: this.sanitizeMessages(messages),
                         max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
-                        temperature: 0.2,
+                        temperature: optionsOverride.temperature || 0.7, // Higher for better personality
                         top_p: 0.9,
                         frequency_penalty: 0.3,
                         stream: false

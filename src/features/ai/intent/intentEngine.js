@@ -59,7 +59,7 @@ class IntentEngine {
                     Boolean(plan.directResponse)
                 );
 
-                return this._attachCognitiveMap({ ...plan, ...normalized }, state);
+                return this._attachCognitiveMap({ version: "2.0", ...plan, ...normalized }, state);
             }
         } catch (error) {
             console.error("❌ Planner V2 Failure:", error.message);
