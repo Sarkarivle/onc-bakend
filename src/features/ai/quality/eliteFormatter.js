@@ -18,6 +18,7 @@ class EliteFormatter {
         }
 
         // 2. Common Enhancements
+        formatted = this._removeStuttering(formatted);
         formatted = this._highlightDatesAndLinks(formatted);
         formatted = this._stripFluff(formatted);
         formatted = this._removeConflictingQualificationClaims(formatted, meta.userProfile);
@@ -72,6 +73,25 @@ class EliteFormatter {
         ];
         let cleaned = text;
         patterns.forEach(p => { cleaned = cleaned.replace(p, ''); });
+        return cleaned;
+    }
+
+    /**
+     * Fixes LLM stuttering/looping issues like "jobs jobs" or "Rakesakesakesh".
+     */
+    static _removeStuttering(text) {
+        if (!text) return text;
+
+        // 1. Remove word-level repetition (e.g., "job job", "the the")
+        let cleaned = text.replace(/\b(\w+)\s+\1\b/gi, '$1');
+
+        // 2. Remove immediate syllable repetition within a word (e.g., "BPSSCC", "Rakesakesh")
+        // Note: This is aggressive, but effective for the specific bug shown.
+        cleaned = cleaned.replace(/(\w{3,})\1+/gi, '$1');
+
+        // 3. Remove emoji repetition (e.g., "💰💰💰")
+        cleaned = cleaned.replace(/([\u{1F300}-\u{1F9FF}])\1+/gu, '$1');
+
         return cleaned;
     }
 
