@@ -1,6 +1,6 @@
 module.exports = {
     DEFAULT_RUNPOD_URL: "https://api.groq.com/openai/v1/chat/completions",
-    DEFAULT_GROQ_MODEL: "Qwen 3.6 27B",
+    DEFAULT_GROQ_MODEL: "qwen/qwen3.6-27b",
 
     // 1. INTENT & PLANNER ENGINE (Fast & Logical Architect)
     // qwen2.5:1.5b is the sweet spot for logic and speed (< 1-2s)
