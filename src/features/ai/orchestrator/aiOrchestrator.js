@@ -302,7 +302,11 @@ class AIOrchestrator {
                     hasPushedAnyContent = true;
                 }
 
-                fullContent += chunk;
+                // ANTI-OVERLAP LOGIC: Skip chunks that are identical to the tail of the current content
+                const newTokens = String(chunk || "");
+                if (fullContent.endsWith(newTokens)) return;
+
+                fullContent += newTokens;
 
                 let cleanDisplay = fullContent
                     .replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -314,10 +318,6 @@ class AIOrchestrator {
 
                 if (cleanDisplay.length > totalPushedLength) {
                     const newChunk = cleanDisplay.substring(totalPushedLength);
-
-                    // CRITICAL FIX: Do NOT apply cumulative formatting during stream.
-                    // This was causing the "double text" bug because indices shift when text is cleaned.
-                    // We only push the raw (but cleaned of tags) new chunk.
                     await stream.pushChunk(newChunk);
                     totalPushedLength = cleanDisplay.length;
                 }
