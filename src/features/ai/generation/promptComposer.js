@@ -122,10 +122,14 @@ class PromptComposer {
 - Ensure every sentence is unique. No looping.
 - No "thinking" or "thought" tags in the final response.
 
+# DATA RULES (CRITICAL):
+- If [RETRIEVED DATABASE] is empty or has no jobs, say "Abhi koi naye jobs verified nahi hain" instead of inventing any.
+- NEVER invent vacancies, dates, or organization names.
+- Use ONLY provided info.
+
 # RULES:
 - Use Markdown Tables for job details.
 - DIRECTNESS: Answer in the first 2 sentences.
-- DATA: Use ONLY provided info.
 - PROFILE: Personalize using User's name.
 
 ${output(currentDate)}

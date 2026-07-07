@@ -116,12 +116,14 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
         }
 
         // Smart Filtering based on Profile - Optimized to not be too strict
+        // Disabled mandatory qualification filter to avoid 0 results
+        /*
         if (profile.qualification && !searchRegex?.toString().toLowerCase().includes(profile.qualification.split(' ')[0].toLowerCase())) {
-            // Only add educational filter if query doesn't already contain it
             const qual = profile.qualification.split(' ')[0];
             const qualRegex = new RegExp(this._escapeRegex(qual), 'i');
             criteria["eligibility.education"] = { $regex: qualRegex };
         }
+        */
 
         try {
             // Try Text Search first if index exists
