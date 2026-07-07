@@ -5,10 +5,14 @@
  */
 class EliteFormatter {
     static format(text, meta = {}) {
+        if (!text) return "";
         let formatted = text;
         const intent = String(meta.intent || 'GENERAL').toUpperCase();
 
-        // 1. Intent-Based Visual Logic
+        // 1. Core Cleanup (Always first)
+        formatted = this._removeStuttering(formatted);
+
+        // 2. Intent-Based Visual Logic
         if (['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(intent)) {
             formatted = this._ensureTables(formatted);
         } else if (['CAREER_GUIDANCE', 'SKILLS', 'INTERVIEW'].includes(intent)) {
@@ -17,12 +21,15 @@ class EliteFormatter {
             formatted = this._ensureChecklist(formatted);
         }
 
-        // 2. Common Enhancements
-        formatted = this._removeStuttering(formatted);
+        // 3. Common Enhancements
         formatted = this._highlightDatesAndLinks(formatted);
         formatted = this._stripFluff(formatted);
         formatted = this._removeConflictingQualificationClaims(formatted, meta.userProfile);
-        formatted = this._addPersonalizedClosing(formatted, meta.userProfile, intent);
+
+        // 4. Personalized Closing (ONLY if it's the final output, not during stream buildup)
+        if (meta.isFinal) {
+            formatted = this._addPersonalizedClosing(formatted, meta.userProfile, intent);
+        }
 
         return formatted.trim();
     }

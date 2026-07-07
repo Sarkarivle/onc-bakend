@@ -313,7 +313,12 @@ class AIOrchestrator {
                 if (cleanDisplay.length > totalPushedLength) {
                     const newChunk = cleanDisplay.substring(totalPushedLength);
                     // Apply EliteFormatter on the cumulative text to fix stuttering in real-time
-                    const formattedDisplay = EliteFormatter.format(cleanDisplay, { intent: plan.intent, userProfile: profile });
+                    // Note: We don't add personalized closing during stream to avoid duplication
+                    const formattedDisplay = EliteFormatter.format(cleanDisplay, {
+                        intent: plan.intent,
+                        userProfile: profile,
+                        isFinal: false
+                    });
                     const formattedChunk = formattedDisplay.substring(totalPushedLength);
 
                     if (formattedChunk.length > 0) {
@@ -324,12 +329,19 @@ class AIOrchestrator {
             });
             Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
 
-            const finalContent = fullContent
+            // Final processing after stream ends
+            const finalFormatted = EliteFormatter.format(fullContent
                 .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
                 .replace(/<\/?USER_MESSAGE>/gi, '')
-                .trim();
+                .trim(),
+                { intent: plan.intent, userProfile: profile, isFinal: true }
+            );
 
-            if (!hasPushedAnyContent && finalContent) await stream.pushChunk(finalContent);
+            // If the final formatted content has more (like the closing), push the remainder
+            if (finalFormatted.length > totalPushedLength) {
+                const finalChunk = finalFormatted.substring(totalPushedLength);
+                await stream.pushChunk(finalChunk);
+            }
 
             const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
             const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions })}`;
