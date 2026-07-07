@@ -305,6 +305,8 @@ class AIOrchestrator {
                 fullContent += chunk;
 
                 let cleanDisplay = fullContent
+                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                    .replace(/<think>[\s\S]*/gi, '')
                     .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
                     .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '')
                     .replace(/<\/?USER_MESSAGE>/gi, '')
@@ -331,6 +333,7 @@ class AIOrchestrator {
 
             // Final processing after stream ends
             const finalContent = fullContent
+                .replace(/<think>[\s\S]*?<\/think>/gi, '')
                 .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
                 .replace(/<\/?USER_MESSAGE>/gi, '')
                 .trim();

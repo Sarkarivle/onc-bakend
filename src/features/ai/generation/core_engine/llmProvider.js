@@ -198,17 +198,16 @@ class LLMProvider {
 
                 if (!raw) throw new Error("Empty response from LLM");
 
-                let clean = raw.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-                const jsonMatch = clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                // Aggressive JSON extraction: Find the first '{' and the last '}'
+                const firstBrace = raw.indexOf('{');
+                const lastBrace = raw.lastIndexOf('}');
 
-                if (!jsonMatch) {
-                    if (clean.startsWith("{") || clean.startsWith("[")) {
-                         try { return JSON.parse(clean); } catch (e) {}
-                    }
-                    throw new Error("Invalid JSON format in response");
+                if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+                    throw new Error("No valid JSON object found in response");
                 }
 
-                return JSON.parse(jsonMatch[0]);
+                const jsonString = raw.substring(firstBrace, lastBrace + 1);
+                return JSON.parse(jsonString);
             } catch (error) {
                 if (error.response) {
                     console.error("[LLMProvider] Logic Error status:", error.response.status);
