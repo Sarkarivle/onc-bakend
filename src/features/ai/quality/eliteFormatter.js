@@ -89,24 +89,20 @@ class EliteFormatter {
     static _removeStuttering(text) {
         if (!text) return text;
 
-        // 1. Remove character-level stuttering (e.g., "Sarkariiii", "BPSSSSC")
-        let cleaned = text.replace(/(.)\1{2,}/g, '$1');
+        // 1. Character-level loops (e.g., "Sarkariiii", "BPSSSSC")
+        let cleaned = text.replace(/(.)\1{3,}/g, '$1');
 
-        // 2. Remove word-level repetition (e.g., "job job", "Date Date")
-        cleaned = cleaned.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+        // 2. Word-level loops (e.g., "job job", "Date Date")
+        cleaned = cleaned.replace(/\b(\w{2,})\s+\1\b/gi, '$1');
 
-        // 3. Remove syllable/phrase repetition (e.g., "Rakesakesakesh", "Last Date Last Date")
-        // We use a non-greedy match to find repeating patterns of 2-10 characters.
-        cleaned = cleaned.replace(/(.{2,10}?)\1{2,}/gi, '$1');
+        // 3. Syllable/Pattern loops (e.g., "Namasteaste", "Rakesakesh")
+        // Catch patterns of 3+ chars repeating immediately
+        cleaned = cleaned.replace(/(.{3,10}?)\1+/gi, '$1');
 
-        // 4. Handle "Partial Word" stuttering (e.g., "mad madad madad")
-        // Logic: If a word is a prefix/suffix of the next word and they repeat.
-        cleaned = cleaned.replace(/\b(\w{2,})\s+(?=\w*\1\w*)/gi, (match, p1) => {
-            // If the next word contains this word as a substring, skip this word.
-            return "";
-        });
+        // 4. Handle prefix/suffix stutter (e.g., "mad madad")
+        cleaned = cleaned.replace(/\b(\w{2,})\s+(?=\w*\1\w*)/gi, "");
 
-        // 5. Remove emoji/punctuation repetition (e.g., "💰💰💰", "!!!")
+        // 5. Clean emojis & punctuation
         cleaned = cleaned.replace(/([\u{1F300}-\u{1F9FF}!.?])\1+/gu, '$1');
 
         return cleaned;

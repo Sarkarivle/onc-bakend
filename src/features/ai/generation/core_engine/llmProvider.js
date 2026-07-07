@@ -114,13 +114,15 @@ class LLMProvider {
     }
 
     static getModel(type) {
-        if (process.env.LLM_MODEL) return process.env.LLM_MODEL;
+        // Force stable models for production stability
+        const envModel = process.env.LLM_MODEL;
+        if (envModel && !envModel.toLowerCase().includes('qwen')) return envModel;
 
         const provider = this.settingsCache.provider;
-        if (provider === 'groq') return constants.DEFAULT_GROQ_MODEL;
+        if (provider === 'groq') return "llama-3.3-70b-versatile";
 
-        if (type === 'logic') return constants.AI_LOGIC_MODEL;
-        return constants.AI_PERSONALITY_MODEL;
+        if (type === 'logic') return constants.AI_LOGIC_MODEL || "llama-3.3-70b-versatile";
+        return constants.AI_PERSONALITY_MODEL || "llama-3.3-70b-versatile";
     }
 
     static getHeaders() {
@@ -249,10 +251,10 @@ class LLMProvider {
                         model: model,
                         messages: this.sanitizeMessages(messages),
                         max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
-                        temperature: 0.6,
-                        top_p: 0.95,
-                        frequency_penalty: 0.3,
-                        presence_penalty: 0.2,
+                        temperature: 0.7,
+                        top_p: 1.0,
+                        frequency_penalty: 0.1,
+                        presence_penalty: 0.1,
                         stream: false
                     };
                 }
@@ -316,10 +318,10 @@ class LLMProvider {
                     model: model,
                     messages: this.sanitizeMessages(messages),
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
-                    temperature: 0.6,
-                    top_p: 0.95,
-                    frequency_penalty: 0.3,
-                    presence_penalty: 0.2,
+                    temperature: 0.7,
+                    top_p: 1.0,
+                    frequency_penalty: 0.1,
+                    presence_penalty: 0.1,
                     stream: true
                 };
             }

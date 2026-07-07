@@ -314,19 +314,12 @@ class AIOrchestrator {
 
                 if (cleanDisplay.length > totalPushedLength) {
                     const newChunk = cleanDisplay.substring(totalPushedLength);
-                    // Apply EliteFormatter on the cumulative text to fix stuttering in real-time
-                    // Note: We don't add personalized closing during stream to avoid duplication
-                    const formattedDisplay = EliteFormatter.format(cleanDisplay, {
-                        intent: plan.intent,
-                        userProfile: profile,
-                        isFinal: false
-                    });
-                    const formattedChunk = formattedDisplay.substring(totalPushedLength);
 
-                    if (formattedChunk.length > 0) {
-                        await stream.pushChunk(formattedChunk);
-                        totalPushedLength = formattedDisplay.length;
-                    }
+                    // CRITICAL FIX: Do NOT apply cumulative formatting during stream.
+                    // This was causing the "double text" bug because indices shift when text is cleaned.
+                    // We only push the raw (but cleaned of tags) new chunk.
+                    await stream.pushChunk(newChunk);
+                    totalPushedLength = cleanDisplay.length;
                 }
             });
             Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
