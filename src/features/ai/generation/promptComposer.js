@@ -112,22 +112,20 @@ class PromptComposer {
         // Dynamically select the output module based on inferred intent
         const output = outputModules[inferredIntent] || outputModules.GENERAL;
 
-        const components = [
-            personality,
-            core,
-            language,
-            reasoning,
-            safety,
-            output(currentDate)
-        ];
+        // CONSOLIDATED MASTER PROMPT: Prevents conflicting instructions and token bloat
+        return `
+# ROLE: Jobo AI - Career Mentor for India.
+# TONE: Professional, snappy Hinglish (Bhai/Dost tone).
+# RULES:
+- Use Markdown Tables for job details (Fees, Dates, Vacancy).
+- NO STUTTERING: Do not repeat words, syllables, or phrases.
+- DIRECTNESS: Give the answer in the first 2 sentences.
+- DATA: Use ONLY provided [DATABASE] and [SEARCH] info.
+- PROFILE: Personalize using User's name/qualification.
+- OUTPUT: Plain text/Markdown only. No internal thinking tags in final response.
 
-        if (intentModules[inferredIntent]) {
-            components.push(intentModules[inferredIntent]);
-        }
-
-        const basePrompt = components.join('\n\n---\n\n');
-        this.basePromptCache.set(cacheKey, basePrompt);
-        return basePrompt;
+${output(currentDate)}
+`;
     }
 
     static _formatProfile(profile, plan) {
