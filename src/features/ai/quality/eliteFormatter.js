@@ -82,15 +82,17 @@ class EliteFormatter {
     static _removeStuttering(text) {
         if (!text) return text;
 
-        // 1. Remove word-level repetition (e.g., "job job", "the the")
-        let cleaned = text.replace(/\b(\w+)\s+\1\b/gi, '$1');
+        // 1. Remove word-level repetition (e.g., "job job", "Date Date")
+        let cleaned = text.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
 
-        // 2. Remove immediate syllable repetition within a word (e.g., "BPSSCC", "Rakesakesh")
-        // Note: This is aggressive, but effective for the specific bug shown.
+        // 2. Remove phrase repetition (e.g., "Last Date Last Date")
+        cleaned = cleaned.replace(/(.{4,})\1+/gi, '$1');
+
+        // 3. Remove syllable repetition (e.g., "Rakesakesakesh")
         cleaned = cleaned.replace(/(\w{3,})\1+/gi, '$1');
 
-        // 3. Remove emoji repetition (e.g., "💰💰💰")
-        cleaned = cleaned.replace(/([\u{1F300}-\u{1F9FF}])\1+/gu, '$1');
+        // 4. Remove emoji/punctuation repetition (e.g., "💰💰💰", "!!!")
+        cleaned = cleaned.replace(/([\u{1F300}-\u{1F9FF}!.?])\1+/gu, '$1');
 
         return cleaned;
     }

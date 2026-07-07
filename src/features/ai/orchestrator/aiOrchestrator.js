@@ -312,8 +312,14 @@ class AIOrchestrator {
 
                 if (cleanDisplay.length > totalPushedLength) {
                     const newChunk = cleanDisplay.substring(totalPushedLength);
-                    await stream.pushChunk(newChunk);
-                    totalPushedLength = cleanDisplay.length;
+                    // Apply EliteFormatter on the cumulative text to fix stuttering in real-time
+                    const formattedDisplay = EliteFormatter.format(cleanDisplay, { intent: plan.intent, userProfile: profile });
+                    const formattedChunk = formattedDisplay.substring(totalPushedLength);
+
+                    if (formattedChunk.length > 0) {
+                        await stream.pushChunk(formattedChunk);
+                        totalPushedLength = formattedDisplay.length;
+                    }
                 }
             });
             Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
