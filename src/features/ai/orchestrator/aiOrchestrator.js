@@ -15,6 +15,7 @@ const SmartGateway = require('../quality/smartGateway');
 const EliteFormatter = require('../quality/eliteFormatter');
 const SuggestionEngine = require('../ux/suggestionEngine');
 const StreamingEngine = require('./streamingEngine');
+const StreamingHandler = require('./streamingHandler');
 const Telemetry = require('./telemetryEngine');
 const BackgroundServices = require('./backgroundServices');
 const RetrievalEngine = require('../knowledge/retrievalEngine');
@@ -284,81 +285,24 @@ class AIOrchestrator {
             );
 
             const llmStart = Date.now();
-            let fullContent = "";
-            let hasPushedAnyContent = false;
-            let totalPushedLength = 0;
-
             const reinforcedUserMessage = isTurbo
                 ? `${userMessage} (Direct jawab do, no tags needed)`
                 : `${userMessage}\n\n(Note: Jawab Hinglish में दें)`;
 
-            let lineBuffer = "";
-            await LLMProvider.chatStream([
-                { role: 'system', content: promptData.systemPrompt },
-                { role: 'user', content: reinforcedUserMessage }
-            ], async (chunk) => {
-                if (!hasPushedAnyContent) {
-                    const ttft = Date.now() - llmStart;
-                    Telemetry.logStageManual(traceId, 'LLM_TTFT', ttft);
-                    hasPushedAnyContent = true;
-                }
-
-                fullContent += chunk;
-                lineBuffer += chunk;
-
-                // Wait for a full line or a significant break to process
-                if (lineBuffer.includes('\n') || lineBuffer.length > 100) {
-                    let cleanLine = lineBuffer
-                        .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                        .replace(/<think>[\s\S]*/gi, '')
-                        .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
-                        .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '')
-                        .replace(/<\/?USER_MESSAGE>/gi, '');
-
-                    // Apply aggressive deduplication on the line
-                    const formattedLine = EliteFormatter.format(cleanLine, {
-                        intent: plan.intent,
-                        userProfile: profile,
-                        isFinal: false
-                    });
-
-                    if (formattedLine.trim()) {
-                        await stream.pushChunk(formattedLine + (lineBuffer.includes('\n') ? '\n' : ''));
-                    }
-                    lineBuffer = "";
-                }
-            });
-
-            // Flush remaining buffer
-            if (lineBuffer.trim()) {
-                const finalClean = lineBuffer
-                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                    .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
-                    .trim();
-                const finalFormatted = EliteFormatter.format(finalClean, { intent: plan.intent, userProfile: profile, isFinal: false });
-                if (finalFormatted) await stream.pushChunk(finalFormatted);
-            }
-            Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
-
-            // Final processing for metadata and persistence
-            const finalProcessedContent = fullContent
-                .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
-                .replace(/<\/?USER_MESSAGE>/gi, '')
-                .trim();
-
-            const finalEliteFormatted = EliteFormatter.format(finalProcessedContent,
-                { intent: plan.intent, userProfile: profile, isFinal: true }
+            const streamResult = await StreamingHandler.handle(
+                (onChunk) => LLMProvider.chatStream([
+                    { role: 'system', content: promptData.systemPrompt },
+                    { role: 'user', content: reinforcedUserMessage }
+                ], onChunk),
+                stream,
+                { intent: plan.intent, profile }
             );
 
-            // If the final formatted content has more (like the closing), push the remainder
-            if (finalFormatted.length > totalPushedLength) {
-                const finalChunk = finalFormatted.substring(totalPushedLength);
-                await stream.pushChunk(finalChunk);
-            }
+            const finalEliteFormatted = streamResult.verifiedAnswer;
+            Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
 
             const suggestions = SuggestionEngine.generate(plan, { topic: state.topic, jobs: liveData.jobs });
-            const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions })}`;
+            const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions, finalAnswer: finalEliteFormatted })}`;
             await stream.pushChunk(metadataStr);
 
             await stream.finishStream();

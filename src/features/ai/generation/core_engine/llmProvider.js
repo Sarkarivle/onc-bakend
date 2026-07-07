@@ -254,8 +254,9 @@ class LLMProvider {
                         model: model,
                         messages: this.sanitizeMessages(messages),
                         max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
-                        temperature: 0.1, // Minimum for stability
-                        top_p: 1.0,
+                        temperature: 0.2,
+                        top_p: 0.9,
+                        frequency_penalty: 0.3,
                         stream: false
                     };
                 }
@@ -319,8 +320,9 @@ class LLMProvider {
                     model: model,
                     messages: this.sanitizeMessages(messages),
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
-                    temperature: 0.1, // Minimum for stability
-                    top_p: 1.0,
+                    temperature: 0.2,
+                    top_p: 0.9,
+                    frequency_penalty: 0.3,
                     stream: true
                 };
             }
