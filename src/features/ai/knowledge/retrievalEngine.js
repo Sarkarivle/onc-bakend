@@ -21,6 +21,7 @@ class RetrievalEngine {
 
             // Enable expansion for conversational queries
             const skipLlmExpansion = plan.searchStrategy?.skipLlmExpansion === true;
+            const skipLlmRerank = plan.searchStrategy?.skipLlmRerank === true;
 
             const expansion = skipLlmExpansion
                 ? this._basicExpansion(userQuery)
