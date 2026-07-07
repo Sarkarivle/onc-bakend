@@ -16,11 +16,14 @@ class AgenticPlanner {
     static async generatePlan(query, intentContract, context = {}) {
         // --- BRIDGE LOGIC: If IntentEngine (V20) already provided a full plan, respect it ---
         if (intentContract && intentContract.version === "2.0") {
-            return {
+            const plan = {
                 ...intentContract,
                 reasoning: "⚡ Fast Semantic Intelligence",
                 needsPlanning: false
             };
+            // Ensure consistency in RAG flag
+            plan.needsRAG = plan.needsRAG || plan.need_database || plan.need_search;
+            return plan;
         }
 
         // --- FALLBACK: Legacy/Complex Planning via LLM ---

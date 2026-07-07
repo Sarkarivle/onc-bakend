@@ -254,7 +254,9 @@ class AIOrchestrator {
             let ragOutput = null;
             if (speculativeRagPromise) ragOutput = await speculativeRagPromise;
 
-            if (plan.needsRAG && (!ragOutput || ragOutput.count === 0)) {
+            const needsRAG = plan.needsRAG || plan.need_database || plan.need_search || (plan.need_tools && plan.need_tools.includes('RAG'));
+
+            if (needsRAG && (!ragOutput || ragOutput.count === 0)) {
                 ragOutput = await RetrievalEngine.searchJobs(plan.refinedQuery || userMessage, profile, plan);
             }
 
@@ -264,7 +266,7 @@ class AIOrchestrator {
                 profile, state, sessionId, plan
             });
 
-            if (plan.needsRAG) {
+            if (needsRAG) {
                 execResult.outputs.rag = ragOutput;
                 const totalExecTime = Date.now() - execStart;
                 Telemetry.logStageManual(traceId, 'SEARCH_ENGINE', Math.floor(totalExecTime * 0.6));
