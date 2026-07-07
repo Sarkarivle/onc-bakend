@@ -18,24 +18,24 @@ class RetrievalEngine {
             if (Job.db?.readyState !== 1) {
                 return { count: 0, jobs: "", documents: [], confidence: 0 };
             }
-            // TURBO DEFAULT: Skip LLM work unless explicitly needed
-            const skipLlmExpansion = plan.searchStrategy?.skipLlmExpansion !== false; // Default to true
-            const skipLlmRerank = plan.searchStrategy?.skipLlmRerank !== false; // Default to true
+
+            // Enable expansion for conversational queries
+            const skipLlmExpansion = plan.searchStrategy?.skipLlmExpansion === true;
 
             const expansion = skipLlmExpansion
                 ? this._basicExpansion(userQuery)
                 : await this._expandQuery(userQuery);
-            telemetry.expandedQuery = expansion;
-            telemetry.searchStrategy = {
-                skipLlmExpansion,
-                skipLlmRerank,
-                reason: plan.searchStrategy?.reason || "Planner/semantic retrieval path"
-            };
 
-            // 2. OPTIMIZED SEARCH (Standard Mongo compatible)
+            // 2. OPTIMIZED SEARCH
             let candidates = await this._standardSearch(expansion, profile);
-            telemetry.stats.candidatesFound = candidates.length;
 
+            // FALLBACK: If no specific jobs found, fetch the most recent active jobs
+            if (candidates.length === 0) {
+                console.log("🔍 No keyword match. Fetching latest jobs as fallback...");
+                candidates = await Job.find({ isActive: true }).sort({ createdAt: -1 }).limit(5).lean();
+            }
+
+            telemetry.stats.candidatesFound = candidates.length;
             if (candidates.length === 0) return { jobs: "", documents: [], confidence: 0 };
 
             // 3. NEURAL RERANKING
