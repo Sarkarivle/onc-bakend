@@ -123,9 +123,10 @@ class PromptComposer {
 - No "thinking" or "thought" tags in the final response.
 
 # DATA RULES (CRITICAL):
-- If [RETRIEVED DATABASE] is empty or has no jobs, say "Abhi koi naye jobs verified nahi hain" instead of inventing any.
-- NEVER invent vacancies, dates, or organization names.
-- Use ONLY provided info.
+- If [RETRIEVED DATABASE] section is missing, incomplete, or says "no keyword match", you MUST state: "Bhai, abhi verified jobs ki list load nahi ho pa rahi hai. Thodi der baad try karein."
+- NEVER mention Railway, UP Police, or any other job unless it is EXPLICITLY listed in [RETRIEVED DATABASE] below.
+- Do NOT use your internal training data to name jobs.
+- If data is not there, DO NOT INVENT IT.
 
 # RULES:
 - Use Markdown Tables for job details.
