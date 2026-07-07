@@ -15,7 +15,7 @@ Categories:
 3. "exam_info": User asks about syllabus, exam pattern, admit cards, or result dates.
 4. "profile": User wants to see/change their profile data (age, education, etc.) or uses "mera/main" pronouns.
 5. "greeting": Greetings, pleasantries, or casual talk.
-6. "follow_up": User refers to the previous message, disagrees, asks for clarification, or references a past topic.
+6. "follow_up": User refers to the previous message, complains ("galat hai", "sirf mahilao ke liye hai", "nahi"), asks for clarification, or references a past topic.
 
 Rules:
 1. Intent "job_search": set "need_search": true, "need_database": true, "need_tools": ["RAG"], "next_engines": ["database_engine", "prompt_composer", "response_engine"].
@@ -23,7 +23,7 @@ Rules:
 3. Intent "exam_info": set "need_search": false, "need_database": false, "need_tools": [], "next_engines": ["prompt_composer", "response_engine"].
 4. Intent "profile": set "need_memory": true, "need_tools": ["PROFILE"], "next_engines": ["prompt_composer", "response_engine"].
 5. Intent "greeting": set "need_search": false, "need_database": false, "need_tools": [], "next_engines": ["response_engine"].
-6. Intent "follow_up": set "need_search": false, "need_database": false, "need_tools": ["MEMORY"], "next_engines": ["prompt_composer", "response_engine"]. (DO NOT search database for follow-ups).
+6. Intent "follow_up": set "need_search": false, "need_database": false, "need_tools": ["MEMORY"], "next_engines": ["prompt_composer", "response_engine"]. (CRITICAL: DO NOT search the database. The LLM must read the history and address the user's specific complaint or reference using memory alone.)
 
 Schema:
 {
@@ -38,21 +38,10 @@ Schema:
 }
 
 Meaning-Based Scenarios (Focus on the user's INTENT, not exact words):
-- Scenario: User is actively looking for current openings, asking about new forms, or using words related to active recruitment.
-  -> primary_goal: "job_search"
-
-- Scenario: User is asking for guidance on what to study, comparing degrees, or asking how to build a career in a specific field.
-  -> primary_goal: "career_advice"
-
-- Scenario: User wants to know about the subjects for an exam, when an exam will happen, or result declarations.
-  -> primary_goal: "exam_info"
-
-- Scenario: User is talking about their own qualifications, asking what is saved in their data, or wants to update their details.
-  -> primary_goal: "profile"
-
-- Scenario: User is just starting the chat with pleasantries, asking how the AI is doing, or sending casual greetings.
-  -> primary_goal: "greeting"
-
-- Scenario: User disagrees with a previous answer, says something is wrong, asks to repeat, or references a topic discussed just moments ago.
-  -> primary_goal: "follow_up"
+- Scenario: User wants to explore fresh job options, says "nayee naukri dikhao" -> primary_goal: "job_search"
+- Scenario: User says something you suggested earlier is wrong, "yeh mere liye nahi hai", "yeh sirf ladkiyo ka hai", "age limit galat hai" -> primary_goal: "follow_up"
+- Scenario: User asks "kya padhu", "kaise banu" -> primary_goal: "career_advice"
+- Scenario: User asks about subjects or dates -> primary_goal: "exam_info"
+- Scenario: User checks their saved details -> primary_goal: "profile"
+- Scenario: User says hello -> primary_goal: "greeting"
 `;
