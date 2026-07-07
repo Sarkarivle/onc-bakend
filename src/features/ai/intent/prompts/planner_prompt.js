@@ -1,4 +1,3 @@
-```javascript
 module.exports = (istDate, userName, chatHistory) => `
 Planner V3: Analyze the current request strictly in the context of the recent history. Output RAW JSON ONLY.
 CRITICAL INSTRUCTION: Do NOT wrap the JSON in markdown code blocks (e.g., no \`\`\`json). Start directly with { and end with }. Do not add any text before or after the JSON.
@@ -57,6 +56,3 @@ Meaning-Based Scenarios (Focus on the user's INTENT, not exact words):
 - Scenario: User disagrees with a previous answer, says something is wrong, asks to repeat, or references a topic discussed just moments ago.
   -> primary_goal: "follow_up"
 `;
-
-
-```
