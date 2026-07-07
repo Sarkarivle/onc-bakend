@@ -330,10 +330,12 @@ class AIOrchestrator {
             Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
 
             // Final processing after stream ends
-            const finalFormatted = EliteFormatter.format(fullContent
+            const finalContent = fullContent
                 .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
                 .replace(/<\/?USER_MESSAGE>/gi, '')
-                .trim(),
+                .trim();
+
+            const finalFormatted = EliteFormatter.format(finalContent,
                 { intent: plan.intent, userProfile: profile, isFinal: true }
             );
 
@@ -349,9 +351,9 @@ class AIOrchestrator {
 
             await stream.finishStream();
 
-            await this._persist(userName, sessionId, userMessage, finalContent, suggestions);
+            await this._persist(userName, sessionId, userMessage, finalFormatted, suggestions);
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
-                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent, plan, execResult, suggestions })
+                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: finalFormatted, plan, execResult, suggestions })
             );
             traceFinalized = true;
             Telemetry.endTrace(traceId);
