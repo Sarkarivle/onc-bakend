@@ -292,6 +292,7 @@ class AIOrchestrator {
                 ? `${userMessage} (Direct jawab do, no tags needed)`
                 : `${userMessage}\n\n(Note: Jawab Hinglish में दें)`;
 
+            let lineBuffer = "";
             await LLMProvider.chatStream([
                 { role: 'system', content: promptData.systemPrompt },
                 { role: 'user', content: reinforcedUserMessage }
@@ -302,36 +303,51 @@ class AIOrchestrator {
                     hasPushedAnyContent = true;
                 }
 
-                // Aggressive Stream Filtering
                 fullContent += chunk;
+                lineBuffer += chunk;
 
-                // Clean the entire accumulated content to fix real-time stuttering
-                let cleanDisplay = fullContent
-                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                    .replace(/<think>[\s\S]*/gi, '')
-                    .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
-                    .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '')
-                    .replace(/<\/?USER_MESSAGE>/gi, '');
+                // Wait for a full line or a significant break to process
+                if (lineBuffer.includes('\n') || lineBuffer.length > 100) {
+                    let cleanLine = lineBuffer
+                        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                        .replace(/<think>[\s\S]*/gi, '')
+                        .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
+                        .replace(/<AGENT_THOUGHT>[\s\S]*/gi, '')
+                        .replace(/<\/?USER_MESSAGE>/gi, '');
 
-                // Real-time Syllable Deduplication (Aggressive for Stream)
-                cleanDisplay = cleanDisplay.replace(/(.{3,10}?)\1+/gi, '$1');
+                    // Apply aggressive deduplication on the line
+                    const formattedLine = EliteFormatter.format(cleanLine, {
+                        intent: plan.intent,
+                        userProfile: profile,
+                        isFinal: false
+                    });
 
-                if (cleanDisplay.length > totalPushedLength) {
-                    const newChunk = cleanDisplay.substring(totalPushedLength);
-                    await stream.pushChunk(newChunk);
-                    totalPushedLength = cleanDisplay.length;
+                    if (formattedLine.trim()) {
+                        await stream.pushChunk(formattedLine + (lineBuffer.includes('\n') ? '\n' : ''));
+                    }
+                    lineBuffer = "";
                 }
             });
+
+            // Flush remaining buffer
+            if (lineBuffer.trim()) {
+                const finalClean = lineBuffer
+                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                    .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
+                    .trim();
+                const finalFormatted = EliteFormatter.format(finalClean, { intent: plan.intent, userProfile: profile, isFinal: false });
+                if (finalFormatted) await stream.pushChunk(finalFormatted);
+            }
             Telemetry.logStageManual(traceId, 'FINAL_LLM', Date.now() - llmStart);
 
-            // Final processing after stream ends
-            const finalContent = fullContent
+            // Final processing for metadata and persistence
+            const finalProcessedContent = fullContent
                 .replace(/<think>[\s\S]*?<\/think>/gi, '')
                 .replace(/<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/gi, '')
                 .replace(/<\/?USER_MESSAGE>/gi, '')
                 .trim();
 
-            const finalFormatted = EliteFormatter.format(finalContent,
+            const finalEliteFormatted = EliteFormatter.format(finalProcessedContent,
                 { intent: plan.intent, userProfile: profile, isFinal: true }
             );
 
@@ -347,9 +363,9 @@ class AIOrchestrator {
 
             await stream.finishStream();
 
-            await this._persist(userName, sessionId, userMessage, finalFormatted, suggestions);
+            await this._persist(userName, sessionId, userMessage, finalEliteFormatted, suggestions);
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
-                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: finalFormatted, plan, execResult, suggestions })
+                () => BackgroundServices.runAll({ traceId, userName, userMessage, finalContent: finalEliteFormatted, plan, execResult, suggestions })
             );
             traceFinalized = true;
             Telemetry.endTrace(traceId);
