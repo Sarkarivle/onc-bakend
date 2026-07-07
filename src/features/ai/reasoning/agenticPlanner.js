@@ -31,7 +31,12 @@ class AgenticPlanner {
             timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric'
         }).format(new Date());
 
-        const systemPrompt = plannerPrompt(istDate, context.profile?.name || 'Dost');
+        const historyText = (context.state?.history || [])
+            .slice(-5)
+            .map(h => `User: ${h.user}\nAI: ${h.assistant}`)
+            .join('\n---\n');
+
+        const systemPrompt = plannerPrompt(istDate, context.profile?.name || 'Dost', historyText);
 
         try {
             // If the intent is already known but needs tool refinement

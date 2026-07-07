@@ -39,7 +39,12 @@ class IntentEngine {
             timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric'
         }).format(new Date());
 
-        const prompt = plannerPrompt(istDate, profile.name || 'Dost');
+        const historyText = (state.history || [])
+            .slice(-5)
+            .map(h => `User: ${h.user}\nAI: ${h.assistant}`)
+            .join('\n---\n');
+
+        const prompt = plannerPrompt(istDate, profile.name || 'Dost', historyText);
 
         try {
             const plan = await LLMProvider.generateLogic(prompt + `\n\nUser: "${workingQuery}"\nOutput:`);
