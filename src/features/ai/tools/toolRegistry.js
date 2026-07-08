@@ -140,10 +140,12 @@ const toolDefinitions = [
         type: "function",
         function: {
             name: "get_current_time",
-            description: "Get the current time in Indian Standard Time (IST). Use this when user asks 'abhi kitne baje hain' or about current time.",
+            description: "Get the current time in Indian Standard Time (IST).",
             parameters: {
                 type: "object",
-                properties: {}
+                properties: {
+                    timezone: { type: "string", description: "Default is Asia/Kolkata" }
+                }
             }
         }
     },

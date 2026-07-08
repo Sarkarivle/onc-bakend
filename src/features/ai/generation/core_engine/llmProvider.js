@@ -143,16 +143,16 @@ class LLMProvider {
             .map(m => {
                 const sanitized = { role: m.role };
 
-                // Groq/OpenAI Rule: content must be null if tool_calls exist, or a string otherwise
-                if (m.tool_calls && m.tool_calls.length > 0) {
+                if (m.role === 'tool') {
+                    sanitized.content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || {});
+                    sanitized.tool_call_id = m.tool_call_id;
+                    sanitized.name = m.name;
+                } else if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
                     sanitized.content = null;
                     sanitized.tool_calls = m.tool_calls;
                 } else {
                     sanitized.content = String(m.content || "");
                 }
-
-                if (m.tool_call_id) sanitized.tool_call_id = m.tool_call_id;
-                if (m.name) sanitized.name = m.name;
 
                 return sanitized;
             });

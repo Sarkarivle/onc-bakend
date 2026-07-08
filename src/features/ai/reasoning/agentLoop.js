@@ -149,6 +149,10 @@ Keep your replies concise but impactful. Read the recent chat history to maintai
                 capturedData
             };
         } catch (error) {
+            if (error.response) {
+                console.error("❌ AgentLoop LLM Error Status:", error.response.status);
+                console.error("❌ AgentLoop LLM Error Data:", JSON.stringify(error.response.data, null, 2));
+            }
             console.error("❌ AgentLoop Error:", error.message);
             throw error;
         }
