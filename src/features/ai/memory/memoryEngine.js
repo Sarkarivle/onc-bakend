@@ -76,18 +76,36 @@ class MemoryEngine {
      */
     static async extractFacts(userId, userQuery, aiResponse) {
         const q = String(userQuery || "").toLowerCase();
-        if (q.length < 5 || q.includes("hi") || q.includes("hello") || q.includes("namaste")) return;
+
+        // Skip common conversational patterns to save tokens
+        const skipWords = ["hi", "hello", "namaste", "batao", "kaise", "theek", "okay", "bye", "time", "baj", "naam", "name"];
+        if (q.length < 10 || skipWords.some(word => q.includes(word))) return;
 
         const prompt = `
-Task: Extract long-term user facts.
+# ROLE: High-Precision Memory Auditor.
+# TASK: Extract ONLY new, concrete personal facts about the user from the dialogue.
+# IGNORE: Generic meta-skills like "understands Hindi", "can chat", "sent greeting", or "wants help".
+# CATEGORIES:
+- EDU (Degrees, Schooling, Marks, Exams passed)
+- SKILL (Specific skills: 'Java', 'Typing', 'Driving', 'Computer')
+- GOAL (Target exam like 'SSC', 'Police', 'Banking')
+- LOC (User's city, state, or current village)
+- BIO (Age, Category/Caste like 'OBC/SC', Physical stats)
+
 [USER]: "${userQuery}"
 [AI]: "${aiResponse}"
-Output ONLY JSON Array: [{ "category": "SKILL|GOAL|EDU|LOC", "fact": "atomic fact", "importance": 0.5 }]
+
+# RULE: If no NEW or HARD personal facts are found, return an empty array [].
+Output ONLY JSON Array: [{ "category": "...", "fact": "...", "importance": 0.5 }]
 `;
         try {
             const extractions = await LLMProvider.generateLogic(prompt);
-            if (Array.isArray(extractions)) {
+            if (Array.isArray(extractions) && extractions.length > 0) {
                 for (const item of extractions) {
+                    // One last check: don't save generic facts
+                    const fact = (item.fact || "").toLowerCase();
+                    if (fact.includes("hindi") || fact.includes("english") || fact.includes("chat") || fact.includes("user")) continue;
+
                     await this.saveMemory(userId, item.category, item.fact, item.importance);
                 }
             }
