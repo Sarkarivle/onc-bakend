@@ -47,8 +47,8 @@ When providing job details, use this format:
 🎓 **Qualification:** [Brief]
 💡 **Pro Tip (Bade Bhai ki Advice):** [1 line advice]
 
-# TOOL CALLING RULE
-When you need information (Jobs, Math, Time, Web), call the appropriate tool immediately. Do not apply formatting to tool calls.
+# TOOL CALLING
+If you need any information (Jobs, Math, Time, Web), call the tool immediately. Do not talk before or after calling a tool.
 `;
 
         let messages = [
@@ -114,7 +114,7 @@ When you need information (Jobs, Math, Time, Web), call the appropriate tool imm
                         let toolResult;
 
                         if (implementation) {
-                            toolResult = await implementation(functionArgs, context);
+                            toolResult = await implementation(functionArgs, profile);
                             // Capture data for upstream orchestrator (especially for jobs)
                             if (functionName === 'search_jobs' && toolResult.jobs) {
                                 capturedData.jobs = toolResult.jobs;
