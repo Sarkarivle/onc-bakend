@@ -9,6 +9,7 @@ const cheerio = require('cheerio');
 class WebSearchTool {
     static async search(query) {
         console.log("🌐 WebSearch: Querying for", query);
+        console.log("🔑 Debug: SEARCH_API_KEY present?", !!process.env.SEARCH_API_KEY);
 
         // 1. Try SearchApi.io (User's preferred provider)
         const SEARCH_API_KEY = process.env.SEARCH_API_KEY;
@@ -26,7 +27,8 @@ class WebSearchTool {
                     return { success: true, results, source: "SearchApi.io" };
                 }
             } catch (e) {
-                console.warn("⚠️ SearchApi failed, falling back to free search.");
+                console.warn("⚠️ SearchApi failed:", e.response?.data || e.message);
+                console.warn("Falling back to free search.");
             }
         }
 
