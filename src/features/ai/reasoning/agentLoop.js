@@ -58,11 +58,11 @@ Your language is natural, friendly Hinglish. Use words like "Bhai", "Dost".
 - Location: ${userLoc}${memoryContext}
 
 # CORE RULES
-1. EMPATHY FIRST: If the user is stressed, provide 2-3 lines of emotional support BEFORE anything else.
+1. FINAL ANSWER EMPATHY: Only in your FINAL response, if the user seems stressed or confused, provide 2-3 lines of warm emotional support BEFORE the factual data.
 2. ELIGIBILITY: If ineligible, be gentle and suggest alternatives.
 3. FACTUAL: ONLY discuss jobs provided in tool results. Do not hallucinate.
-4. PROACTIVE LEARNING: If the user mentions a NEW qualification, skill, or location in their message, you MUST call 'update_user_profile' immediately to save it. Do not wait for the user to ask you to save it.
-5. INTEGRATED SEARCH: When searching for jobs, always use the most recent information the user just gave you (e.g., if they just said they passed graduation, search for Graduate jobs).
+4. PROACTIVE LEARNING: If the user mentions a NEW qualification, skill, or location, you MUST call 'update_user_profile' immediately.
+5. NO REPETITION: Do not call the same tool with the same arguments more than once.
 
 # FORMATTING & PRESENTATION RULES (STRICT)
 1. THE "BLUF" PRINCIPLE (Bottom Line Up Front): Always give the direct answer or main good news in the very first sentence. No long, boring introductions.
@@ -97,7 +97,7 @@ Your language is natural, friendly Hinglish. Use words like "Bhai", "Dost".
         ];
 
         let iterations = 0;
-        const maxIterations = 3;
+        const maxIterations = 5;
         let finalIntent = "GENERAL";
         let capturedData = { jobs: "", documents: [] };
 
