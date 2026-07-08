@@ -145,7 +145,8 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     timezone: { type: "string", description: "Default is Asia/Kolkata" }
-                }
+                },
+                required: []
             }
         }
     },
