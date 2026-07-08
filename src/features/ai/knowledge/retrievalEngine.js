@@ -125,9 +125,11 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
 
         // Step 2: Enforce Hard Filters (Gender & Education)
         const filters = [];
-        if (profile.gender === 'Male') {
-            filters.push({ title: { $not: /female only|only for women|mahila special|women only/i } });
-        } else if (profile.gender === 'Female') {
+        const gender = (profile.gender || '').toLowerCase();
+
+        if (gender === 'male' || gender === 'm') {
+            filters.push({ title: { $not: /female only|only for women|mahila special|women only|anganwadi/i } });
+        } else if (gender === 'female' || gender === 'f') {
             filters.push({ title: { $not: /male only|only for men|men only/i } });
         }
 

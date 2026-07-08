@@ -92,12 +92,7 @@ class TelemetryEngine {
     _printModernReport(trace) {
         const getDur = (mod) => {
             const s = trace.stages.find(s => s.module === mod);
-            return s ? `${s.duration} ms` : 'SKIPPED';
-        };
-
-        const getVal = (mod) => {
-            const s = trace.stages.find(s => s.module === mod);
-            return s ? s.duration || 0 : 0;
+            return s ? `${s.duration} ms` : null;
         };
 
         const total = trace.totalDuration;
@@ -105,57 +100,26 @@ class TelemetryEngine {
         console.log('\n--- PERFORMANCE TELEMETRY ---');
         const telemetryRows = [
             ['Gateway', 'GATEWAY_VALIDATION'],
-            ['Planner', 'QUERY_UNDERSTANDING_ENGINE'],
-            ['Memory Engine', 'CONTEXT_LOADING'],
-            ['Search Engine', 'SEARCH_ENGINE'], // Assuming tracked separately if possible
-            ['Database Engine', 'DATABASE_ENGINE'], // Assuming tracked separately if possible
-            ['Ranking Engine', 'RANKING_ENGINE'], // Assuming tracked separately if possible
-            ['Execution Engine', 'EXECUTION_ENGINE'],
-            ['Prompt Composer', 'PROMPT_BUILDER'],
-            ['Main LLM TTFT', 'LLM_TTFT'],
-            ['LLM Generation', 'FINAL_LLM'],
-            ['Post Processing', 'SAFETY_GUARDRAILS'],
-            ['Memory Update', 'BACKGROUND_SERVICES']
+            ['Context Engine', 'CONTEXT_LOADING'],
+            ['Agentic Loop', 'AGENTIC_LOOP'],
+            ['Background Services', 'BACKGROUND_SERVICES']
         ];
 
         telemetryRows.forEach(([label, mod]) => {
             const val = getDur(mod);
-            console.log(`${label.padEnd(22, '.')} ${val}`);
+            if (val) console.log(`${label.padEnd(22, '.')} ${val}`);
         });
         console.log(`${'TOTAL'.padEnd(22, '.')} ${total} ms`);
 
-        // Bottleneck Analysis
-        const durations = telemetryRows.map(([label, mod]) => ({ label, dur: getVal(mod) }));
-        const max = durations.reduce((prev, curr) => (prev.dur > curr.dur) ? prev : curr, { label: 'N/A', dur: 0 });
-        const pct = total > 0 ? ((max.dur / total) * 100).toFixed(0) : 0;
-
-        if (max.dur > 0) {
-            console.log('\nBottleneck :');
-            console.log(max.label);
-            console.log(`${max.dur} ms`);
-            console.log(`${pct}% of total latency`);
-        }
-
         // Pipeline Health
         console.log('\nPipeline Health');
-        const healthCheck = [
-            ['Planner', 'QUERY_UNDERSTANDING_ENGINE'],
-            ['Memory', 'CONTEXT_LOADING'],
-            ['Search', 'SEARCH_ENGINE'],
-            ['Database', 'DATABASE_ENGINE'],
-            ['Ranking', 'RANKING_ENGINE'],
-            ['Prompt Composer', 'PROMPT_BUILDER'],
-            ['LLM', 'FINAL_LLM'],
-            ['Memory Update', 'BACKGROUND_SERVICES']
-        ];
-
-        healthCheck.forEach(([label, mod]) => {
+        telemetryRows.forEach(([label, mod]) => {
             const s = trace.stages.find(s => s.module === mod);
             let status = '—';
             if (s) {
                 status = s.status === 'SUCCESS' ? '✓' : (s.status === 'FAILED' ? '✗' : '—');
             }
-            console.log(`${label.padEnd(16)} ${status}`);
+            console.log(`${label.padEnd(20)} ${status}`);
         });
         console.log('------------------------------\n');
     }

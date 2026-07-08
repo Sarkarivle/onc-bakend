@@ -141,14 +141,19 @@ class LLMProvider {
         return messages
             .filter(m => m && typeof m === 'object' && ['system', 'user', 'assistant', 'tool'].includes(m.role))
             .map(m => {
-                const sanitized = { role: m.role, content: m.content || "" };
-                if (m.tool_calls) sanitized.tool_calls = m.tool_calls;
+                const sanitized = { role: m.role };
+
+                // Groq/OpenAI Rule: content must be null if tool_calls exist, or a string otherwise
+                if (m.tool_calls && m.tool_calls.length > 0) {
+                    sanitized.content = null;
+                    sanitized.tool_calls = m.tool_calls;
+                } else {
+                    sanitized.content = String(m.content || "");
+                }
+
                 if (m.tool_call_id) sanitized.tool_call_id = m.tool_call_id;
                 if (m.name) sanitized.name = m.name;
 
-                if (typeof sanitized.content === 'object') {
-                    sanitized.content = JSON.stringify(sanitized.content);
-                }
                 return sanitized;
             });
     }

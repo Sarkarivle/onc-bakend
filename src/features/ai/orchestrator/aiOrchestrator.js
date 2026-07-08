@@ -55,14 +55,14 @@ class AIOrchestrator {
                 () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             );
 
-            // --- AGENTIC LOOP (Replaces IntentEngine + Planner + ExecutionEngine) ---
+            // --- AGENTIC LOOP ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
                 () => AgentLoop.run(userMessage, state.history || [], { profile, sessionId })
             );
 
             const { content, intent, capturedData } = agentResult;
 
-            Telemetry.setContext(traceId, { intent, cognitiveMap: { Goal: intent } });
+            Telemetry.setContext(traceId, { intent });
 
             const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
             const suggestions = SuggestionEngine.generate({ intent }, { topic: state.topic, jobs: capturedData.jobs });

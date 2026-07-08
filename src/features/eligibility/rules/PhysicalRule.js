@@ -24,8 +24,21 @@ class PhysicalRule extends BaseRule {
         }
 
         // 2. GET PRECISE RULE (Gender + Category)
-        const genderRules = physical[userGender] || physical.male || physical.female;
-        if (!genderRules) return { module: this.module, status: 'NA', message: "No rule for your gender." };
+        const genderRules = physical[userGender];
+
+        if (!genderRules) {
+            // Check if this job is strictly for the other gender
+            const otherGender = userGender === 'male' ? 'female' : 'male';
+            if (physical[otherGender]) {
+                const genderName = otherGender === 'female' ? 'Mahila' : 'Purush';
+                return {
+                    module: this.module,
+                    status: 'FAIL',
+                    message: `Gender Mismatch: Bhai ${firstName}, ye vacancy strictly ${genderName} candidates ke liye hai. Aap iske liye eligible nahi hain.`
+                };
+            }
+            return { module: this.module, status: 'NA', message: "No rule for your gender." };
+        }
 
         const rule = genderRules[userCategory] || genderRules['ANY'] || genderRules['GENERAL'] || (userCategory !== 'GENERAL' ? genderRules['OTHER'] : null);
 

@@ -139,6 +139,17 @@ const toolDefinitions = [
     {
         type: "function",
         function: {
+            name: "get_current_time",
+            description: "Get the current time in Indian Standard Time (IST). Use this when user asks 'abhi kitne baje hain' or about current time.",
+            parameters: {
+                type: "object",
+                properties: {}
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
             name: "counsel_student",
             description: "Triggers empathy/motivation mode for students who are depressed, confused about career, or lack motivation.",
             parameters: {
@@ -241,6 +252,12 @@ const toolImplementations = {
             data: `Searching official records for ${args.exam_name} ${args.info_type}...`,
             instruction: "Tell the user you are checking the latest government notifications for this exam. Provide general guidance if specific dates aren't in training data."
         };
+    },
+
+    get_current_time: async () => {
+        const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        console.log("🛠️ Tool Execution: get_current_time", now);
+        return { success: true, current_time: now, instruction: "Tell the user the current time in a friendly way." };
     },
 
     counsel_student: async (args) => {
