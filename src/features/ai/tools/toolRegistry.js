@@ -4,6 +4,11 @@
  */
 
 const RetrievalEngine = require('../knowledge/retrievalEngine');
+const Calculator = require('./calculator');
+const EligibilityEngine = require('../../eligibility/EligibilityEngine');
+const WebSearchTool = require('./webSearchTool');
+const OCRTool = require('./ocrTool');
+const ActionExecutor = require('./actionExecutor');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -30,6 +35,85 @@ const toolDefinitions = [
                     }
                 },
                 required: ["job_keyword", "user_filters"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "calculate_math",
+            description: "Use this to accurately calculate percentages, marks, age differences, or any math equation. NEVER calculate math in your head.",
+            parameters: {
+                type: "object",
+                properties: {
+                    expression: { type: "string", description: "The math expression to evaluate (e.g., '435/600 * 100')" }
+                },
+                required: ["expression"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "check_eligibility",
+            description: "Use this to perform a detailed eligibility check for a specific job. Requires a job object from search results.",
+            parameters: {
+                type: "object",
+                properties: {
+                    job_title: { type: "string", description: "The title of the job to check eligibility for." },
+                    job_data: { type: "object", description: "The full job data object returned from search_jobs." }
+                },
+                required: ["job_title", "job_data"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "search_live_web",
+            description: "Use this ONLY when the user asks for today's news, live current affairs, or the latest website notifications that might not be in the static database.",
+            parameters: {
+                type: "object",
+                properties: {
+                    search_query: { type: "string", description: "The query to search on the live web (e.g., 'SSC official notice today')" }
+                },
+                required: ["search_query"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "read_document_image",
+            description: "Use this to extract text, marks, and details from an image or document provided by the user.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "The URL or base64 string of the image to read." }
+                },
+                required: ["image_url"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "execute_system_action",
+            description: "Use this to perform physical actions on behalf of the user, such as downloading PDFs or saving form data.",
+            parameters: {
+                type: "object",
+                properties: {
+                    action_type: {
+                        type: "string",
+                        enum: ["download_admit_card", "save_form_data"],
+                        description: "The type of action to perform."
+                    },
+                    action_payload: {
+                        type: "object",
+                        description: "Necessary data for the action."
+                    }
+                },
+                required: ["action_type", "action_payload"]
             }
         }
     },
@@ -108,6 +192,46 @@ const toolImplementations = {
             console.error("❌ search_jobs tool error:", error.message);
             return { success: false, error: "Database search temporarily unavailable." };
         }
+    },
+
+    calculate_math: async (args) => {
+        console.log("🛠️ Tool Execution: calculate_math", args);
+        return Calculator.execute(args.expression);
+    },
+
+    check_eligibility: async (args, context = {}) => {
+        console.log("🛠️ Tool Execution: check_eligibility", args.job_title);
+        try {
+            if (!context.profile) return { success: false, error: "User profile missing for eligibility check." };
+
+            const report = await EligibilityEngine.evaluate(context.profile, args.job_data);
+            return {
+                success: true,
+                status: report.status,
+                verdict: report.summary,
+                advice: report.dost_advice,
+                match_score: report.match_score,
+                instruction: "Present this eligibility report to the student in a brotherly tone. If ineligible, explain why gently and suggest alternatives."
+            };
+        } catch (error) {
+            console.error("❌ check_eligibility tool error:", error.message);
+            return { success: false, error: "Eligibility engine error." };
+        }
+    },
+
+    search_live_web: async (args) => {
+        console.log("🛠️ Tool Execution: search_live_web", args);
+        return await WebSearchTool.search(args.search_query);
+    },
+
+    read_document_image: async (args) => {
+        console.log("🛠️ Tool Execution: read_document_image", args);
+        return await OCRTool.read(args.image_url);
+    },
+
+    execute_system_action: async (args, context = {}) => {
+        console.log("🛠️ Tool Execution: execute_system_action", args);
+        return await ActionExecutor.execute(args.action_type, args.action_payload, context);
     },
 
     get_exam_info: async (args) => {

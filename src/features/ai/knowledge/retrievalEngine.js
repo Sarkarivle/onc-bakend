@@ -5,6 +5,7 @@
 const Job = require('../../jobs/jobModel');
 const SearchReranker = require('./searchReranker');
 const LLMProvider = require('../generation/core_engine/llmProvider');
+const EligibilityEngine = require('../../eligibility/EligibilityEngine');
 
 class RetrievalEngine {
     /**
@@ -45,8 +46,24 @@ class RetrievalEngine {
                 : await SearchReranker.rank(userQuery, candidates, profile);
             telemetry.stats.rankedCount = rankedResults.length;
 
-            // 4. QUALITY FILTERING
-            const finalResults = rankedResults.filter(r => r.score > 0.3);
+            // 4. ELIGIBILITY VERIFICATION (Step 3: Integrate EligibilityEngine)
+            const verifiedResults = [];
+            for (const candidate of rankedResults) {
+                try {
+                    const report = await EligibilityEngine.evaluate(profile, candidate, { skipLLM: true });
+                    if (report.status === 'ELIGIBLE') {
+                        verifiedResults.push(candidate);
+                    } else {
+                        console.log(`🚫 Filtered Ineligible Job: ${candidate.title} | Reason: ${report.failed_rules?.[0]?.message || 'Unknown'}`);
+                    }
+                } catch (e) {
+                    console.error(`Eligibility error for ${candidate.title}:`, e.message);
+                    verifiedResults.push(candidate); // Fallback
+                }
+            }
+
+            // 5. QUALITY FILTERING
+            const finalResults = verifiedResults.filter(r => r.score > 0.3);
 
             telemetry.latency.total = Date.now() - startTime;
             this._logTelemetry(telemetry);
@@ -106,28 +123,38 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
             isActive: true
         };
 
-        if (searchRegex) {
-            criteria.$or = [
-                { title: { $regex: searchRegex } },
-                { organization: { $regex: searchRegex } },
-                { "eligibility.education": { $regex: searchRegex } },
-                { "eligibility.skills": { $regex: searchRegex } },
-                { "tags": { $in: keywords } }
-            ];
-        }
-
-        // Smart Filtering based on Profile
-        if (profile.qualification) {
-            const qual = profile.qualification.split(' ')[0];
-            const qualRegex = new RegExp(this._escapeRegex(qual), 'i');
-            // We use $or to keep results that match the keyword OR matches the education
-            // But actually we want to NARROW DOWN if possible.
-            // For now, let's just ensure education is considered in the search.
-        }
-
+        // Step 2: Enforce Hard Filters (Gender & Education)
+        const filters = [];
         if (profile.gender === 'Male') {
-            // Exclude jobs that are strictly for females
-            criteria.title = { $not: /female only|only for women|mahila special/i };
+            filters.push({ title: { $not: /female only|only for women|mahila special|women only/i } });
+        } else if (profile.gender === 'Female') {
+            filters.push({ title: { $not: /male only|only for men|men only/i } });
+        }
+
+        if (profile.qualification) {
+            // Basic enforcement: If user is 10th/12th, we can't easily filter Graduate jobs via regex reliably,
+            // but we can ensure they aren't totally excluded if keywords match.
+            // EligibilityEngine (Step 3) will do the heavy lifting.
+        }
+
+        if (searchRegex) {
+            const searchClause = {
+                $or: [
+                    { title: { $regex: searchRegex } },
+                    { organization: { $regex: searchRegex } },
+                    { "eligibility.education": { $regex: searchRegex } },
+                    { "eligibility.skills": { $regex: searchRegex } },
+                    { "tags": { $in: keywords } }
+                ]
+            };
+
+            if (filters.length > 0) {
+                criteria.$and = [searchClause, ...filters];
+            } else {
+                criteria.$or = searchClause.$or;
+            }
+        } else if (filters.length > 0) {
+            criteria.$and = filters;
         }
 
         try {
