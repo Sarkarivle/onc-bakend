@@ -10,7 +10,27 @@ class WebSearchTool {
     static async search(query) {
         console.log("🌐 WebSearch: Querying for", query);
 
-        // 1. Try SerpApi if key is available
+        // 1. Try SearchApi.io (User's preferred provider)
+        const SEARCH_API_KEY = process.env.SEARCH_API_KEY;
+        if (SEARCH_API_KEY) {
+            try {
+                const response = await axios.get(`https://www.searchapi.io/api/v1/search?engine=google&q=${encodeURIComponent(query)}&api_key=${SEARCH_API_KEY}`);
+
+                const results = (response.data.organic_results || []).slice(0, 3).map(r => ({
+                    title: r.title,
+                    link: r.link,
+                    snippet: r.snippet
+                }));
+
+                if (results.length > 0) {
+                    return { success: true, results, source: "SearchApi.io" };
+                }
+            } catch (e) {
+                console.warn("⚠️ SearchApi failed, falling back to free search.");
+            }
+        }
+
+        // 2. Try SerpApi as secondary
         const SERP_API_KEY = process.env.SERP_API_KEY;
         if (SERP_API_KEY) {
             try {
@@ -20,7 +40,7 @@ class WebSearchTool {
                     link: r.link,
                     snippet: r.snippet
                 }));
-                return { success: true, results };
+                return { success: true, results, source: "SerpApi" };
             } catch (e) {
                 console.warn("⚠️ SerpApi failed, falling back to free search.");
             }
