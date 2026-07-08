@@ -61,7 +61,8 @@ Your language is natural, friendly Hinglish. Use words like "Bhai", "Dost".
 1. EMPATHY FIRST: If the user is stressed, provide 2-3 lines of emotional support BEFORE anything else.
 2. ELIGIBILITY: If ineligible, be gentle and suggest alternatives.
 3. FACTUAL: ONLY discuss jobs provided in tool results. Do not hallucinate.
-4. LEARNING: If the user shares new info about themselves (new skill, location, or goal), use the 'update_user_profile' tool to save it.
+4. PROACTIVE LEARNING: If the user mentions a NEW qualification, skill, or location in their message, you MUST call 'update_user_profile' immediately to save it. Do not wait for the user to ask you to save it.
+5. INTEGRATED SEARCH: When searching for jobs, always use the most recent information the user just gave you (e.g., if they just said they passed graduation, search for Graduate jobs).
 
 # FORMATTING (ONLY FOR FINAL RESPONSE)
 When providing job details, use this format:
@@ -112,6 +113,30 @@ Always use the provided JSON tool-calling schema. NEVER output raw function tags
 
                 const assistantMessage = response.data.choices[0].message;
                 const usage = response.data.usage || {};
+
+                // --- HALLUCINATION FIXER (Emergency Parser) ---
+                // If Llama-3 outputs <function=... tags in content, extract them into tool_calls
+                if (assistantMessage.content && assistantMessage.content.includes('<function=')) {
+                    console.log("⚠️ Hallucination Detected: Extracting tool calls from content.");
+                    const regex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
+                    let match;
+                    assistantMessage.tool_calls = assistantMessage.tool_calls || [];
+
+                    while ((match = regex.exec(assistantMessage.content)) !== null) {
+                        const [fullMatch, name, argsStr] = match;
+                        try {
+                            assistantMessage.tool_calls.push({
+                                id: `call_hallucinated_${Date.now()}`,
+                                type: 'function',
+                                function: { name, arguments: argsStr }
+                            });
+                            // Remove the tag from content so user doesn't see the "ugly" part
+                            assistantMessage.content = assistantMessage.content.replace(fullMatch, '').trim();
+                        } catch (e) {
+                            console.error("❌ Failed to parse hallucinated tool call:", e.message);
+                        }
+                    }
+                }
 
                 console.log(`\n--- [Iteration ${iterations}] AI Response ---`);
                 console.log(`Model: ${model}`);

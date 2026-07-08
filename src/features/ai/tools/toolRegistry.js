@@ -160,10 +160,12 @@ const toolDefinitions = [
 const toolImplementations = {
     search_jobs: async (args, userProfile = {}) => {
         try {
+            // Priority: Use LLM-extracted filters from current query, fallback to DB profile
             const profile = {
                 ...userProfile,
                 gender: args.user_filters?.gender || userProfile?.gender,
                 qualification: args.user_filters?.max_education || userProfile?.qualification,
+                education: args.user_filters?.max_education || userProfile?.education || userProfile?.qualification,
                 location: args.user_filters?.location_pref || userProfile?.location
             };
 
