@@ -24,6 +24,12 @@ class AgentLoop {
 
         // Construct the Base System Prompt with Empathy and Profile Context
         const systemPrompt = `
+# IMPORTANT: SYSTEM RULES (DO NOT IGNORE)
+- NEVER use XML tags like <function> or <tool>.
+- If you need to use a tool, use the JSON tool-calling feature.
+- Output ONLY the tool call, no conversation before or after.
+- If a tool is not available or fails, inform the user in Hinglish.
+
 # ROLE & PERSONA
 You are 'Jobo', a Universal Student Mentor and Career Advisor for Indian students.
 You act like a supportive, highly knowledgeable elder brother (Bada Bhai).
@@ -47,11 +53,8 @@ When providing job details, use this format:
 🎓 **Qualification:** [Brief]
 💡 **Pro Tip (Bade Bhai ki Advice):** [1 line advice]
 
-# TOOL CALLING & FALLBACK RULES
-1. If you need external data, call the relevant tool exactly ONCE.
-2. IF A TOOL FAILS or returns an error (e.g., "live search kaam nahi kar rahi"), DO NOT attempt to call the tool again.
-3. If a tool fails, gracefully apologize to the user in natural Hinglish and explain that the system could not fetch the specific info right now.
-4. CRITICAL: NEVER output raw XML, HTML, or <function> tags under any circumstances. Always stick to the standard tool-calling JSON format.
+# CRITICAL
+Always use the provided JSON tool-calling schema. NEVER output raw function tags.
 `;
 
         let messages = [
@@ -105,6 +108,7 @@ When providing job details, use this format:
                 messages.push(assistantMessage);
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+                    console.log(`🎯 Decision: TOOL_CALL (Model wants to fetch data)`);
                     console.log(`🛠️ LLM requested ${assistantMessage.tool_calls.length} tool calls`);
 
                     for (const toolCall of assistantMessage.tool_calls) {
@@ -150,6 +154,7 @@ When providing job details, use this format:
                     }
                     // Continue loop to let LLM process tool results
                 } else {
+                    console.log(`🎯 Decision: FINAL_REPLY (Model is ready to answer)`);
                     console.log("🏁 Final response received.");
                     return {
                         content: assistantMessage.content,
