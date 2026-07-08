@@ -135,6 +135,22 @@ const toolDefinitions = [
                 required: ["issue_type"]
             }
         }
+    },
+    {
+        type: "function",
+        function: {
+            name: "update_user_profile",
+            description: "Update user's profile with new info like qualification, location, or interests extracted from chat.",
+            parameters: {
+                type: "object",
+                properties: {
+                    qualification: { type: "string", description: "e.g., '12th Pass', 'Graduate'" },
+                    location: { type: "string", description: "City or State" },
+                    skills: { type: "array", items: { type: "string" }, description: "e.g., ['Typing', 'CCC']" },
+                    interests: { type: "array", items: { type: "string" }, description: "e.g., ['SSC', 'Police Jobs']" }
+                }
+            }
+        }
     }
 ];
 
@@ -208,6 +224,39 @@ const toolImplementations = {
 
     counsel_student: async (args) => {
         return { success: true, mode: "empathy", issue: args.issue_type };
+    },
+
+    update_user_profile: async (args, userProfile = {}) => {
+        try {
+            const UserProfile = require('../context/userProfile');
+            const MemoryEngine = require('../memory/memoryEngine');
+
+            // 1. Sync to Database (Persist hard facts)
+            await UserProfile.syncToDb(userProfile.name, {
+                qualification: args.qualification,
+                state: args.location,
+                gender: args.gender
+            });
+
+            // 2. Save to Long-term Memory (Facts & Interests)
+            const userId = userProfile.name;
+            if (args.skills) {
+                for (const skill of args.skills) {
+                    await MemoryEngine.saveMemory(userId, 'SKILL', skill, 0.8);
+                }
+            }
+            if (args.interests) {
+                for (const interest of args.interests) {
+                    await MemoryEngine.saveMemory(userId, 'GOAL', interest, 0.7);
+                }
+            }
+
+            console.log(`👤 Profile Updated for ${userProfile.name}:`, args);
+            return { success: true, message: "Profile update ho gaya hai, Bhai! Ab main ise hamesha yaad rakhunga." };
+        } catch (error) {
+            console.error("❌ update_user_profile error:", error);
+            return { success: false, error: error.message };
+        }
     }
 };
 

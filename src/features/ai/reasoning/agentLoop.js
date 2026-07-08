@@ -4,6 +4,7 @@
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolDefinitions, toolImplementations } = require('../tools/toolRegistry');
+const MemoryEngine = require('../memory/memoryEngine');
 const axios = require('axios');
 
 class AgentLoop {
@@ -18,6 +19,21 @@ class AgentLoop {
 
         const profile = context.profile || {};
         const userName = profile.name || "Bhai";
+        const userId = context.userId || userName; // Ensure we have a unique identifier
+
+        // 1. FETCH LONG-TERM MEMORIES (Facts)
+        let memories = [];
+        try {
+            memories = await MemoryEngine.searchMemory(userId, userMessage);
+            console.log(`🧠 AgentLoop: Retrieved ${memories.length} relevant memories.`);
+        } catch (e) {
+            console.warn("⚠️ Memory retrieval failed:", e.message);
+        }
+
+        const memoryContext = memories.length > 0
+            ? `\n# RELEVANT MEMORIES (Past Conversations):\n${memories.map(m => `- [${m.category}] ${m.fact}`).join('\n')}`
+            : "";
+
         const userGender = profile.gender || "Unknown";
         const userEdu = profile.qualification || "Unknown";
         const userLoc = profile.location || "Unknown";
@@ -39,19 +55,20 @@ Your language is natural, friendly Hinglish. Use words like "Bhai", "Dost".
 - Name: ${userName}
 - Gender: ${userGender}
 - Education: ${userEdu}
-- Location: ${userLoc}
+- Location: ${userLoc}${memoryContext}
 
 # CORE RULES
 1. EMPATHY FIRST: If the user is stressed, provide 2-3 lines of emotional support BEFORE anything else.
 2. ELIGIBILITY: If ineligible, be gentle and suggest alternatives.
 3. FACTUAL: ONLY discuss jobs provided in tool results. Do not hallucinate.
+4. LEARNING: If the user shares new info about themselves (new skill, location, or goal), use the 'update_user_profile' tool to save it.
 
 # FORMATTING (ONLY FOR FINAL RESPONSE)
 When providing job details, use this format:
 📋 **[Job Title]**
 📅 **Last Date:** [Date]
 🎓 **Qualification:** [Brief]
-💡 **Pro Tip (Bade Bhai ki Advice):** [1 line advice]
+💡 **Pro Tip:** [1 line advice]
 
 # CRITICAL
 Always use the provided JSON tool-calling schema. NEVER output raw function tags.
