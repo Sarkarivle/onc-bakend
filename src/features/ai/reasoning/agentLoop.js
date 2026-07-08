@@ -91,15 +91,25 @@ When providing job details, use this format:
                 });
 
                 const assistantMessage = response.data.choices[0].message;
-                if (!assistantMessage.content) assistantMessage.content = "";
+                const usage = response.data.usage || {};
 
+                console.log(`\n--- [Iteration ${iterations}] AI Response ---`);
+                console.log(`Model: ${model}`);
+                console.log(`Tokens: In=${usage.prompt_tokens || 0} | Out=${usage.completion_tokens || 0} | Total=${usage.total_tokens || 0}`);
+
+                if (assistantMessage.content) {
+                    console.log(`💬 Assistant: ${assistantMessage.content.substring(0, 200)}${assistantMessage.content.length > 200 ? '...' : ''}`);
+                }
+
+                if (!assistantMessage.content) assistantMessage.content = "";
                 messages.push(assistantMessage);
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-                    console.log(`🛠️ AgentLoop: LLM requested ${assistantMessage.tool_calls.length} tool calls`);
+                    console.log(`🛠️ LLM requested ${assistantMessage.tool_calls.length} tool calls`);
 
                     for (const toolCall of assistantMessage.tool_calls) {
                         const functionName = toolCall.function.name;
+                        console.log(`👉 Calling Tool: ${functionName}`);
 
                         // Infer intent from tool name
                         if (functionName === 'search_jobs') finalIntent = 'JOB_SEARCH';
@@ -109,6 +119,7 @@ When providing job details, use this format:
                         let functionArgs = {};
                         try {
                             functionArgs = JSON.parse(toolCall.function.arguments);
+                            console.log(`📝 Arguments:`, JSON.stringify(functionArgs, null, 2));
                         } catch (e) {
                             console.error("❌ Failed to parse tool arguments:", toolCall.function.arguments);
                         }
@@ -118,6 +129,8 @@ When providing job details, use this format:
 
                         if (implementation) {
                             toolResult = await implementation(functionArgs, profile);
+                            console.log(`✅ Tool Result Success:`, !!toolResult.success);
+
                             // Capture data for upstream orchestrator (especially for jobs)
                             if (functionName === 'search_jobs' && toolResult.jobs) {
                                 capturedData.jobs = toolResult.jobs;
@@ -125,6 +138,7 @@ When providing job details, use this format:
                             }
                         } else {
                             toolResult = { error: `Tool ${functionName} is not implemented.` };
+                            console.error(`❌ Tool ${functionName} not found.`);
                         }
 
                         messages.push({
@@ -136,7 +150,7 @@ When providing job details, use this format:
                     }
                     // Continue loop to let LLM process tool results
                 } else {
-                    console.log("✅ AgentLoop: Final response received.");
+                    console.log("🏁 Final response received.");
                     return {
                         content: assistantMessage.content,
                         intent: finalIntent,
