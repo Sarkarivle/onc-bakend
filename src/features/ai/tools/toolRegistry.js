@@ -1,6 +1,6 @@
 /**
- * ToolRegistry Module (Architectural Version 2.0 - Agentic Toolkit)
- * Responsibility: Defining tool schemas and connecting to REAL RAG/Database engines.
+ * ToolRegistry Module (Architectural Version 3.0 - Scalable Multi-Agent)
+ * Responsibility: Defining tool schemas with categories and connecting to implementations.
  */
 
 const RetrievalEngine = require('../knowledge/retrievalEngine');
@@ -9,12 +9,15 @@ const EligibilityEngine = require('../../eligibility/EligibilityEngine');
 const WebSearchTool = require('./webSearchTool');
 const OCRTool = require('./ocrTool');
 const ActionExecutor = require('./actionExecutor');
+const DateTool = require('./dateTool');
+const AgeCalculator = require('../../eligibility/utils/AgeCalculator');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
  */
 const toolDefinitions = [
     {
+        category: "CAREER",
         type: "function",
         function: {
             name: "search_jobs",
@@ -38,6 +41,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "MATH",
         type: "function",
         function: {
             name: "calculate_math",
@@ -52,6 +56,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "UTILITY",
         type: "function",
         function: {
             name: "web_search",
@@ -66,6 +71,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "UTILITY",
         type: "function",
         function: {
             name: "read_document_image",
@@ -80,6 +86,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "UTILITY",
         type: "function",
         function: {
             name: "execute_system_action",
@@ -95,6 +102,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "UTILITY",
         type: "function",
         function: {
             name: "get_current_time",
@@ -108,6 +116,36 @@ const toolDefinitions = [
         }
     },
     {
+        category: "UTILITY",
+        type: "function",
+        function: {
+            name: "calculate_date_urgency",
+            description: "Calculate days remaining or urgency for a given date (e.g., exam date).",
+            parameters: {
+                type: "object",
+                properties: {
+                    date: { type: "string", description: "The date to check." }
+                },
+                required: ["date"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        type: "function",
+        function: {
+            name: "calculate_age",
+            description: "Calculate user's age based on DOB.",
+            parameters: {
+                type: "object",
+                properties: {
+                    dob: { type: "string", description: "Date of Birth" }
+                }
+            }
+        }
+    },
+    {
+        category: "CAREER",
         type: "function",
         function: {
             name: "get_exam_info",
@@ -123,6 +161,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "WELLNESS",
         type: "function",
         function: {
             name: "counsel_student",
@@ -137,6 +176,7 @@ const toolDefinitions = [
         }
     },
     {
+        category: "UTILITY",
         type: "function",
         function: {
             name: "update_user_profile",
@@ -155,12 +195,24 @@ const toolDefinitions = [
 ];
 
 /**
+ * Helper to get tools by category for Supervisor-Worker architecture
+ */
+const getToolsByCategory = (category) => {
+    if (category === 'GENERAL') return [];
+    return toolDefinitions
+        .filter(t => t.category === category)
+        .map(t => {
+            const { category, ...rest } = t;
+            return rest;
+        });
+};
+
+/**
  * Local Node.js implementations
  */
 const toolImplementations = {
     search_jobs: async (args, userProfile = {}) => {
         try {
-            // Priority: Use LLM-extracted filters from current query, fallback to DB profile
             const profile = {
                 ...userProfile,
                 gender: args.user_filters?.gender || userProfile?.gender,
@@ -169,16 +221,13 @@ const toolImplementations = {
                 location: args.user_filters?.location_pref || userProfile?.location
             };
 
-            // 1. Fetch raw jobs
             const result = await RetrievalEngine.searchJobs(args.job_keyword, profile);
             const rawJobs = result.documents || [];
 
-            // 2. The Eligibility Bridge
             const eligibleJobs = [];
             for (const job of rawJobs) {
                 const report = await EligibilityEngine.evaluate(profile, job, { skipLLM: true });
                 if (report.status === 'ELIGIBLE') {
-                    // 4. The HTML Fix (CRITICAL)
                     const cleanJob = { ...job };
                     delete cleanJob.fullHtmlContent;
                     delete cleanJob._id;
@@ -186,13 +235,28 @@ const toolImplementations = {
                 }
             }
 
-            // 5. Return the clean, stringified JSON array
-            return {
-                success: true,
-                count: eligibleJobs.length,
-                jobs: eligibleJobs.length > 0 ? JSON.stringify(eligibleJobs) : "No eligible jobs found.",
-                documents: eligibleJobs
-            };
+            if (eligibleJobs.length > 0) {
+                return {
+                    success: true,
+                    count: eligibleJobs.length,
+                    jobs: JSON.stringify(eligibleJobs),
+                    documents: eligibleJobs
+                };
+            } else if (rawJobs.length > 0) {
+                return {
+                    success: true,
+                    count: 0,
+                    jobs: "Jobs exist, but the user is not eligible for any currently active ones. Suggest updating profile or checking other categories.",
+                    documents: []
+                };
+            } else {
+                return {
+                    success: true,
+                    count: 0,
+                    jobs: "No matching jobs found in the database.",
+                    documents: []
+                };
+            }
         } catch (error) {
             console.error("❌ search_jobs tool error:", error);
             return { success: false, error: error.message };
@@ -224,6 +288,16 @@ const toolImplementations = {
         return { success: true, current_time: now };
     },
 
+    calculate_date_urgency: async (args) => {
+        return DateTool.calculateUrgency(args.date);
+    },
+
+    calculate_age: async (args, userProfile = {}) => {
+        const dob = args.dob || userProfile.dob;
+        if (!dob) return { success: false, error: "DOB missing" };
+        return AgeCalculator.calculate(dob, new Date());
+    },
+
     counsel_student: async (args) => {
         return { success: true, mode: "empathy", issue: args.issue_type };
     },
@@ -233,14 +307,12 @@ const toolImplementations = {
             const UserProfile = require('../context/userProfile');
             const MemoryEngine = require('../memory/memoryEngine');
 
-            // 1. Sync to Database (Persist hard facts)
             await UserProfile.syncToDb(userProfile.name, {
                 qualification: args.qualification,
                 state: args.location,
                 gender: args.gender
             });
 
-            // 2. Save to Long-term Memory (Facts & Interests)
             const userId = userProfile.name;
             if (args.skills) {
                 for (const skill of args.skills) {
@@ -264,5 +336,6 @@ const toolImplementations = {
 
 module.exports = {
     toolDefinitions,
-    toolImplementations
+    toolImplementations,
+    getToolsByCategory
 };

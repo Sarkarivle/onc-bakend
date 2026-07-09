@@ -16,6 +16,7 @@ const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/
 
 const PlannerLog = require('../models/PlannerLog');
 const AgentLoop = require('../reasoning/agentLoop');
+const MasterOrchestrator = require('./MasterOrchestrator');
 
 class AIOrchestrator {
     static async _logDecision(query, plan, meta) {
@@ -55,9 +56,9 @@ class AIOrchestrator {
                 () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
             );
 
-            // --- AGENTIC LOOP ---
+            // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
-                () => AgentLoop.run(userMessage, state.history || [], { profile, sessionId })
+                () => MasterOrchestrator.processUserQuery(userMessage, state.history || [], { profile, sessionId })
             );
 
             const { content, intent, capturedData } = agentResult;
@@ -118,9 +119,9 @@ class AIOrchestrator {
 
             stream.startThinking(`${firstName} bhai, sab check kar loon...`);
 
-            // --- AGENTIC LOOP (Handles tools before streaming final answer) ---
+            // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
-                () => AgentLoop.run(userMessage, state.history || [], { profile, sessionId })
+                () => MasterOrchestrator.processUserQuery(userMessage, state.history || [], { profile, sessionId })
             );
 
             const { content, intent, capturedData, messages } = agentResult;
