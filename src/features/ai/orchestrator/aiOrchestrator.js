@@ -3,7 +3,7 @@
  * Follows the Cognitive Architecture strictly with modern LLM Planner observability.
  */
 const Chat = require('../../chat/chatModel');
-const SessionState = require('../context/sessionState');
+const SessionManager = require('../memory/SessionManager');
 const UserProfile = require('../context/userProfile');
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const SmartGateway = require('../quality/smartGateway');
@@ -17,6 +17,7 @@ const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/
 const PlannerLog = require('../models/PlannerLog');
 const AgentLoop = require('../reasoning/agentLoop');
 const MasterOrchestrator = require('./MasterOrchestrator');
+const SessionManager = require('../memory/SessionManager');
 
 class AIOrchestrator {
     static async _logDecision(query, plan, meta) {
@@ -52,13 +53,16 @@ class AIOrchestrator {
                 return { ...shapeResponse(safeResponse), requestId: traceId };
             }
 
-            const [state, profile] = await Telemetry.trackStage(traceId, 'CONTEXT_LOADING',
-                () => Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
+            const [history, profile] = await Telemetry.trackStage(traceId, 'CONTEXT_LOADING',
+                () => Promise.all([
+                    SessionManager.getHistory(sessionId),
+                    UserProfile.get(userName, input)
+                ])
             );
 
             // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
-                () => MasterOrchestrator.processUserQuery(userMessage, state.history || [], { profile, sessionId })
+                () => MasterOrchestrator.processUserQuery(userMessage, history, { profile, sessionId, userId: userName })
             );
 
             const { content, intent, capturedData } = agentResult;
@@ -66,9 +70,9 @@ class AIOrchestrator {
             Telemetry.setContext(traceId, { intent });
 
             const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
-            const suggestions = SuggestionEngine.generate({ intent }, { topic: state.topic, jobs: capturedData.jobs });
+            const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
 
-            await this._persist(userName, sessionId, userMessage, formatted, suggestions);
+            await SessionManager.saveInteraction(userName, sessionId, userMessage, formatted);
 
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
                 () => BackgroundServices.runAll({
@@ -119,9 +123,14 @@ class AIOrchestrator {
 
             stream.startThinking(`${firstName} bhai, sab check kar loon...`);
 
+            const [history, profile] = await Promise.all([
+                SessionManager.getHistory(sessionId),
+                UserProfile.get(userName, input)
+            ]);
+
             // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
-                () => MasterOrchestrator.processUserQuery(userMessage, state.history || [], { profile, sessionId })
+                () => MasterOrchestrator.processUserQuery(userMessage, history, { profile, sessionId, userId: userName })
             );
 
             const { content, intent, capturedData, messages } = agentResult;
@@ -137,7 +146,7 @@ class AIOrchestrator {
             await stream.pushChunk(metadataStr);
             await stream.finishStream();
 
-            await this._persist(userName, sessionId, userMessage, formatted, suggestions);
+            await SessionManager.saveInteraction(userName, sessionId, userMessage, formatted);
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
                 () => BackgroundServices.runAll({
                     traceId, userName, userMessage,

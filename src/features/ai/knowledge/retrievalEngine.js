@@ -119,24 +119,27 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
         const escapedKeywords = keywords.map(k => this._escapeRegex(k)).filter(Boolean);
         const searchRegex = escapedKeywords.length > 0 ? new RegExp(escapedKeywords.join('|'), 'i') : null;
 
-        const criteria = {
-            isActive: true
-        };
+        const criteria = { isActive: true };
 
-        // Step 2: Enforce Hard Filters (Gender & Education)
-        const filters = [];
+        // --- NATIVE PRE-FILTERING (GENDER) ---
         const gender = (profile.gender || '').toLowerCase();
-
         if (gender === 'male' || gender === 'm') {
-            filters.push({ title: { $not: /female only|only for women|mahila special|women only|anganwadi/i } });
+            criteria.title = { $not: /female only|only for women|mahila special|women only|anganwadi/i };
         } else if (gender === 'female' || gender === 'f') {
-            filters.push({ title: { $not: /male only|only for men|men only/i } });
+            criteria.title = { $not: /male only|only for men|men only/i };
         }
 
+        // --- NATIVE PRE-FILTERING (EDUCATION) ---
         if (profile.qualification) {
-            // Basic enforcement: If user is 10th/12th, we can't easily filter Graduate jobs via regex reliably,
-            // but we can ensure they aren't totally excluded if keywords match.
-            // EligibilityEngine (Step 3) will do the heavy lifting.
+            const edu = profile.qualification.toLowerCase();
+            if (edu.includes('10th') || edu.includes('ssc')) {
+                criteria['eligibility.education'] = { $regex: /10th|8th|high school/i };
+            } else if (edu.includes('12th') || edu.includes('hsc') || edu.includes('inter')) {
+                criteria['eligibility.education'] = { $regex: /12th|10th|8th|hsc|inter|high school/i };
+            } else if (edu.includes('graduate') || edu.includes('degree')) {
+                // Graduates can see most things, but we still prefer relevance
+                criteria['eligibility.education'] = { $regex: /graduate|degree|12th|10th/i };
+            }
         }
 
         if (searchRegex) {
@@ -145,18 +148,25 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
                     { title: { $regex: searchRegex } },
                     { organization: { $regex: searchRegex } },
                     { "eligibility.education": { $regex: searchRegex } },
-                    { "eligibility.skills": { $regex: searchRegex } },
                     { "tags": { $in: keywords } }
                 ]
             };
 
-            if (filters.length > 0) {
+            if (criteria.title || criteria['eligibility.education']) {
+                // If we have filters, use $and to combine with $or
+                const filters = [];
+                if (criteria.title) {
+                    filters.push({ title: criteria.title });
+                    delete criteria.title;
+                }
+                if (criteria['eligibility.education']) {
+                    filters.push({ 'eligibility.education': criteria['eligibility.education'] });
+                    delete criteria['eligibility.education'];
+                }
                 criteria.$and = [searchClause, ...filters];
             } else {
                 criteria.$or = searchClause.$or;
             }
-        } else if (filters.length > 0) {
-            criteria.$and = filters;
         }
 
         try {
