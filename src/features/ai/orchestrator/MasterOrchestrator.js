@@ -12,17 +12,24 @@ class MasterOrchestrator {
      * Classifies user intent into a specific category to optimize tool injection.
      */
     static async classifyIntent(userQuery) {
-        const prompt = `Classify user intent into ONE of these categories: ['JOB_SEARCH', 'CAREER_ADVICE', 'MATH', 'WELLNESS', 'UTILITY', 'GENERAL'].
+        const prompt = `You are a Strict JSON Expert. Output ONLY valid JSON. No markdown backticks, no preamble, no thinking tags.
+Classify user intent into ONE of these categories: ['JOB_SEARCH', 'CAREER_ADVICE', 'MATH', 'WELLNESS', 'UTILITY', 'GENERAL'].
 
-- JOB_SEARCH: (CRITICAL RULE) Select this if the user asks for "forms", "vacancy", "bharti", "latest jobs", or active recruitment. Always use this when the user wants to apply for something right now.
-- CAREER_ADVICE: Select this ONLY if the user asks for guidance on what to study next, which degree is better, or how to become something (e.g., "BTech karu ya BSc", "IAS kaise banu"). Do NOT use this if they are asking about current form openings.
-- MATH: Percentages, mark calculations, or simple arithmetic.
-- WELLNESS: Stress, motivation, or emotional support.
-- UTILITY: Search the web, OCR from images, time, or profile updates.
-- GENERAL: Greetings, identity questions, or casual conversation.
+Definitions:
+- JOB_SEARCH: Finding active recruitment, forms, or vacancy.
+- CAREER_ADVICE: General guidance, roadmap, what to study.
+
+EXAMPLES (STUDY THESE CAREFULLY):
+User: "12th ke baad kya karu?" -> {"intent": "CAREER_ADVICE"}
+User: "bhai 12th pas ke liye kya koi naya sarkari form nikla h kya" -> {"intent": "JOB_SEARCH"}
+User: "police ki bharti kab aayegi" -> {"intent": "JOB_SEARCH"}
+User: "BSc karu ya BTech" -> {"intent": "CAREER_ADVICE"}
+User: "UP police ka form kaise bharu" -> {"intent": "JOB_SEARCH"}
+User: "padhai me man nahi lag raha" -> {"intent": "WELLNESS"}
+User: "SSC CGL ka syllabus batao" -> {"intent": "JOB_SEARCH"}
+User: "hello bhai" -> {"intent": "GENERAL"}
 
 User Query: "${userQuery}"
-
 Output ONLY valid JSON: {"intent": "CATEGORY"}`;
 
         try {
