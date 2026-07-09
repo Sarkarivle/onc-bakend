@@ -10,6 +10,8 @@ const WebSearchTool = require('./webSearchTool');
 const OCRTool = require('./ocrTool');
 const ActionExecutor = require('./actionExecutor');
 const DateTool = require('./dateTool');
+const WellnessEngine = require('./counsel_student');
+const AcademicEngine = require('./get_exam_info');
 const AgeCalculator = require('../../eligibility/utils/AgeCalculator');
 
 /**
@@ -280,7 +282,7 @@ const toolImplementations = {
     },
 
     get_exam_info: async (args) => {
-        return { success: true, data: `Searching records for ${args.exam_name} ${args.info_type}...` };
+        return await AcademicEngine.execute(args);
     },
 
     get_current_time: async () => {
@@ -298,8 +300,8 @@ const toolImplementations = {
         return AgeCalculator.calculate(dob, new Date());
     },
 
-    counsel_student: async (args) => {
-        return { success: true, mode: "empathy", issue: args.issue_type };
+    counsel_student: async (args, userProfile = {}) => {
+        return await WellnessEngine.execute(args, userProfile);
     },
 
     update_user_profile: async (args, userProfile = {}) => {
