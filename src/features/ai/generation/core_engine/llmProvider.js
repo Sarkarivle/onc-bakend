@@ -126,7 +126,7 @@ class LLMProvider {
         // AUTO-DETECT VISION NEED
         const hasImage = messages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'));
         if (hasImage && provider === 'groq') {
-            return constants.AI_VISION_MODEL || "llama-3.2-11b-vision-preview";
+            return constants.AI_VISION_MODEL || "llama-3.2-11b-vision-instruct";
         }
 
         // Use large model for high-quality Personality/Chat

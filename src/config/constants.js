@@ -18,5 +18,5 @@ module.exports = {
     AI_GUARD_MODEL: "llama-3.1-8b-instant",
 
     // 6. VISION ENGINE
-    AI_VISION_MODEL: "llama-3.2-11b-vision-preview"
+    AI_VISION_MODEL: "llama-3.2-11b-vision-instruct"
 };
