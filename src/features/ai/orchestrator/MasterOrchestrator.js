@@ -14,8 +14,8 @@ class MasterOrchestrator {
     static async classifyIntent(userQuery) {
         const prompt = `Classify user intent into ONE of these categories: ['JOB_SEARCH', 'CAREER_ADVICE', 'MATH', 'WELLNESS', 'UTILITY', 'GENERAL'].
 
-- JOB_SEARCH: For finding active jobs, vacancies, or specific exam details.
-- CAREER_ADVICE: For general guidance, roadmaps, "what to study", or degree advice.
+- JOB_SEARCH: (CRITICAL RULE) Select this if the user asks for "forms", "vacancy", "bharti", "latest jobs", or active recruitment. Always use this when the user wants to apply for something right now.
+- CAREER_ADVICE: Select this ONLY if the user asks for guidance on what to study next, which degree is better, or how to become something (e.g., "BTech karu ya BSc", "IAS kaise banu"). Do NOT use this if they are asking about current form openings.
 - MATH: Percentages, mark calculations, or simple arithmetic.
 - WELLNESS: Stress, motivation, or emotional support.
 - UTILITY: Search the web, OCR from images, time, or profile updates.
