@@ -33,6 +33,29 @@ class LLMProvider {
     }
 
     /**
+     * Fetches and logs available models from Groq for debugging.
+     */
+    static async logAvailableModels() {
+        try {
+            const apiKey = process.env.GROQ_API_KEY;
+            if (!apiKey) return;
+
+            const response = await axios.get('https://api.groq.com/openai/v1/models', {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+
+            if (response.data && response.data.data) {
+                const modelIds = response.data.data.map(m => m.id);
+                console.log('\n--- GROQ AVAILABLE MODELS ---');
+                console.log(modelIds.join('\n'));
+                console.log('------------------------------\n');
+            }
+        } catch (e) {
+            console.error("❌ Models Logger Error:", e.message);
+        }
+    }
+
+    /**
      * Determines if we are using Groq, vLLM/OpenAI or Ollama
      */
     static getProvider(url = '') {
@@ -48,6 +71,12 @@ class LLMProvider {
     }
 
     static async getBaseUrl() {
+        // --- ADDED: MODELS LOGGER ---
+        if (!this.modelsLogged) {
+            this.modelsLogged = true;
+            this.logAvailableModels().catch(() => {});
+        }
+
         const now = Date.now();
         if (this.settingsCache.baseUrl && this.settingsCache.expiresAt > now) {
             return this.settingsCache.baseUrl;
@@ -126,7 +155,8 @@ class LLMProvider {
         // AUTO-DETECT VISION NEED
         const hasImage = messages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'));
         if (hasImage && provider === 'groq') {
-            return constants.AI_VISION_MODEL || "llama-3.2-11b-vision-instruct";
+            // Groq Active Vision Models: llama-3.2-11b-vision-preview or llama-3.2-90b-vision-preview
+            return constants.AI_VISION_MODEL || "llama-3.2-11b-vision-preview";
         }
 
         // Use large model for high-quality Personality/Chat
