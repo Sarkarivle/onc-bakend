@@ -29,6 +29,42 @@ class EligibilityEngine {
             const legacy = notification.eligibility || {};
             const fullData = notification.fullData || notification.full_data || {};
 
+            // --- STRICT GENDER CHECK (Bada Bhai Gatekeeper) ---
+            const userGender = (user.gender || '').toLowerCase();
+            const jobTitle = (notification.title || '').toLowerCase();
+            const jobEdu = (legacy.education || '').toLowerCase();
+
+            let requiredGender = null;
+            if (/female only|only for women|mahila special|women only|anganwadi/i.test(jobTitle + jobEdu)) {
+                requiredGender = 'female';
+            } else if (/male only|only for men|men only/i.test(jobTitle + jobEdu)) {
+                requiredGender = 'male';
+            }
+
+            if (requiredGender === 'female' && (userGender === 'male' || userGender === 'm')) {
+                return {
+                    status: 'INELIGIBLE',
+                    match_score: 0,
+                    summary: ["Gender Mismatch: This job is for Female candidates only."],
+                    failed_rules: [{ module: 'GENDER', status: 'FAIL', message: 'This job is for Female candidates only.' }],
+                    dost_advice: ["Bhai, ye job sirf mahilaon (Females) ke liye hai. Aap dusri vacancies check karein."],
+                    ai_tip: "Bhai, ye job sirf mahilaon (Females) ke liye hai. Aap dusri vacancies check karein.",
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+            if (requiredGender === 'male' && (userGender === 'female' || userGender === 'f')) {
+                return {
+                    status: 'INELIGIBLE',
+                    match_score: 0,
+                    summary: ["Gender Mismatch: This job is for Male candidates only."],
+                    failed_rules: [{ module: 'GENDER', status: 'FAIL', message: 'This job is for Male candidates only.' }],
+                    dost_advice: ["Behen, ye job sirf purushon (Males) ke liye hai. Aap dusri vacancies check karein."],
+                    ai_tip: "Behen, ye job sirf purushon (Males) ke liye hai. Aap dusri vacancies check karein.",
+                    timestamp: new Date().toISOString()
+                };
+            }
+
             const baseConstraints = notification.base_constraints || {
                 age: {
                     min: parseInt(legacy.minAge) || 18,

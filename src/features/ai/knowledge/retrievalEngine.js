@@ -121,10 +121,10 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
 
         const criteria = { isActive: true };
 
-        // --- NATIVE PRE-FILTERING (GENDER) ---
+        // --- NATIVE PRE-FILTERING (STRICT GENDER) ---
         const gender = (profile.gender || '').toLowerCase();
         if (gender === 'male' || gender === 'm') {
-            criteria.title = { $not: /female only|only for women|mahila special|women only|anganwadi/i };
+            criteria.title = { $not: /female only|only for women|mahila special|women only|anganwadi|asha worker/i };
         } else if (gender === 'female' || gender === 'f') {
             criteria.title = { $not: /male only|only for men|men only/i };
         }
