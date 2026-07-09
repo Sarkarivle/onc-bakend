@@ -236,18 +236,74 @@ If you decide to use a tool (like search_jobs, calculate_math, etc.):
                     throw new Error("Assistant message is undefined.");
                 }
 
-                // Hallucination Fixer
-                if (assistantMessage.content && assistantMessage.content.includes('<function=')) {
-                    const regex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
-                    let match;
-                    assistantMessage.tool_calls = assistantMessage.tool_calls || [];
-                    while ((match = regex.exec(assistantMessage.content)) !== null) {
-                        assistantMessage.tool_calls.push({
-                            id: `call_${Date.now()}`,
-                            type: 'function',
-                            function: { name: match[1], arguments: match[2] }
-                        });
-                        assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
+                // --- Hallucination Fixer & Raw JSON Parser ---
+                if (assistantMessage.content) {
+                    // A. Legacy Tag Fixer (<function=name>{args}</function>)
+                    if (assistantMessage.content.includes('<function=')) {
+                        const regex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
+                        let match;
+                        assistantMessage.tool_calls = assistantMessage.tool_calls || [];
+                        while ((match = regex.exec(assistantMessage.content)) !== null) {
+                            assistantMessage.tool_calls.push({
+                                id: `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                                type: 'function',
+                                function: { name: match[1], arguments: match[2] }
+                            });
+                            assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
+                        }
+                    }
+
+                    // B. Raw JSON Leak Fixer (Handles cases where LLM prints JSON in content)
+                    if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+                        const jsonMatch = assistantMessage.content.match(/(\{[\s\S]*\})/);
+                        if (jsonMatch) {
+                            try {
+                                const rawJson = jsonMatch[0];
+                                const parsed = JSON.parse(rawJson);
+
+                                // Detection logic for tool name and args
+                                let toolName = parsed.name || parsed.function || parsed.tool;
+                                let toolArgs = parsed.arguments || parsed.parameters || parsed.args;
+
+                                // Fallback Heuristics: If it's a naked object with tool-specific keys
+                                if (!toolName) {
+                                    if (parsed.job_keyword) toolName = 'search_jobs';
+                                    else if (parsed.expression) toolName = 'calculate_math';
+                                    else if (parsed.query) toolName = 'web_search';
+                                    else if (parsed.qualification || parsed.skills) toolName = 'update_user_profile';
+                                }
+
+                                if (toolName) {
+                                    // Ensure search_jobs has user_filters if it's missing (mapping flat to nested)
+                                    if (toolName === 'search_jobs' && !parsed.user_filters) {
+                                        toolArgs = {
+                                            job_keyword: parsed.job_keyword,
+                                            user_filters: {
+                                                gender: parsed.gender || profile.gender || "Male",
+                                                max_education: parsed.max_education || parsed.qualification || profile.qualification || "12th",
+                                                location_pref: parsed.location || parsed.location_pref || profile.location
+                                            }
+                                        };
+                                    } else if (!toolArgs) {
+                                        toolArgs = parsed;
+                                    }
+
+                                    assistantMessage.tool_calls = [{
+                                        id: `call_leak_${Date.now()}`,
+                                        type: 'function',
+                                        function: {
+                                            name: toolName,
+                                            arguments: typeof toolArgs === 'string' ? toolArgs : JSON.stringify(toolArgs)
+                                        }
+                                    }];
+
+                                    // Strip the JSON from content to avoid rendering it in the UI
+                                    assistantMessage.content = assistantMessage.content.replace(rawJson, '').trim();
+                                }
+                            } catch (e) {
+                                // Not a valid JSON or parsing failed - ignore
+                            }
+                        }
                     }
                 }
 
