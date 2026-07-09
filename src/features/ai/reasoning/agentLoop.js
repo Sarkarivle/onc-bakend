@@ -1,7 +1,7 @@
 /**
- * AgentLoop Module (Architectural Version 3.0.1 - Worker Node)
+ * AgentLoop Module (Architectural Version 3.0.2 - Worker Node)
  * Responsibility: Executing the Tool-Calling Loop with dynamic prompts and tools.
- * Fix: Added duplicate user message prevention to satisfy API role-ordering requirements.
+ * Fix: Robust tool-call history unrolling with context stitching for Groq compatibility.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -9,6 +9,132 @@ const MemoryEngine = require('../memory/memoryEngine');
 const axios = require('axios');
 
 class AgentLoop {
+    static _normalizeHistoryEntry(entry) {
+        if (!entry || typeof entry !== 'object') return [];
+
+        if (entry.role) {
+            const normalized = { role: entry.role };
+
+            if (Object.prototype.hasOwnProperty.call(entry, 'content')) {
+                normalized.content = entry.content;
+            } else if (entry.role === 'assistant' && entry.tool_calls) {
+                normalized.content = "";
+            }
+
+            if (entry.tool_calls) normalized.tool_calls = entry.tool_calls;
+            if (entry.tool_call_id) normalized.tool_call_id = entry.tool_call_id;
+            if (entry.name) normalized.name = entry.name;
+
+            return [normalized];
+        }
+
+        const normalizedMessages = [];
+        if (entry.user) {
+            normalizedMessages.push({ role: 'user', content: entry.user });
+        }
+        if (entry.assistant) {
+            if (typeof entry.assistant === 'object' && entry.assistant !== null) {
+                normalizedMessages.push(...AgentLoop._normalizeHistoryEntry({
+                    role: 'assistant',
+                    ...entry.assistant
+                }));
+            } else {
+                normalizedMessages.push({ role: 'assistant', content: entry.assistant });
+            }
+        }
+        if (entry.tool) {
+            if (typeof entry.tool === 'object' && entry.tool !== null) {
+                normalizedMessages.push(...AgentLoop._normalizeHistoryEntry({
+                    role: 'tool',
+                    ...entry.tool
+                }));
+            } else {
+                normalizedMessages.push({ role: 'tool', content: entry.tool });
+            }
+        }
+
+        return normalizedMessages;
+    }
+
+    static _hasToolCalls(message) {
+        return Boolean(
+            message &&
+            message.role === 'assistant' &&
+            Array.isArray(message.tool_calls) &&
+            message.tool_calls.length > 0
+        );
+    }
+
+    static _createContextClearedToolMessage(toolCall) {
+        const functionName = toolCall && toolCall.function ? toolCall.function.name : 'unknown_tool';
+
+        return {
+            role: 'tool',
+            tool_call_id: toolCall && toolCall.id ? toolCall.id : `call_context_cleared_${Date.now()}`,
+            name: functionName,
+            content: JSON.stringify({
+                status: "CONTEXT_CLEARED",
+                message: "Previous tool output was not available in the restored conversation context."
+            })
+        };
+    }
+
+    static _unrollHistoryWithContextStitching(history) {
+        const flatHistory = [];
+
+        for (const entry of history || []) {
+            flatHistory.push(...AgentLoop._normalizeHistoryEntry(entry));
+        }
+
+        const stitchedMessages = [];
+        let i = 0;
+
+        while (i < flatHistory.length) {
+            const message = flatHistory[i];
+            if (!message || !message.role) {
+                i++;
+                continue;
+            }
+
+            if (message.role === 'tool' && !message.tool_call_id) {
+                i++;
+                continue;
+            }
+
+            stitchedMessages.push(message);
+
+            if (!AgentLoop._hasToolCalls(message)) {
+                i++;
+                continue;
+            }
+
+            const pendingToolCalls = new Map(
+                message.tool_calls
+                    .filter(toolCall => toolCall && toolCall.id)
+                    .map(toolCall => [toolCall.id, toolCall])
+            );
+
+            i++;
+
+            while (
+                i < flatHistory.length &&
+                flatHistory[i] &&
+                flatHistory[i].role === 'tool' &&
+                pendingToolCalls.has(flatHistory[i].tool_call_id)
+            ) {
+                pendingToolCalls.delete(flatHistory[i].tool_call_id);
+                stitchedMessages.push(flatHistory[i]);
+                i++;
+            }
+
+            for (const toolCall of pendingToolCalls.values()) {
+                stitchedMessages.push(AgentLoop._createContextClearedToolMessage(toolCall));
+            }
+        }
+
+        return stitchedMessages;
+    }
+
     /**
      * Executes the agentic loop.
      */
@@ -32,26 +158,12 @@ class AgentLoop {
 
         const systemPrompt = `${dynamicSystemPrompt}${memoryContext}\n\n# CRITICAL: If calling tools, output ONLY the tool call. NO conversational text during TOOL_MODE.`;
 
-        // 2. SANITIZED MESSAGE UNROLLING
+        // 2. SANITIZED MESSAGE UNROLLING + CONTEXT STITCHING
         let messages = [
             { role: 'system', content: systemPrompt }
         ];
 
-        // Process history and add to messages
-        for (const h of history) {
-            if (h.role && h.content) {
-                messages.push(h);
-            } else if (h.user || h.assistant) {
-                if (h.user) messages.push({ role: 'user', content: h.user });
-                if (h.assistant) {
-                    if (typeof h.assistant === 'object' && h.assistant !== null) {
-                        messages.push(h.assistant);
-                    } else {
-                        messages.push({ role: 'assistant', content: h.assistant });
-                    }
-                }
-            }
-        }
+        messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));
 
         // CRITICAL FIX: Ensure no duplicate consecutive user messages
         // Check if the last message is already a user message matching the current input
