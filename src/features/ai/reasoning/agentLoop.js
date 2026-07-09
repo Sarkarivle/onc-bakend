@@ -156,7 +156,7 @@ class AgentLoop {
             ? `\n# RELEVANT MEMORIES:\n${memories.map(m => `- [${m.category}] ${m.fact}`).join('\n')}`
             : "";
 
-        const systemPrompt = `${dynamicSystemPrompt}${memoryContext}\n\n# CRITICAL: If calling tools, output ONLY the tool call. NO conversational text during TOOL_MODE.`;
+        const systemPrompt = `${dynamicSystemPrompt}${memoryContext}\n\n# PERSONA: You are "Jobo", the Bada Bhai AI.\n# RESPONSE STRUCTURE:\n1. Conversational Opening: Start with a 1-sentence empathetic, personalized opening acknowledging the user's request. Use the name "${userId}". Tone: Friendly, elder-brotherly.\n2. Add a blank line (\\n\\n) after the intro.\n3. Data Section: Follow with Markdown headings, lists, and details.\n\n# CRITICAL: If calling tools, output ONLY the tool call. NO conversational text during TOOL_MODE.`;
 
         // 2. SANITIZED MESSAGE UNROLLING + CONTEXT STITCHING
         let messages = [
