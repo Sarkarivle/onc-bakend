@@ -37,7 +37,7 @@ class AgentLoop {
             { role: 'system', content: systemPrompt }
         ];
 
-        // Process history
+        // Process history and add to messages
         for (const h of history) {
             if (h.role && h.content) {
                 messages.push(h);
@@ -53,9 +53,12 @@ class AgentLoop {
             }
         }
 
-        // FIX: Ensure no duplicate consecutive user messages
-        const lastMessage = messages[messages.length - 1];
-        if (!(lastMessage && lastMessage.role === 'user' && lastMessage.content === userMessage)) {
+        // CRITICAL FIX: Ensure no duplicate consecutive user messages
+        // Check if the last message is already a user message matching the current input
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg && lastMsg.role === 'user' && lastMsg.content === userMessage) {
+            console.log("⚠️ AgentLoop: Duplicate user message detected. Skipping redundant push.");
+        } else {
             messages.push({ role: 'user', content: userMessage });
         }
 
