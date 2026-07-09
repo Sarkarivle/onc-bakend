@@ -1,13 +1,15 @@
 const getPersona = require('./persona');
 const getFormatting = require('./formatting');
-const careerMode = require('./modes/careerMode');
+const jobMode = require('./modes/jobMode');
+const adviceMode = require('./modes/adviceMode');
 const wellnessMode = require('./modes/wellnessMode');
 const mathMode = require('./modes/mathMode');
 const utilityMode = require('./modes/utilityMode');
 
 const getModePrompt = (intent) => {
     const modes = {
-        'CAREER': careerMode(),
+        'JOB_SEARCH': jobMode(),
+        'CAREER_ADVICE': adviceMode(),
         'WELLNESS': wellnessMode(),
         'MATH': mathMode(),
         'UTILITY': utilityMode(),

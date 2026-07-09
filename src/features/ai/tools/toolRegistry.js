@@ -19,7 +19,7 @@ const AgeCalculator = require('../../eligibility/utils/AgeCalculator');
  */
 const toolDefinitions = [
     {
-        category: "CAREER",
+        category: "JOB_SEARCH",
         type: "function",
         function: {
             name: "search_jobs",
@@ -147,7 +147,7 @@ const toolDefinitions = [
         }
     },
     {
-        category: "CAREER",
+        category: "JOB_SEARCH",
         type: "function",
         function: {
             name: "get_exam_info",

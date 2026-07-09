@@ -12,11 +12,12 @@ class MasterOrchestrator {
      * Classifies user intent into a specific category to optimize tool injection.
      */
     static async classifyIntent(userQuery) {
-        const prompt = `Classify user intent into ONE of these categories: ['CAREER', 'MATH', 'WELLNESS', 'UTILITY', 'GENERAL'].
+        const prompt = `Classify user intent into ONE of these categories: ['JOB_SEARCH', 'CAREER_ADVICE', 'MATH', 'WELLNESS', 'UTILITY', 'GENERAL'].
 
-- CAREER: Jobs, vacancies, exams, syllabus, admit cards, or eligibility.
+- JOB_SEARCH: For finding active jobs, vacancies, or specific exam details.
+- CAREER_ADVICE: For general guidance, roadmaps, "what to study", or degree advice.
 - MATH: Percentages, mark calculations, or simple arithmetic.
-- WELLNESS: Career guidance, stress, motivation, or emotional support.
+- WELLNESS: Stress, motivation, or emotional support.
 - UTILITY: Search the web, OCR from images, time, or profile updates.
 - GENERAL: Greetings, identity questions, or casual conversation.
 
@@ -38,6 +39,8 @@ Output ONLY valid JSON: {"intent": "CATEGORY"}`;
      */
     static async processUserQuery(userQuery, chatHistory, context) {
         const intent = await this.classifyIntent(userQuery);
+
+        // JOB_SEARCH uses specific job tools, CAREER_ADVICE relies on LLM knowledge for now.
         const selectedTools = getToolsByCategory(intent);
         const dynamicSystemPrompt = this._getDynamicPrompt(intent, context.profile || {});
 
