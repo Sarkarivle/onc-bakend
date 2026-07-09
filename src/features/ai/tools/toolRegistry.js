@@ -97,9 +97,9 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     action_type: { type: "string", enum: ["download_admit_card", "save_form_data"] },
-                    action_payload: { type: "object" }
+                    action_payload: { type: "object", description: "Metadata for the action" }
                 },
-                required: ["action_type", "action_payload"]
+                required: ["action_type"]
             }
         }
     },
@@ -113,8 +113,7 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     dummy: { type: "string" }
-                },
-                required: []
+                }
             }
         }
     },
@@ -192,8 +191,7 @@ const toolDefinitions = [
                     location: { type: "string", description: "City or State" },
                     skills: { type: "array", items: { type: "string" }, description: "e.g., ['Typing', 'CCC']" },
                     interests: { type: "array", items: { type: "string" }, description: "e.g., ['SSC', 'Police Jobs']" }
-                },
-                required: []
+                }
             }
         }
     }
