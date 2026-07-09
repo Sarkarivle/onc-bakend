@@ -113,7 +113,8 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     dummy: { type: "string" }
-                }
+                },
+                required: []
             }
         }
     },
@@ -141,8 +142,9 @@ const toolDefinitions = [
             parameters: {
                 type: "object",
                 properties: {
-                    dob: { type: "string", description: "Date of Birth" }
-                }
+                    dob: { type: "string", description: "Date of Birth (YYYY-MM-DD)" }
+                },
+                required: ["dob"]
             }
         }
     },
@@ -190,7 +192,8 @@ const toolDefinitions = [
                     location: { type: "string", description: "City or State" },
                     skills: { type: "array", items: { type: "string" }, description: "e.g., ['Typing', 'CCC']" },
                     interests: { type: "array", items: { type: "string" }, description: "e.g., ['SSC', 'Police Jobs']" }
-                }
+                },
+                required: []
             }
         }
     }

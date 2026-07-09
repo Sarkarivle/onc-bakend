@@ -148,7 +148,7 @@ class LLMProvider {
                     sanitized.tool_call_id = m.tool_call_id;
                     sanitized.name = m.name;
                 } else if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
-                    sanitized.content = null;
+                    sanitized.content = ""; // Use empty string instead of null for Groq compatibility
                     sanitized.tool_calls = m.tool_calls;
                 } else {
                     sanitized.content = String(m.content || "");

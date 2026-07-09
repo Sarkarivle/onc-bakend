@@ -82,6 +82,9 @@ class AgentLoop {
                     temperature: 0.3
                 };
 
+                // DEBUG: Log payload to identify 400 Bad Request causes
+                console.log("📤 AgentLoop: Sending payload to Groq:", JSON.stringify(payload, null, 2));
+
                 const response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
                 const assistantMessage = response.data.choices[0].message;
 
