@@ -5,6 +5,7 @@
 const Fact = require('./factModel');
 const State = require('./stateModel');
 const LLMProvider = require('../generation/core_engine/llmProvider');
+const getMemoryAuditorPrompt = require('../prompts/memory_auditor');
 
 class MemoryEngine {
     /**
@@ -81,28 +82,14 @@ class MemoryEngine {
         const skipWords = ["hi", "hello", "namaste", "batao", "kaise", "theek", "okay", "bye", "time", "baj", "naam", "name"];
         if (q.length < 10 || skipWords.some(word => q.includes(word))) return;
 
-        const prompt = `
-# ROLE: High-Precision Memory Auditor.
-# TASK: Extract ONLY new, concrete personal facts about the user from the dialogue.
-# IGNORE: Generic meta-skills like "understands Hindi", "can chat", "sent greeting", or "wants help".
-# CATEGORIES:
-- EDU (Degrees, Schooling, Marks, Exams passed)
-- SKILL (Specific skills: 'Java', 'Typing', 'Driving', 'Computer')
-- GOAL (Target exam like 'SSC', 'Police', 'Banking')
-- LOC (User's city, state, or current village)
-- BIO (Age, Category/Caste like 'OBC/SC', Physical stats)
-
-[USER]: "${userQuery}"
-[AI]: "${aiResponse}"
-
-# RULE: If no NEW or HARD personal facts are found, return an empty array [].
-Output ONLY JSON Array: [{ "category": "...", "fact": "...", "importance": 0.5 }]
-`;
+        const prompt = getMemoryAuditorPrompt(userQuery, aiResponse);
         try {
             const extractions = await LLMProvider.generateLogic(prompt);
             if (Array.isArray(extractions) && extractions.length > 0) {
                 for (const item of extractions) {
-                    // One last check: don't save generic facts
+                    // One last check: don't save generic or empty facts
+                    if (!item || !item.fact || !item.category) continue;
+
                     const fact = (item.fact || "").toLowerCase();
                     if (fact.includes("hindi") || fact.includes("english") || fact.includes("chat") || fact.includes("user")) continue;
 
