@@ -39,14 +39,32 @@ class AgentLoop {
         // Combine Supervisor prompt with Memory
         const systemPrompt = `${dynamicSystemPrompt}${memoryContext}\n\n# CRITICAL: If calling tools, output ONLY the tool call. NO conversational text during TOOL_MODE.`;
 
+        // NEW SANITIZED MESSAGE UNROLLING
         let messages = [
-            { role: 'system', content: systemPrompt },
-            ...history.flatMap(h => [
-                { role: 'user', content: h.user || h.content },
-                { role: 'assistant', content: h.assistant || h.content }
-            ]).filter(m => m.content),
-            { role: 'user', content: userMessage }
+            { role: 'system', content: systemPrompt }
         ];
+
+        // Sanitize history to preserve tool_calls objects
+        for (const h of history) {
+            if (h.role && h.content) {
+                // If it's already a standard message object, push it
+                messages.push(h);
+            } else {
+                // Legacy support for {user, assistant} objects
+                if (h.user) messages.push({ role: 'user', content: h.user });
+                if (h.assistant) {
+                    if (typeof h.assistant === 'object' && h.assistant !== null) {
+                        // Preserves tool_calls structure
+                        messages.push(h.assistant);
+                    } else {
+                        // Regular string message
+                        messages.push({ role: 'assistant', content: h.assistant });
+                    }
+                }
+            }
+        }
+
+        messages.push({ role: 'user', content: userMessage });
 
         let iterations = 0;
         const maxIterations = 5;

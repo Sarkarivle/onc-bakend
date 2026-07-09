@@ -226,39 +226,27 @@ const toolImplementations = {
             const result = await RetrievalEngine.searchJobs(args.job_keyword, profile);
             const rawJobs = result.documents || [];
 
-            const eligibleJobs = [];
+            const verifiedJobs = [];
             for (const job of rawJobs) {
                 const report = await EligibilityEngine.evaluate(profile, job, { skipLLM: true });
                 if (report.status === 'ELIGIBLE') {
                     const cleanJob = { ...job };
                     delete cleanJob.fullHtmlContent;
                     delete cleanJob._id;
-                    eligibleJobs.push(cleanJob);
+                    verifiedJobs.push(cleanJob);
                 }
             }
 
-            if (eligibleJobs.length > 0) {
-                return {
-                    success: true,
-                    count: eligibleJobs.length,
-                    jobs: JSON.stringify(eligibleJobs),
-                    documents: eligibleJobs
-                };
-            } else if (rawJobs.length > 0) {
-                return {
-                    success: true,
-                    count: 0,
-                    jobs: "Jobs exist, but the user is not eligible for any currently active ones. Suggest updating profile or checking other categories.",
-                    documents: []
-                };
-            } else {
-                return {
-                    success: true,
-                    count: 0,
-                    jobs: "No matching jobs found in the database.",
-                    documents: []
-                };
+            // --- THE PIVOT LOGIC START ---
+            if (verifiedJobs.length === 0) {
+                return JSON.stringify({
+                    status: "EMPTY_RESULT",
+                    message: "Bhai, abhi teri profile ke hisaab se koi active form nahi hai. Par tu chinta mat kar, main tere liye next best step soch raha hu."
+                });
             }
+            // --- THE PIVOT LOGIC END ---
+
+            return JSON.stringify({ status: "SUCCESS", jobs: verifiedJobs });
         } catch (error) {
             console.error("❌ search_jobs tool error:", error);
             return { success: false, error: error.message };
