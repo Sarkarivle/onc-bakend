@@ -188,7 +188,24 @@ If you decide to use a tool (like search_jobs, calculate_math, etc.):
         if (lastMsg && lastMsg.role === 'user' && lastMsg.content === userMessage) {
             console.log("⚠️ AgentLoop: Duplicate user message detected. Skipping redundant push.");
         } else {
-            messages.push({ role: 'user', content: userMessage });
+            // ROADMAP: Multi-modal Support (Groq/OpenAI Vision)
+            if (context.image_url) {
+                console.log("📸 AgentLoop: Injecting Multi-modal Vision Payload");
+                messages.push({
+                    role: "user",
+                    content: [
+                        { type: "text", text: userMessage || "Analyze this image." },
+                        {
+                            type: "image_url",
+                            image_url: {
+                                url: context.image_url // This must be the raw "data:image/jpeg;base64,..." string
+                            }
+                        }
+                    ]
+                });
+            } else {
+                messages.push({ role: 'user', content: userMessage });
+            }
         }
 
         let iterations = 0;
@@ -201,11 +218,12 @@ If you decide to use a tool (like search_jobs, calculate_math, etc.):
 
                 const baseUrl = await LLMProvider.getBaseUrl();
                 const headers = LLMProvider.getHeaders();
-                const model = LLMProvider.getModel('personality');
+                const sanitizedMessages = LLMProvider.sanitizeMessages(messages);
+                const model = LLMProvider.getModel('personality', sanitizedMessages);
 
                 const payload = {
                     model: model,
-                    messages: LLMProvider.sanitizeMessages(messages),
+                    messages: sanitizedMessages,
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
                     tool_choice: selectedTools.length > 0 ? "auto" : undefined,
                     temperature: 0.3

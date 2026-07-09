@@ -112,7 +112,7 @@ class LLMProvider {
         return finalUrl;
     }
 
-    static getModel(type) {
+    static getModel(type, messages = []) {
         const envModel = process.env.LLM_MODEL;
         if (envModel) return envModel;
 
@@ -121,6 +121,12 @@ class LLMProvider {
         // Use small model for Logic/Planner tasks to avoid Rate Limits (429)
         if (type === 'logic') {
             return provider === 'groq' ? "llama-3.1-8b-instant" : (constants.AI_LOGIC_MODEL || "llama-3.1-8b-instant");
+        }
+
+        // AUTO-DETECT VISION NEED
+        const hasImage = messages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'));
+        if (hasImage && provider === 'groq') {
+            return constants.AI_VISION_MODEL || "llama-3.2-11b-vision-preview";
         }
 
         // Use large model for high-quality Personality/Chat
@@ -151,7 +157,12 @@ class LLMProvider {
                     sanitized.content = ""; // Use empty string instead of null for Groq compatibility
                     sanitized.tool_calls = m.tool_calls;
                 } else {
-                    sanitized.content = String(m.content || "");
+                    // Support for Multi-modal Array content (OpenAI/Groq Vision)
+                    if (Array.isArray(m.content)) {
+                        sanitized.content = m.content;
+                    } else {
+                        sanitized.content = String(m.content || "");
+                    }
                 }
 
                 return sanitized;
@@ -197,11 +208,12 @@ class LLMProvider {
             try {
                 const fullUrl = await this.getBaseUrl();
                 const provider = this.settingsCache.provider;
-                const model = this.getModel('logic');
+                const sanitizedMessages = this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON. No markdown backticks, no preamble, no thinking tags.' }, { role: 'user', content: prompt }]);
+                const model = this.getModel('logic', sanitizedMessages);
 
                 let payload = {
                     model: model,
-                    messages: this.sanitizeMessages([{ role: 'system', content: 'You are a Strict JSON Expert. Output ONLY valid JSON. No markdown backticks, no preamble, no thinking tags.' }, { role: 'user', content: prompt }]),
+                    messages: sanitizedMessages,
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
                     temperature: 0.2, // Low for logic consistency
                     frequency_penalty: 0.3,
@@ -282,7 +294,8 @@ class LLMProvider {
             try {
                 const fullUrl = await this.getBaseUrl();
                 const provider = this.settingsCache.provider;
-                const model = this.getModel('personality');
+                const sanitizedMessages = this.sanitizeMessages(messages);
+                const model = this.getModel('personality', sanitizedMessages);
 
                 let payload = {};
                 if (provider === 'ollama') {
@@ -298,7 +311,7 @@ class LLMProvider {
                 } else {
                     payload = {
                         model: model,
-                        messages: this.sanitizeMessages(messages),
+                        messages: sanitizedMessages,
                         max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
                         temperature: optionsOverride.temperature || 0.7, // Higher for better personality
                         top_p: 0.9,
@@ -350,7 +363,8 @@ class LLMProvider {
         try {
             const fullUrl = await this.getBaseUrl();
             const provider = this.settingsCache.provider;
-            const model = this.getModel('personality');
+            const sanitizedMessages = this.sanitizeMessages(messages);
+            const model = this.getModel('personality', sanitizedMessages);
 
             let payload = {};
             if (provider === 'ollama') {
@@ -363,7 +377,7 @@ class LLMProvider {
             } else {
                 payload = {
                     model: model,
-                    messages: this.sanitizeMessages(messages),
+                    messages: sanitizedMessages,
                     max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
                     temperature: 0.2,
                     top_p: 0.9,

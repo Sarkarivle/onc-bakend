@@ -63,7 +63,7 @@ Output ONLY valid JSON: {"intent": "CATEGORY"}`;
         // If image exists, we append a hidden instruction to the query for the AgentLoop
         let finalQuery = userQuery;
         if (context.image_url) {
-            finalQuery = `[USER_IMAGE_ATTACHED: ${context.image_url}]\n${userQuery}\n\n(Bhai, user ne ek image bheji hai. Upar diye gaye 'USER_IMAGE_ATTACHED' URL ka use karke 'analyze_image' tool ko call karo aur results batao.)`;
+            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar jarurat ho toh analyze_image tool ka use karo.)`;
         }
 
         console.log(`🤖 Supervisor: Intent [${intent}] | Query: ${finalQuery.substring(0, 100)}...`);
