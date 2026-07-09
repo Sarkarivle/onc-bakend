@@ -17,7 +17,6 @@ const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/
 const PlannerLog = require('../models/PlannerLog');
 const AgentLoop = require('../reasoning/agentLoop');
 const MasterOrchestrator = require('./MasterOrchestrator');
-const SessionManager = require('../memory/SessionManager');
 
 class AIOrchestrator {
     static async _logDecision(query, plan, meta) {
@@ -106,10 +105,7 @@ class AIOrchestrator {
         let traceFinalized = false;
 
         try {
-            const [gatewayStatus, [state, profile]] = await Promise.all([
-                SmartGateway.validate(userMessage),
-                Promise.all([SessionState.get(sessionId), UserProfile.get(userName, input)])
-            ]);
+            const gatewayStatus = await SmartGateway.validate(userMessage);
 
             stream = new StreamingEngine(res, { turbo: false });
             const firstName = userName.split(' ')[0] || "Dost";
@@ -139,7 +135,7 @@ class AIOrchestrator {
 
             // Stream the final content
             const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
-            const suggestions = SuggestionEngine.generate({ intent }, { topic: state.topic, jobs: capturedData.jobs });
+            const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
 
             await stream.pushChunk(formatted);
             const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions, finalAnswer: formatted })}`;
