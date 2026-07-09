@@ -45,8 +45,12 @@ class SmartGateway {
         console.log("✅ SmartGateway: Stable Clusters Initialized.");
     }
 
-    static async validate(query) {
+    static async validate(query, hasImage = false) {
         const q = String(query || "").trim();
+
+        // Allow empty query if there's an image
+        if (!q && hasImage) return { status: 'PROCEED' };
+
         if (!q || q.length < 2) return { status: 'BLOCK', reason: 'EMPTY' };
         const lower = q.toLowerCase();
 

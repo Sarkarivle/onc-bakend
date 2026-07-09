@@ -45,15 +45,30 @@ Output ONLY valid JSON: {"intent": "CATEGORY"}`;
      * Entry point for processing user queries in the Supervisor-Worker architecture.
      */
     static async processUserQuery(userQuery, chatHistory, context) {
-        const intent = await this.classifyIntent(userQuery);
+        let intent = 'GENERAL';
 
-        // JOB_SEARCH uses specific job tools, CAREER_ADVICE relies on LLM knowledge for now.
+        console.log("🛠️ MasterOrchestrator: Processing context image_url:", context.image_url ? `${context.image_url.substring(0, 50)}...` : "NONE");
+
+        // ROADMAP Step 3: Handle image_url - Bypass classification if image exists
+        if (context.image_url) {
+            console.log("📸 MasterOrchestrator: Image detected, prioritizing Vision Analysis.");
+            intent = 'UTILITY';
+        } else {
+            intent = await this.classifyIntent(userQuery);
+        }
+
         const selectedTools = getToolsByCategory(intent);
         const dynamicSystemPrompt = this._getDynamicPrompt(intent, context.profile || {});
 
-        console.log(`🤖 Supervisor: Intent [${intent}] | Injecting [${selectedTools.length}] tools.`);
+        // If image exists, we append a hidden instruction to the query for the AgentLoop
+        let finalQuery = userQuery;
+        if (context.image_url) {
+            finalQuery = `[USER_IMAGE_ATTACHED: ${context.image_url}]\n${userQuery}\n\n(Bhai, user ne ek image bheji hai. Upar diye gaye 'USER_IMAGE_ATTACHED' URL ka use karke 'analyze_image' tool ko call karo aur results batao.)`;
+        }
 
-        return await AgentLoop.run(userQuery, chatHistory, context, dynamicSystemPrompt, selectedTools, intent);
+        console.log(`🤖 Supervisor: Intent [${intent}] | Query: ${finalQuery.substring(0, 100)}...`);
+
+        return await AgentLoop.run(finalQuery, chatHistory, context, dynamicSystemPrompt, selectedTools, intent);
     }
 
     /**

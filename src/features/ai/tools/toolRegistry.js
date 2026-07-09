@@ -13,6 +13,7 @@ const DateTool = require('./dateTool');
 const WellnessEngine = require('./counsel_student');
 const AcademicEngine = require('./get_exam_info');
 const AgeCalculator = require('../../eligibility/utils/AgeCalculator');
+const ImageAnalyzer = require('./imageAnalyzer');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -82,6 +83,22 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     image_url: { type: "string" }
+                },
+                required: ["image_url"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        type: "function",
+        function: {
+            name: "analyze_image",
+            description: "Analyze an image (Base64) using Vision AI to extract info, marks, or job details.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "Base64 data URI of the image" },
+                    prompt: { type: "string", description: "What to look for in the image" }
                 },
                 required: ["image_url"]
             }
@@ -271,6 +288,10 @@ const toolImplementations = {
 
     read_document_image: async (args) => {
         return await OCRTool.read(args.image_url);
+    },
+
+    analyze_image: async (args) => {
+        return await ImageAnalyzer.analyze(args.image_url, args.prompt);
     },
 
     execute_system_action: async (args, userProfile = {}) => {

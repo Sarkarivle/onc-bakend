@@ -36,14 +36,16 @@ class AIOrchestrator {
      * Standard Synchronous Request (UPGRADED TO AGENTIC LOOP)
      */
     static async processRequest(input) {
+        const { message, image_url, userName, sessionId = `session_${Date.now()}` } = input;
         const userMessage = normalizeRequest(input);
-        const { userName, sessionId = `session_${Date.now()}` } = input;
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage, input.requestId);
         let traceFinalized = false;
 
         try {
+            console.log(`📩 [AIOrchestrator] Request: ${userName} | Image: ${image_url ? 'YES' : 'NO'}`);
+
             const gatewayStatus = await Telemetry.trackStage(traceId, 'GATEWAY_VALIDATION',
-                () => SmartGateway.validate(userMessage)
+                () => SmartGateway.validate(userMessage, !!image_url)
             );
             if (gatewayStatus.status === 'BLOCK') {
                 const safeResponse = this._safeGatewayResponse(gatewayStatus.reason);
@@ -61,7 +63,12 @@ class AIOrchestrator {
 
             // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
-                () => MasterOrchestrator.processUserQuery(userMessage, history, { profile, sessionId, userId: userName })
+                () => MasterOrchestrator.processUserQuery(userMessage, history, {
+                    profile,
+                    sessionId,
+                    userId: userName,
+                    image_url: image_url // Using the destructured variable
+                })
             );
 
             const { content, intent, capturedData } = agentResult;
@@ -98,14 +105,16 @@ class AIOrchestrator {
      * Production-Grade Streaming Request (UPGRADED TO AGENTIC LOOP)
      */
     static async processRequestStream(input, res) {
+        const { message, image_url, userName, sessionId = `session_${Date.now()}` } = input;
         const userMessage = normalizeRequest(input);
-        const { userName, sessionId = `session_${Date.now()}` } = input;
         const traceId = Telemetry.startTrace(userName || "Anonymous", sessionId, userMessage, input.requestId);
         let stream = null;
         let traceFinalized = false;
 
         try {
-            const gatewayStatus = await SmartGateway.validate(userMessage);
+            console.log(`📩 [AIOrchestrator] Stream Request: ${userName} | Image: ${image_url ? 'YES' : 'NO'}`);
+
+            const gatewayStatus = await SmartGateway.validate(userMessage, !!image_url);
 
             stream = new StreamingEngine(res, { turbo: false });
             const firstName = userName.split(' ')[0] || "Dost";
@@ -126,7 +135,12 @@ class AIOrchestrator {
 
             // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
-                () => MasterOrchestrator.processUserQuery(userMessage, history, { profile, sessionId, userId: userName })
+                () => MasterOrchestrator.processUserQuery(userMessage, history, {
+                    profile,
+                    sessionId,
+                    userId: userName,
+                    image_url: image_url // Using the destructured variable
+                })
             );
 
             const { content, intent, capturedData, messages } = agentResult;

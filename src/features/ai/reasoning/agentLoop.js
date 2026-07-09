@@ -271,6 +271,7 @@ If you decide to use a tool (like search_jobs, calculate_math, etc.):
                                     else if (parsed.expression) toolName = 'calculate_math';
                                     else if (parsed.query) toolName = 'web_search';
                                     else if (parsed.qualification || parsed.skills) toolName = 'update_user_profile';
+                                    else if (parsed.image_url || parsed.imageUrl) toolName = 'analyze_image';
                                 }
 
                                 if (toolName) {
@@ -283,6 +284,11 @@ If you decide to use a tool (like search_jobs, calculate_math, etc.):
                                                 max_education: parsed.max_education || parsed.qualification || profile.qualification || "12th",
                                                 location_pref: parsed.location || parsed.location_pref || profile.location
                                             }
+                                        };
+                                    } else if (toolName === 'analyze_image') {
+                                        toolArgs = {
+                                            image_url: parsed.image_url || parsed.imageUrl,
+                                            prompt: parsed.prompt || parsed.instruction || userMessage
                                         };
                                     } else if (!toolArgs) {
                                         toolArgs = parsed;
