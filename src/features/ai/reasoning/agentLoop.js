@@ -85,8 +85,15 @@ class AgentLoop {
                 // DEBUG: Log payload to identify 400 Bad Request causes
                 console.log("📤 AgentLoop: Sending payload to Groq:", JSON.stringify(payload, null, 2));
 
-                const response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
-                const assistantMessage = response.data.choices[0].message;
+                try {
+                    const response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
+                    assistantMessage = response.data.choices[0].message;
+                } catch (apiError) {
+                    if (apiError.response) {
+                        console.error("🛑 Groq API 400 Detail:", JSON.stringify(apiError.response.data, null, 2));
+                    }
+                    throw apiError;
+                }
 
                 // Hallucination Fixer
                 if (assistantMessage.content && assistantMessage.content.includes('<function=')) {
