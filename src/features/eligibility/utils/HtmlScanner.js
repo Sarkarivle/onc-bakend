@@ -13,8 +13,8 @@ class HtmlScanner {
 
         const $ = cheerio.load(html);
         // Remove noise but preserve table spacing
-        $('script, style, nav, footer').remove();
-        $('tr, p, div, br').append(' '); // Add space to prevent word merging
+        $('script, style, nav, footer, header').remove();
+        $('tr, p, div, br, td, th, li, h1, h2, h3, h4, h5, h6').append(' '); // Add space to prevent word merging
         const text = $('body').text().replace(/\s\s+/g, ' ');
 
         switch (ruleType) {
@@ -31,10 +31,10 @@ class HtmlScanner {
         const isFemale = String(gender).toUpperCase() === 'FEMALE';
 
         // Pattern: Look for "Height", then some characters, then 3 digits + cm/cms
-        // Example: "Height for General/OBC candidates is 165 cms"
         const patterns = [
             new RegExp(`(?:height|unchai|lambai).{0,100}(\\d{3})\\s*cm`, 'i'),
-            new RegExp(`(\\d{3})\\s*cm.{0,50}(?:height|unchai|lambai)`, 'i')
+            new RegExp(`(\\d{3})\\s*cm.{0,50}(?:height|unchai|lambai)`, 'i'),
+            new RegExp(`height.{0,50}(\\d{3})\\s*cms`, 'i')
         ];
 
         for (let p of patterns) {
@@ -46,16 +46,16 @@ class HtmlScanner {
     }
 
     static _extractEducation(text) {
-        const levels = {
-            'PHD': /PHD|DOCTORATE|RESEARCH SCHOLAR/i,
-            'POST GRADUATE': /POST GRADUATE|MASTER|PG |M\.SC|M\.A|M\.COM|M\.TECH|MBA/i,
-            'GRADUATE': /GRADUATE|DEGREE|BACHELOR|SNATAK|B\.A|B\.SC|B\.COM|B\.TECH|B\.E\b/i,
-            '12TH PASS': /12TH|INTERMEDIATE|10\+2|SECONDARY|INTER\b/i,
-            '10TH PASS': /10TH|MATRIC|HIGH SCHOOL|SSC\b/i
-        };
+        const levels = [
+            { level: 'PHD', regex: /PHD|DOCTORATE|RESEARCH SCHOLAR/i },
+            { level: 'POST GRADUATE', regex: /POST GRADUATE|MASTER|PG |M\.SC|M\.A|M\.COM|M\.TECH|MBA/i },
+            { level: 'GRADUATE', regex: /GRADUATE|DEGREE|BACHELOR|SNATAK|B\.A|B\.SC|B\.COM|B\.TECH|B\.E\b|B\.ED/i },
+            { level: '12TH PASS', regex: /12TH|INTERMEDIATE|10\+2|SECONDARY|INTER\b/i },
+            { level: '10TH PASS', regex: /10TH|MATRIC|HIGH SCHOOL|SSC\b/i }
+        ];
 
-        for (let [level, regex] of Object.entries(levels)) {
-            if (regex.test(text)) return level;
+        for (let entry of levels) {
+            if (entry.regex.test(text)) return entry.level;
         }
         return null;
     }

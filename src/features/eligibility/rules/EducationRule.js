@@ -9,10 +9,22 @@ class EducationRule extends BaseRule {
         let eduReq = constraints.education;
 
         // 1. HTML DEEP SCAN (If JSON is loose or empty)
-        if (!eduReq || (!eduReq.level && !eduReq.required_degrees)) {
+        if (!eduReq || (!eduReq.level && !eduReq.required_degrees) || eduReq.level === 'N/A' || eduReq.level === '') {
             if (jobContext.fullHtmlContent) {
                 const extracted = HtmlScanner.scan(jobContext.fullHtmlContent, 'EDUCATION');
                 if (extracted) eduReq = { level: extracted };
+            } else if (jobContext.fullData && jobContext.fullData.fullHtmlContent) {
+                const extracted = HtmlScanner.scan(jobContext.fullData.fullHtmlContent, 'EDUCATION');
+                if (extracted) eduReq = { level: extracted };
+            }
+        }
+
+        // 2. CHECK IF STILL MISSING - Look into fullData directly
+        if (!eduReq || (!eduReq.level && !eduReq.required_degrees) || eduReq.level === 'N/A') {
+            const fd = jobContext.fullData || {};
+            const qText = (fd.eligibility?.qualification || fd.structured_data?.eligibility?.education || "").toUpperCase();
+            if (qText) {
+                eduReq = { level: qText };
             }
         }
 
