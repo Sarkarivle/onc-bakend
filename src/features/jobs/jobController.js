@@ -139,7 +139,7 @@ const getAiMatchAdvice = async (req, res) => {
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ status: 'error', message: 'User profile not found' });
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findById(jobId).lean();
     if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
 
     // 1. Check Cache

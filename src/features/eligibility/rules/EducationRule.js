@@ -6,16 +6,18 @@ class EducationRule extends BaseRule {
 
     evaluate(user, constraints, jobContext = {}) {
         const firstName = user.name?.split(' ')[0] || "Dost";
+
+        // 1. DATA RESOLUTION (Priority: base_constraints -> structured_data -> HTML)
         let eduReq = constraints.education || {};
-
-        // 1. IMPROVED DATA RESOLUTION (No "Jugad", just thorough scanning)
         const fd = jobContext.fullData || {};
-        const structuredEdu = fd.eligibility?.education || fd.structured_data?.eligibility?.education;
-        const structuredQual = fd.eligibility?.qualification || fd.structured_data?.eligibility?.qualification;
 
-        // If the rule_map from import is weak, we fallback to structured text or HTML
+        // If the rule_map/constraints is empty, dig into structured data
         if (!eduReq.level || eduReq.level === 'N/A' || eduReq.level === '') {
-            const rawTextToNormalize = (structuredEdu || structuredQual || "").toUpperCase();
+            const structuredEdu = fd.structured_data?.eligibility?.education
+                               || fd.eligibility?.education
+                               || fd.structured_data?.job_overview?.post_name; // Sometimes post name has it
+
+            const rawTextToNormalize = (structuredEdu || "").toUpperCase();
             if (rawTextToNormalize && rawTextToNormalize.length > 2) {
                 eduReq = { level: rawTextToNormalize };
             } else if (jobContext.fullHtmlContent) {
@@ -24,11 +26,10 @@ class EducationRule extends BaseRule {
             }
         }
 
-        // 2. FINAL FALLBACK: If still missing, check any text in the job overview
+        // 2. SPECIFIC SI/DAROGA OVERRIDE (Only if we still don't have a clear level)
         if (!eduReq.level || eduReq.level === 'N/A') {
-            const overview = fd.job_overview || fd.structured_data?.job_overview || {};
-            const overviewText = JSON.stringify(overview).toUpperCase();
-            if (overviewText.includes('GRADUATE') || overviewText.includes('DEGREE')) {
+            const title = String(jobContext.title || "").toUpperCase();
+            if (title.includes('SUB INSPECTOR') || title.includes(' SI ') || title.includes('DAROGA')) {
                 eduReq = { level: 'GRADUATE' };
             }
         }
