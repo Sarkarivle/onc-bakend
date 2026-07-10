@@ -35,19 +35,12 @@ class HumanExpertEngine {
                 fullData: prunedJobData
             };
 
-            const educationFact = (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'));
-            const ageFact = (report.applied_rules.find(r => r.module === 'AGE') || report.failed_rules.find(r => r.module === 'AGE'));
-            const physicalFact = (report.applied_rules.find(r => r.module === 'PHYSICAL') || report.failed_rules.find(r => r.module === 'PHYSICAL'));
-
             const facts = {
                 overall_status: report.status,
-                engine_decisions: {
-                    education: educationFact ? { status: educationFact.status, user_qualification: educationFact.userHad, job_requirement: educationFact.requirement, friendly_msg: educationFact.message } : null,
-                    age: ageFact ? { status: ageFact.status, user_age: report.age_analysis?.exact_age?.formatted, min_allowed: report.age_analysis.base_min_age, max_allowed: report.age_analysis.effective_max_age, friendly_msg: ageFact.message } : null,
-                    physical: physicalFact ? { status: physicalFact.status, user_height: userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A', required_height: physicalFact.requirement, friendly_msg: physicalFact.message } : null
-                },
-                extra_notes: report.extra_notes || [],
-                missing_data: report.missing_data.map(r => r.message)
+                reasons: report.failed_rules.map(r => r.message),
+                highlights: report.applied_rules.filter(r => r.module !== 'CORE').map(r => r.message),
+                missing: report.missing_data.map(r => r.message),
+                extra_info: report.extra_notes || []
             };
 
             const istDate = new Intl.DateTimeFormat('en-IN', {
@@ -56,18 +49,21 @@ class HumanExpertEngine {
 
             const prompt = expertPrompt(userName, profileStr, facts, jobBrief, istDate);
 
-            // Call the LLM to get the human-friendly reasoning (Using Chat for personality and text output)
-            const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }], 1, { max_tokens: maxTokens });
+            // Call the LLM with high temperature for personality, but strict context for accuracy
+            const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }], 0.1, { max_tokens: maxTokens });
             const response = chatRes?.content;
 
             if (response && typeof response === 'string') {
-                const points = response
+                // Clean up any bullet points if the LLM hallucinated them despite instructions
+                const cleanResponse = response
+                    .replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '')
                     .split('\n')
-                    .filter(line => line.trim().startsWith('-'))
-                    .map(line => line.replace(/^-\s*\[POINT\]\s*/i, '').replace(/^- /i, '').replace(/^✅\s*/, '✅ ').replace(/^❌\s*/, '❌ ').trim());
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0 && !line.startsWith('-') && !line.startsWith('*'))
+                    .join('\n');
 
-                if (points.length > 0) return points;
-                return [response.replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '').trim().substring(0, 500)];
+                if (cleanResponse.length > 0) return [cleanResponse];
+                return [response.trim()];
             }
 
             return ["Bhai, jankari process nahi ho paayi. Ek baar details check kar lo."];
