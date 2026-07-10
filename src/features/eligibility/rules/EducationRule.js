@@ -13,14 +13,15 @@ class EducationRule extends BaseRule {
             if (jobContext.fullHtmlContent) {
                 const extracted = HtmlScanner.scan(jobContext.fullHtmlContent, 'EDUCATION');
                 if (extracted) eduReq = { level: extracted };
-            } else if (jobContext.fullData && jobContext.fullData.fullHtmlContent) {
-                const extracted = HtmlScanner.scan(jobContext.fullData.fullHtmlContent, 'EDUCATION');
+            } else if (jobContext.fullData && (jobContext.fullData.fullHtmlContent || jobContext.fullData.full_html)) {
+                const html = jobContext.fullData.fullHtmlContent || jobContext.fullData.full_html;
+                const extracted = HtmlScanner.scan(html, 'EDUCATION');
                 if (extracted) eduReq = { level: extracted };
             }
         }
 
         // 2. CHECK IF STILL MISSING - Look into fullData directly
-        if (!eduReq || (!eduReq.level && !eduReq.required_degrees) || eduReq.level === 'N/A') {
+        if (!eduReq || (!eduReq.level && !eduReq.required_degrees) || eduReq.level === 'N/A' || eduReq.level === '') {
             const fd = jobContext.fullData || {};
             const qText = (fd.eligibility?.qualification || fd.structured_data?.eligibility?.education || "").toUpperCase();
             if (qText) {
@@ -28,7 +29,7 @@ class EducationRule extends BaseRule {
             }
         }
 
-        if (!eduReq || (!eduReq.level && !eduReq.required_degrees)) {
+        if (!eduReq || (!eduReq.level && !eduReq.required_degrees) || eduReq.level === 'N/A' || eduReq.level === '') {
             return { module: this.module, status: 'PASS', message: `Bhai ${firstName}, is job me koi khaas education level mentioned nahi hai.`, score: 100 };
         }
 
@@ -96,7 +97,7 @@ class EducationRule extends BaseRule {
         const t = String(text || "").toUpperCase();
         if (t.includes('PHD')) return 'PHD';
         if (t.includes('POST GRADUATE') || t.includes('PG') || t.includes('MASTER')) return 'POST GRADUATE';
-        if (t.includes('GRADUATE') || t.includes('DEGREE') || t.includes('BACHELOR') || t.includes('B.A') || t.includes('B.SC') || t.includes('B.COM') || t.includes('B.TECH')) return 'GRADUATE';
+        if (t.includes('GRADUATE') || t.includes('DEGREE') || t.includes('BACHELOR') || t.includes('SNATAK') || t.includes('B.A') || t.includes('B.SC') || t.includes('B.COM') || t.includes('B.TECH')) return 'GRADUATE';
         if (t.includes('12TH') || t.includes('INTERMEDIATE') || t.includes('10+2') || t.includes('HSC')) return '12TH PASS';
         if (t.includes('10TH') || t.includes('MATRIC') || t.includes('SSC')) return '10TH PASS';
         if (t.includes('8TH')) return '8TH PASS';

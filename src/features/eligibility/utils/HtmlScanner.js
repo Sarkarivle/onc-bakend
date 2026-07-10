@@ -12,10 +12,16 @@ class HtmlScanner {
         if (!html || html === 'N/A') return null;
 
         const $ = cheerio.load(html);
-        // Remove noise but preserve table spacing
+        // Remove noise
         $('script, style, nav, footer, header').remove();
-        $('tr, p, div, br, td, th, li, h1, h2, h3, h4, h5, h6').append(' '); // Add space to prevent word merging
-        const text = $('body').text().replace(/\s\s+/g, ' ');
+
+        // Ensure all block elements have trailing spaces to prevent word merging
+        $('tr, p, div, br, td, th, li, h1, h2, h3, h4, h5, h6').each((i, el) => {
+            $(el).append(' ');
+        });
+
+        // Use $.text() on the root for wider coverage
+        const text = $.text().replace(/\s\s+/g, ' ');
 
         switch (ruleType) {
             case 'HEIGHT':
@@ -30,7 +36,6 @@ class HtmlScanner {
     static _extractHeight(text, gender = 'MALE') {
         const isFemale = String(gender).toUpperCase() === 'FEMALE';
 
-        // Pattern: Look for "Height", then some characters, then 3 digits + cm/cms
         const patterns = [
             new RegExp(`(?:height|unchai|lambai).{0,100}(\\d{3})\\s*cm`, 'i'),
             new RegExp(`(\\d{3})\\s*cm.{0,50}(?:height|unchai|lambai)`, 'i'),
@@ -46,6 +51,9 @@ class HtmlScanner {
     }
 
     static _extractEducation(text) {
+        // High priority check for Graduation/Degree
+        if (/Bachelor Degree|Graduation|Degree|Snatak|B\.A|B\.SC|B\.COM|B\.TECH|B\.E\b/i.test(text)) return 'GRADUATE';
+
         const levels = [
             { level: 'PHD', regex: /PHD|DOCTORATE|RESEARCH SCHOLAR/i },
             { level: 'POST GRADUATE', regex: /POST GRADUATE|MASTER|PG |M\.SC|M\.A|M\.COM|M\.TECH|MBA/i },
