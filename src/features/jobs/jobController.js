@@ -154,26 +154,14 @@ const getAiMatchAdvice = async (req, res) => {
         report = await EligibilityEngine.evaluate(user, job, { skipLLM: true });
         report.dost_advice = cachedAdvice;
         report.ai_tip = cachedAdvice[0];
+        // Ensure dost_advice_raw is populated for the Flutter cache check
+        report.dost_advice_raw = cachedAdvice.join('\n');
     } else {
         console.log(`[JobController] cache_hit false | key: ${cacheKey}`);
-        // 2. Generate Instant Response
+        // 2. Generate Instant Response (No background LLM here to save tokens)
+        // Client will call /stream which will generate and cache the advice
         report = await EligibilityEngine.evaluate(user, job, { skipLLM: true });
-
-        // 3. Trigger LLM in background (Non-blocking)
-        llmCalled = true;
-        (async () => {
-            const llmStartTime = Date.now();
-            try {
-                // background call with reduced max_tokens (220) for speed
-                const aiAdvice = await HumanExpertEngine.generateDostAdvice(user, report, job.title, job, 220);
-                if (aiAdvice && aiAdvice.length > 0) {
-                    cache.set(cacheKey, aiAdvice);
-                    console.log(`[JobController] Background LLM saved to cache. duration: ${Date.now() - llmStartTime}ms`);
-                }
-            } catch (err) {
-                console.error("[JobController] Background LLM Failed:", err.message);
-            }
-        })();
+        llmCalled = false;
     }
 
     if (report.status === 'ERROR') throw new Error(report.message);
@@ -243,9 +231,20 @@ const getAiMatchAdviceStream = async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
+    let fullAdvice = "";
     await HumanExpertEngine.streamDostAdvice(user, report, job.title, job, (chunk) => {
+        fullAdvice += chunk;
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
     });
+
+    // Cache the full result after stream completes to save tokens next time
+    if (fullAdvice.trim().length > 0) {
+        const cacheKey = cache.generateKey(jobId, user);
+        // Format for consistent storage
+        const adviceList = fullAdvice.split('\n').filter(l => l.trim().length > 0);
+        cache.set(cacheKey, adviceList);
+        console.log(`[JobController] Stream result saved to cache for key: ${cacheKey}`);
+    }
 
     res.write('data: [DONE]\n\n');
     res.end();
