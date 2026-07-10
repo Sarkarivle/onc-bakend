@@ -295,4 +295,30 @@ const deleteJob = async (req, res) => {
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
-module.exports = { getAllJobs, getJob, getAiMatchAdvice, getAiMatchAdviceStream, importJob, discoverNewJobs, updateJob, deleteJob, createJob };
+const getMyMatches = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+
+    const allJobs = await Job.find({ isActive: true }).sort({ createdAt: -1 }).lean();
+    const matches = [];
+
+    for (const job of allJobs) {
+        const report = await EligibilityEngine.evaluate(user, job, { skipLLM: true });
+        if (report.status === 'ELIGIBLE') {
+            matches.push({
+                ...job,
+                matchScore: report.match_score
+            });
+        }
+    }
+
+    res.status(200).json({ status: 'success', results: matches.length, data: matches });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+module.exports = { getAllJobs, getJob, getAiMatchAdvice, getAiMatchAdviceStream, importJob, discoverNewJobs, updateJob, deleteJob, createJob, getMyMatches };

@@ -19,6 +19,7 @@ router.get('/', handle('getAllJobs'));
 
 router.use(authMiddleware.protect);
 
+router.get('/my-matches', handle('getMyMatches'));
 router.post('/', handle('createJob'));
 
 // Admin / Scraper Routes
