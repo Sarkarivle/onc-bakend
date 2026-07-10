@@ -41,8 +41,8 @@ class AIResultCache {
 
         const state = (user.domicileState || 'UP').replace(/\s+/g, '_').toUpperCase();
 
-        // Versioned to invalidate old bullet-point caches
-        return `matchAdvice_v8:${jobId}:${qualification}:${category}:${gender}:${ageGroup}:${heightGroup}:${state}`;
+        // Versioned to invalidate old bullet-point caches (Final Fix)
+        return `matchAdvice_v12:${jobId}:${qualification}:${category}:${gender}:${ageGroup}:${heightGroup}:${state}`;
     }
 }
 
