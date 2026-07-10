@@ -34,6 +34,7 @@ const jobSchema = new mongoose.Schema({
   fullHtmlContent: { type: String }, // Naya field for Website style HTML
   aiCoreSummary: mongoose.Schema.Types.Mixed,
   fullData: mongoose.Schema.Types.Mixed,
+  base_constraints: mongoose.Schema.Types.Mixed,
 
   // Semantic Search (Vector)
   searchVector: { type: [Number], index: false }, // Store embeddings here

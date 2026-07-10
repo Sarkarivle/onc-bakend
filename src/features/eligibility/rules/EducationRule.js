@@ -9,28 +9,41 @@ class EducationRule extends BaseRule {
 
         // 1. DATA RESOLUTION (Priority: base_constraints -> structured_data -> HTML)
         let eduReq = constraints.education || {};
-        const fd = jobContext.fullData || {};
+        let fd = jobContext.fullData || {};
 
-        // If the rule_map/constraints is empty, dig into structured data
+        // Handle cases where fullData might be stored as a string
+        if (typeof fd === 'string') {
+            try { fd = JSON.parse(fd); } catch (e) { fd = {}; }
+        }
+
+        // 2. AGGRESSIVE SEARCH for Education Level
         if (!eduReq.level || eduReq.level === 'N/A' || eduReq.level === '') {
-            const structuredEdu = fd.structured_data?.eligibility?.education
-                               || fd.eligibility?.education
-                               || fd.structured_data?.job_overview?.post_name; // Sometimes post name has it
+            // Check all possible nested paths in structured data
+            const possiblePaths = [
+                fd.rule_map?.education?.level,
+                fd.structured_data?.eligibility?.education,
+                fd.eligibility?.education,
+                fd.eligibility?.qualification,
+                fd.structured_data?.job_overview?.post_name,
+                fd.job_overview?.post_name
+            ];
 
-            const rawTextToNormalize = (structuredEdu || "").toUpperCase();
-            if (rawTextToNormalize && rawTextToNormalize.length > 2) {
-                eduReq = { level: rawTextToNormalize };
+            const foundPath = possiblePaths.find(p => p && p !== 'N/A' && String(p).length > 2);
+            if (foundPath) {
+                eduReq = { level: String(foundPath) };
             } else if (jobContext.fullHtmlContent) {
                 const extracted = HtmlScanner.scan(jobContext.fullHtmlContent, 'EDUCATION');
                 if (extracted) eduReq = { level: extracted };
             }
         }
 
-        // 2. SPECIFIC SI/DAROGA OVERRIDE (Only if we still don't have a clear level)
+        // 3. TEXT-BASED HEURISTICS (If still no level found in structured fields)
         if (!eduReq.level || eduReq.level === 'N/A') {
-            const title = String(jobContext.title || "").toUpperCase();
-            if (title.includes('SUB INSPECTOR') || title.includes(' SI ') || title.includes('DAROGA')) {
+            const fullText = JSON.stringify(fd).toUpperCase();
+            if (fullText.includes('BACHELOR') || fullText.includes('GRADUATE') || fullText.includes('DEGREE') || fullText.includes('SNATAK')) {
                 eduReq = { level: 'GRADUATE' };
+            } else if (fullText.includes('12TH') || fullText.includes('INTERMEDIATE')) {
+                eduReq = { level: '12TH PASS' };
             }
         }
 
@@ -47,7 +60,7 @@ class EducationRule extends BaseRule {
         const userLevelRaw = (user.education || user.educationLevel || user.qualification || "").toUpperCase();
         const userLevel = this._normalizeLevelName(userLevelRaw);
 
-        // 3. CHECK IF USER DATA IS MISSING
+        // 4. CHECK IF USER DATA IS MISSING
         if (!userLevel || userLevel === 'N/A') {
             return {
                 module: this.module,
@@ -64,7 +77,7 @@ class EducationRule extends BaseRule {
         const userScore = hierarchy[userLevel] !== undefined ? hierarchy[userLevel] : -1;
         const reqScore = hierarchy[reqLevel] !== undefined ? hierarchy[reqLevel] : 0;
 
-        // 4. STRICT ACADEMIC HIERARCHY CHECK
+        // 5. STRICT ACADEMIC HIERARCHY CHECK
         if (reqScore > 0 && userScore < reqScore) {
             return {
                 module: this.module,
