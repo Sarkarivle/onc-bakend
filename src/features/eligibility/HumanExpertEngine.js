@@ -37,6 +37,8 @@ class HumanExpertEngine {
 
             const facts = {
                 overall_status: report.status,
+                user_age: ageStr,
+                age_limit: report.age_analysis?.effective_max_age,
                 reasons: report.failed_rules.map(r => r.message),
                 highlights: report.applied_rules.filter(r => r.module !== 'CORE').map(r => r.message),
                 missing: report.missing_data.map(r => r.message),
@@ -155,19 +157,14 @@ class HumanExpertEngine {
                 fullData: prunedJobData
             };
 
-            const educationFact = (report.applied_rules.find(r => r.module === 'EDUCATION') || report.failed_rules.find(r => r.module === 'EDUCATION'));
-            const ageFact = (report.applied_rules.find(r => r.module === 'AGE') || report.failed_rules.find(r => r.module === 'AGE'));
-            const physicalFact = (report.applied_rules.find(r => r.module === 'PHYSICAL') || report.failed_rules.find(r => r.module === 'PHYSICAL'));
-
             const facts = {
                 overall_status: report.status,
-                engine_decisions: {
-                    education: educationFact ? { status: educationFact.status, user_qualification: educationFact.userHad, job_requirement: educationFact.requirement, friendly_msg: educationFact.message } : null,
-                    age: ageFact ? { status: ageFact.status, user_age: report.age_analysis?.exact_age?.formatted, min_allowed: report.age_analysis.base_min_age, max_allowed: report.age_analysis.effective_max_age, friendly_msg: ageFact.message } : null,
-                    physical: physicalFact ? { status: physicalFact.status, user_height: userHeightCM > 0 ? userHeightCM + 'cm' : 'N/A', required_height: physicalFact.requirement, friendly_msg: physicalFact.message } : null
-                },
-                extra_notes: report.extra_notes || [],
-                missing_data: report.missing_data.map(r => r.message)
+                user_age: ageStr,
+                age_limit: report.age_analysis?.effective_max_age,
+                reasons: report.failed_rules.map(r => r.message),
+                highlights: report.applied_rules.filter(r => r.module !== 'CORE').map(r => r.message),
+                missing: report.missing_data.map(r => r.message),
+                extra_info: report.extra_notes || []
             };
 
             const istDate = new Intl.DateTimeFormat('en-IN', {
@@ -178,7 +175,7 @@ class HumanExpertEngine {
 
             await LLMProvider.chatStream([{ role: 'user', content: prompt }], (chunk) => {
                 onChunk(chunk);
-            });
+            }, { temperature: 0.1 });
         } catch (error) {
             console.error("StreamDostAdvice Error:", error.message);
             onChunk("Bhai, thoda system load le raha hai, par tu check karte reh!");
