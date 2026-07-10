@@ -14,6 +14,7 @@ const WellnessEngine = require('./counsel_student');
 const AcademicEngine = require('./get_exam_info');
 const AgeCalculator = require('../../eligibility/utils/AgeCalculator');
 const ImageAnalyzer = require('./imageAnalyzer');
+const DashboardTool = require('./dashboardTool');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -205,6 +206,21 @@ const toolDefinitions = [
         category: "UTILITY",
         type: "function",
         function: {
+            name: "get_user_dashboard_stats",
+            description: "Get real-time counts for matching jobs, grants (schemes), and saved career plans for the user.",
+            parameters: {
+                type: "object",
+                properties: {
+                    dummy: { type: "string" }
+                },
+                required: []
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        type: "function",
+        function: {
             name: "update_user_profile",
             description: "Update user's profile with new info like qualification, location, or interests extracted from chat.",
             parameters: {
@@ -226,7 +242,7 @@ const toolDefinitions = [
  */
 const getToolsByCategory = (category) => {
     const mandatoryTools = toolDefinitions
-        .filter(t => ['update_user_profile', 'get_current_time', 'search_jobs'].includes(t.function.name))
+        .filter(t => ['update_user_profile', 'get_current_time', 'search_jobs', 'get_user_dashboard_stats'].includes(t.function.name))
         .map(t => {
             const { category, ...rest } = t;
             return rest;
@@ -331,6 +347,10 @@ const toolImplementations = {
 
     counsel_student: async (args, userProfile = {}) => {
         return await WellnessEngine.execute(args, userProfile);
+    },
+
+    get_user_dashboard_stats: async (args, userProfile = {}) => {
+        return await DashboardTool.getStats(userProfile);
     },
 
     update_user_profile: async (args, userProfile = {}) => {

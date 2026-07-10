@@ -8,11 +8,26 @@ const PlannerController = require('./plannerController');
 const VoiceController = require('./voiceController');
 
 const router = express.Router();
+const User = require('../auth/userModel');
+const DashboardTool = require('./tools/dashboardTool');
 
 // --- NEW SHADOW DASHBOARD ROUTES ---
 router.get('/planner-logs', PlannerController.getLogs);
 router.patch('/planner-logs/:id', PlannerController.correctLog);
 router.get('/planner-logs/export', PlannerController.exportData);
+
+// API to get real-time stats for the Hero Card
+router.get('/dashboard-stats/:userName', async (req, res) => {
+    try {
+        const user = await User.findOne({ name: req.params.userName }).lean();
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        const stats = await DashboardTool.getStats(user);
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 // ... existing feedback and history routes ...
 router.post('/feedback', async (req, res) => {
