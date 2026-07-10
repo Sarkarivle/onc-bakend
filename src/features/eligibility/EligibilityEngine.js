@@ -129,7 +129,16 @@ class EligibilityEngine {
 
             const totalModules = activeRules.length;
             const passedModules = report.applied_rules.length;
-            report.match_score = totalModules > 0 ? Math.round((passedModules / totalModules) * 100) : 100;
+            let score = totalModules > 0 ? Math.round((passedModules / totalModules) * 100) : 100;
+
+            // --- INTUITIVE SCORE PENALTY ---
+            const mandatoryFails = report.failed_rules.filter(r => ['AGE', 'EDUCATION', 'GENDER'].includes(r.module));
+            if (mandatoryFails.length > 0) {
+                // If core criteria fails, score shouldn't be higher than 30% even if other things match
+                score = Math.min(score, 30);
+                if (mandatoryFails.length >= 2) score = 10;
+            }
+            report.match_score = score;
 
             // Add manual extra notes if provided in notification
             if (baseConstraints.extra_requirements) {
@@ -146,13 +155,15 @@ class EligibilityEngine {
             }
 
             try {
-                report.dost_advice = await HumanExpertEngine.generateDostAdvice(user, report, notification.title, notification);
+                const adviceObj = await HumanExpertEngine.generateDostAdvice(user, report, notification.title, notification);
+                report.dost_advice_obj = adviceObj;
+                report.dost_advice = [adviceObj.details];
+                report.ai_tip = adviceObj.banner;
             } catch (adviceErr) {
                 console.error("Dost Advice Generation Failed:", adviceErr.message);
                 report.dost_advice = ["Bhai, abhi jankari check ho rahi hai. Niche details dekho."];
+                report.ai_tip = "Report check kar lo bhai.";
             }
-
-            report.ai_tip = (report.dost_advice && report.dost_advice.length > 0) ? report.dost_advice[0] : null;
 
             return report;
         } catch (error) {

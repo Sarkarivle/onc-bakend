@@ -41,8 +41,8 @@ class AIResultCache {
 
         const state = (user.domicileState || 'UP').replace(/\s+/g, '_').toUpperCase();
 
-        // Versioned to invalidate old caches (Final Fix v14)
-        return `matchAdvice_v14:${jobId}:${qualification}:${category}:${gender}:${ageGroup}:${heightGroup}:${state}`;
+        // Versioned to invalidate old caches (Final Fix v20 - Dual Advice)
+        return `matchAdvice_v20:${jobId}:${qualification}:${category}:${gender}:${ageGroup}:${heightGroup}:${state}`;
     }
 }
 

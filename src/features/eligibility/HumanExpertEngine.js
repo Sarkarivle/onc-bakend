@@ -53,22 +53,26 @@ class HumanExpertEngine {
 
             // Call the LLM with high temperature for personality, but strict context for accuracy
             const chatRes = await LLMProvider.chat([{ role: 'user', content: prompt }], 0.1, { max_tokens: maxTokens });
-            const response = chatRes?.content;
+            let response = chatRes?.content;
 
             if (response && typeof response === 'string') {
-                // Clean up any bullet points if the LLM hallucinated them despite instructions
-                const cleanResponse = response
-                    .replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '')
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0 && !line.startsWith('-') && !line.startsWith('*'))
-                    .join('\n');
+                response = response.replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '').trim();
 
-                if (cleanResponse.length > 0) return [cleanResponse];
-                return [response.trim()];
+                const parts = response.split('[SEP]');
+                if (parts.length === 2) {
+                    return {
+                        banner: parts[0].trim(),
+                        details: parts[1].trim()
+                    };
+                }
+
+                return {
+                    banner: "Details check kar le bhai.",
+                    details: response.replace('[SEP]', '').trim()
+                };
             }
 
-            return ["Bhai, jankari process nahi ho paayi. Ek baar details check kar lo."];
+            return { banner: "Error", details: "Bhai, jankari process nahi ho paayi." };
         } catch (error) {
             console.error("HumanExpertEngine Error:", error.message);
             return ["Bhai, abhi brain thoda busy hai. Manual report check kar lo niche."];
@@ -173,7 +177,9 @@ class HumanExpertEngine {
 
             const prompt = expertPrompt(userName, profileStr, facts, jobBrief, istDate);
 
+            let fullResponse = "";
             await LLMProvider.chatStream([{ role: 'user', content: prompt }], (chunk) => {
+                fullResponse += chunk;
                 onChunk(chunk);
             }, { temperature: 0.1 });
         } catch (error) {
