@@ -17,17 +17,24 @@ class VoiceController {
 
             console.log(`🎙️ Voice Request from ${userProfile?.name || 'Guest'}: ${query}`);
 
-            // 1. EXECUTE AGENT LOOP (High-speed configuration)
-            const result = await AgentLoop.run(
-                query,
-                history || [],
-                { profile: userProfile, sessionId },
-                getPersona(userProfile?.name),
-                [], // Empty tools for ultra-low latency voice responses
-                "VOICE_CHAT"
-            );
+            let aiText = "";
 
-            const aiText = result.content;
+            // FAST-PATH: Handle Greetings without LLM for instant response
+            if (query.startsWith("GREETING_ONLY:")) {
+                aiText = query.replace("GREETING_ONLY:", "").trim();
+            } else {
+                // 1. EXECUTE AGENT LOOP (High-speed configuration)
+                const result = await AgentLoop.run(
+                    query,
+                    history || [],
+                    { profile: userProfile, sessionId },
+                    getPersona(userProfile?.name),
+                    [], // Empty tools for ultra-low latency voice responses
+                    "VOICE_CHAT"
+                );
+                aiText = result.content;
+            }
+
             console.log(`🤖 AI Voice Response: ${aiText}`);
 
             // 2. CONVERT TEXT TO SPEECH (TTS) - GENERATE BASE64 BUFFER
