@@ -1,4 +1,4 @@
-const AgentLoop = require('./reasoning/agentLoop');
+const MasterOrchestrator = require('./orchestrator/MasterOrchestrator');
 const { getPersona } = require('./prompts/index');
 const googleTTS = require('google-tts-api');
 
@@ -17,24 +17,19 @@ class VoiceController {
 
             console.log(`🎙️ Voice Request from ${userProfile?.name || 'Guest'}: ${query}`);
 
-            let aiText = "";
+            // 1. EXECUTE AGENT LOOP (New Architecture - Adaptive Tools)
+            const result = await MasterOrchestrator.processUserQuery(
+                query,
+                history || [],
+                {
+                    profile: userProfile,
+                    sessionId,
+                    userId: userProfile?.name || 'Guest',
+                    isVoice: true
+                }
+            );
 
-            // FAST-PATH: Handle Greetings without LLM for instant response
-            if (query.startsWith("GREETING_ONLY:")) {
-                aiText = query.replace("GREETING_ONLY:", "").trim();
-            } else {
-                // 1. EXECUTE AGENT LOOP (High-speed configuration)
-                const result = await AgentLoop.run(
-                    query,
-                    history || [],
-                    { profile: userProfile, sessionId },
-                    getPersona(userProfile?.name),
-                    [], // Empty tools for ultra-low latency voice responses
-                    "VOICE_CHAT"
-                );
-                aiText = result.content;
-            }
-
+            const aiText = result.content;
             console.log(`🤖 AI Voice Response: ${aiText}`);
 
             // 2. CONVERT TEXT TO SPEECH (TTS) - GENERATE BASE64 BUFFER

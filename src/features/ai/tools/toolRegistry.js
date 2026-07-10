@@ -225,13 +225,25 @@ const toolDefinitions = [
  * Helper to get tools by category for Supervisor-Worker architecture
  */
 const getToolsByCategory = (category) => {
-    if (category === 'GENERAL') return [];
-    return toolDefinitions
+    const mandatoryTools = toolDefinitions
+        .filter(t => ['update_user_profile', 'get_current_time', 'search_jobs'].includes(t.function.name))
+        .map(t => {
+            const { category, ...rest } = t;
+            return rest;
+        });
+
+    if (category === 'GENERAL') return mandatoryTools;
+
+    const categoryTools = toolDefinitions
         .filter(t => t.category === category)
         .map(t => {
             const { category, ...rest } = t;
             return rest;
         });
+
+    // Merge and deduplicate
+    const allTools = [...categoryTools, ...mandatoryTools];
+    return Array.from(new Map(allTools.map(t => [t.function.name, t])).values());
 };
 
 /**

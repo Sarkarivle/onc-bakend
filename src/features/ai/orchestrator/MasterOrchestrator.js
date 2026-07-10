@@ -58,7 +58,7 @@ Output ONLY valid JSON: {"intent": "CATEGORY"}`;
         }
 
         const selectedTools = getToolsByCategory(intent);
-        const dynamicSystemPrompt = this._getDynamicPrompt(intent, context.profile || {});
+        const dynamicSystemPrompt = this._getDynamicPrompt(intent, context.profile || {}, context.isVoice);
 
         // If image exists, we append a hidden instruction to the query for the AgentLoop
         let finalQuery = userQuery;
@@ -74,12 +74,22 @@ Output ONLY valid JSON: {"intent": "CATEGORY"}`;
     /**
      * Constructs a specialized system prompt based on the detected intent using the modular prompt library.
      */
-    static _getDynamicPrompt(intent, profile) {
+    static _getDynamicPrompt(intent, profile, isVoice = false) {
         const base = getPersona(profile.name);
         const mode = getModePrompt(intent);
         const format = getFormatting();
 
-        return `${base}\n${mode}\n${format}`;
+        let prompt = `${base}\n${mode}\n${format}`;
+
+        if (isVoice) {
+            prompt += `\n\n# VOICE MODE CRITICAL:
+- Be extremely "TO THE POINT".
+- Maximum 2 short sentences.
+- No markdown, no bolding, no bullets (it will be read aloud).
+- No fluff, no extra talk. Just answer directly.`;
+        }
+
+        return prompt;
     }
 }
 
