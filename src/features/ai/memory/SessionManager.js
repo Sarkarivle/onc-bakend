@@ -31,9 +31,20 @@ class SessionManager {
      */
     static async saveInteraction(userId, sessionId, userMessage, aiResponse) {
         try {
+            // --- SANITIZE MULTIMODAL CONTENT FOR DB ---
+            const getSafeContent = (content) => {
+                if (typeof content === 'string') return content;
+                if (Array.isArray(content)) {
+                    // Extract text component from multi-modal payload array
+                    const textComponent = content.find(item => item.type === "text");
+                    return textComponent ? textComponent.text : "[Image Interaction]";
+                }
+                return String(content || "");
+            };
+
             const interactions = [
-                { userName: userId, sessionId, role: 'user', content: userMessage },
-                { userName: userId, sessionId, role: 'assistant', content: aiResponse }
+                { userName: userId, sessionId, role: 'user', content: getSafeContent(userMessage) },
+                { userName: userId, sessionId, role: 'assistant', content: getSafeContent(aiResponse) }
             ];
 
             await Chat.insertMany(interactions);

@@ -213,12 +213,24 @@ class AIOrchestrator {
             if (Chat.db?.readyState !== 1) return;
             const name = userName || "User";
 
-            if (query && query.trim()) {
-                await Chat.create({ userName: name, sessionId, role: 'user', content: query });
+            const sanitize = (content) => {
+                if (typeof content === 'string') return content;
+                if (Array.isArray(content)) {
+                    const textNode = content.find(node => node.type === 'text');
+                    return textNode ? textNode.text : "[Image Interaction]";
+                }
+                return String(content || "");
+            };
+
+            const safeQuery = sanitize(query);
+            const safeResponse = sanitize(response);
+
+            if (safeQuery && safeQuery.trim()) {
+                await Chat.create({ userName: name, sessionId, role: 'user', content: safeQuery });
             }
 
-            if (response && response.trim()) {
-                await Chat.create({ userName: name, sessionId, role: 'assistant', content: response, suggestions });
+            if (safeResponse && safeResponse.trim()) {
+                await Chat.create({ userName: name, sessionId, role: 'assistant', content: safeResponse, suggestions });
             } else {
                 console.warn("⚠️ Skipping assistant persistence: Response content is empty.");
             }

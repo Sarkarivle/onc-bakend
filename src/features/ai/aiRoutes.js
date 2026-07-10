@@ -5,6 +5,7 @@ const Correction = require('./correctionModel');
 const AIOrchestrator = require('./orchestrator/aiOrchestrator');
 
 const PlannerController = require('./plannerController');
+const VoiceController = require('./voiceController');
 
 const router = express.Router();
 
@@ -78,6 +79,8 @@ router.get('/history/:userName', async (req, res) => {
 });
 
 // AI assistant route.
+router.post('/voice-stream', VoiceController.handleVoiceStream);
+
 router.post('/ask', async (req, res) => {
     try {
         if (!req.body || typeof req.body !== 'object') {
