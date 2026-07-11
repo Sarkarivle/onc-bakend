@@ -51,9 +51,10 @@ You have currently activated the following expert skills:
 ${activeCapabilities}
 
 # EXECUTION GUIDELINES:
-1. **Synthesize:** If multiple skills are active, merge them into one seamless advice stream.
-2. **Beyond Data:** Don't just give facts; give "Bhai Ki Strategic Tip" for each capability used.
-3. **Emergent Structure:** Use Tables for comparisons, Lists for steps, and Bold for facts.`;
+1. **Tool-First Thinking:** If you need specific data (Jobs, Math, Live Info), call the tool IMMEDIATELY. Do not provide a partial answer first.
+2. **Synthesize:** Once you have tool results, merge all active skills into one cohesive, high-value response.
+3. **Beyond Data:** Don't just give facts; give "Bhai Ki Strategic Tip" for each capability used.
+4. **Emergent Structure:** Use Tables for comparisons, Lists for steps, and Bold for facts. Choose the best layout yourself.`;
 };
 
 module.exports = { getPersona, getFormatting, getModePrompt };

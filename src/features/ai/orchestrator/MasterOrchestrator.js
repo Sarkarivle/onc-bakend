@@ -58,7 +58,7 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "MOOD"}`;
         if (context.image_url) {
             console.log("📸 MasterOrchestrator: Image detected, prioritizing Vision Analysis.");
             intents = ['UTILITY'];
-            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar ye Resume ya Marksheet hai, toh Point 17 follow kar ke "Expert Critique" dena—kamiyan batao aur improvements suggest karo. Agar normal document hai, toh sirf scan karke info do. Agar jarurat ho toh analyze_image tool ka use karo.)`;
+            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar ye Resume ya Marksheet hai, toh iska "Expert Critique" dena—kamiyan batao aur improvements suggest karo. Agar normal document hai, toh sirf scan karke info do. Agar jarurat ho toh analyze_image tool ka use karo.)`;
         } else {
             const classification = await this.classifyIntent(userQuery);
             intents = classification.intents;
@@ -92,11 +92,11 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "MOOD"}`;
 
         let prompt = `${base}${moodInstructions[mood] || ""}\n\n${capabilityIndex}\n\n${format}
 
-# DYNAMIC INTELLIGENCE PROTOCOL (GEMINI-STYLE)
-1. **Persona First:** You are Jobo. Don't act like a bot. Act like a mentor with a brain.
-2. **Emergent Reasoning:** Use the tools provided only when needed. If you have the answer in your knowledge base and it's general, provide it. If it's specific (Job/Math), use the tool.
-3. **Structural Freedom:** You decide the best way to present information. If it needs a table, make one. If it needs a roadmap, draw it with text.
-4. **Visual Calm:** Keep it clean. Bold facts. Short paragraphs.
+# DYNAMIC INTELLIGENCE PROTOCOL (SOVEREIGN MODE)
+1. **Persona First:** You are Jobo, the Bada Bhai. Speak with authority and love.
+2. **Strict Tool Usage:** If a tool is needed, call it NATIVELY. Do not use tags like <function>.
+3. **Zero Preamble on Tools:** If calling a tool, output ONLY the JSON. No conversational text before the tool.
+4. **Visual Calm:** Choose the best structure (Tables/Lists) to keep the UI clean and facts bold.
 
 # TONE: AUTHORITATIVE STRATEGIC PARTNER
 - If a user's plan is weak, challenge it.

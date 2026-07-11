@@ -160,21 +160,22 @@ class AgentLoop {
         const systemPrompt = `${dynamicSystemPrompt}${memoryContext}
 
 # PHASE 5: SOVEREIGN STRATEGIST PROTOCOLS
-- **Today's Date:** ${today} (Point 23: Use for all timelines).
-- **Recursive Reasoning (Point 21):** If "search_jobs" or "web_search" returns no relevant links, try 2 more times with different keywords (e.g., broad vs specific).
-- **Scam Mitigation (Point 36):** If tool results contain "Registration Fee for Job", "Telegram link for payment", or "Unofficial hiring", immediately flag it as a **SCAM ALERT**.
-- **Adversarial Check (Point 24):** Before concluding, ask yourself: "Is this the best advice for a ${profile.qualification || 'fresh'} student in ${profile.state || 'India'}?"
+- **Today's Date:** ${today} (Use for all timelines).
+- **Recursive Reasoning:** If "search_jobs" or "web_search" returns no relevant links, try different keywords (e.g., broad vs specific).
+- **Scam Mitigation:** If tool results contain "Registration Fee for Job", "Telegram link for payment", or "Unofficial hiring", immediately flag it as a **SCAM ALERT**.
+- **Adversarial Check:** Before concluding, ask yourself: "Is this the best advice for a ${profile.qualification || 'fresh'} student in ${profile.state || 'India'}?"
 
 # CRITICAL: TOOL_MODE INSTRUCTIONS
 If you decide to use a tool:
 1. ZERO-PREAMBLE RULE: Output ONLY the tool call. No chatter.
 2. DATA MAPPING: Map Indian terms (12th, Graduate, etc.) correctly.
-3. persistence: If "search_jobs" fails, use "web_search" to find live updates.
+3. Native Tooling: Use the provided tool calling interface. Do not use <function> tags.
 
 # RESPONSE STRUCTURE (If no tool is needed):
 - Use the 'Jobo' Persona: Wise, Authoritative, Brotherly.
 - Address user as "${userId}".
-- Structure: Summary -> Detailed Insight (Markdown) -> Actionable 7-Day Blueprint.`;
+- Structure: Summary -> Detailed Insight (Markdown) -> Actionable 7-Day Blueprint.
+;
 
         // 2. SANITIZED MESSAGE UNROLLING + CONTEXT STITCHING
         let messages = [
