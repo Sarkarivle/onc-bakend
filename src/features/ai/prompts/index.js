@@ -1,133 +1,59 @@
+/**
+ * Modular Prompt Library (Architectural Version 4.0 - Capability-based)
+ * Responsibility: Dynamic assembly of Jobo's brain fragments.
+ */
+
 const getPersona = require('./persona');
 const getFormatting = require('./formatting');
-const jobMode = require('./modes/jobMode');
-const adviceMode = require('./modes/adviceMode');
-const wellnessMode = require('./modes/wellnessMode');
-const mathMode = require('./modes/mathMode');
-const utilityMode = require('./modes/utilityMode');
-const draftingMode = require('./modes/draftingMode');
-const interviewMode = require('./modes/interviewMode');
-const watchmanMode = require('./modes/watchmanMode');
-const guruMode = require('./modes/guruMode');
-const architectMode = require('./modes/architectMode');
-const auditorMode = require('./modes/auditorMode');
-const grantMode = require('./modes/grantMode');
-const syllabusMode = require('./modes/syllabusMode');
-const pyqMode = require('./modes/pyqMode');
-const conceptMode = require('./modes/conceptMode');
-const shortcutMode = require('./modes/shortcutMode');
-const vocabMode = require('./modes/vocabMode');
-const gkDigestMode = require('./modes/gkDigestMode');
-const testStrategyMode = require('./modes/testStrategyMode');
-const mnemonicMode = require('./modes/mnemonicMode');
-const practicalScienceMode = require('./modes/practicalScienceMode');
-const noteNinjaMode = require('./modes/noteNinjaMode');
-const linkedinGuruMode = require('./modes/linkedinGuruMode');
-const networkingMode = require('./modes/networkingMode');
-const negotiatorMode = require('./modes/negotiatorMode');
-const pivotMode = require('./modes/pivotMode');
-const jdDecoderMode = require('./modes/jdDecoderMode');
-const emailProMode = require('./modes/emailProMode');
-const bodyLanguageMode = require('./modes/bodyLanguageMode');
-const partTimeMode = require('./modes/partTimeMode');
-const studentSavingsMode = require('./modes/studentSavingsMode');
-const feeWaiverMode = require('./modes/feeWaiverMode');
-const motivationMode = require('./modes/motivationMode');
-const distractionGuardMode = require('./modes/distractionGuardMode');
-const timeBoxMode = require('./modes/timeBoxMode');
-const habitBuilderMode = require('./modes/habitBuilderMode');
-const procrastinationMode = require('./modes/procrastinationMode');
-const codingBasicsMode = require('./modes/codingBasicsMode');
-const aiLiteracyMode = require('./modes/aiLiteracyMode');
-const dataSkillsMode = require('./modes/dataSkillsMode');
-const cyberSafetyMode = require('./modes/cyberSafetyMode');
-const creatorMode = require('./modes/creatorMode');
-const sscExpertMode = require('./modes/sscExpertMode');
-const policeExpertMode = require('./modes/policeExpertMode');
-const railwayExpertMode = require('./modes/railwayExpertMode');
-const bankingExpertMode = require('./modes/bankingExpertMode');
-const teacherExpertMode = require('./modes/teacherExpertMode');
-const upscFoundationMode = require('./modes/upscFoundationMode');
-const englishPracticeMode = require('./modes/englishPracticeMode');
-const stageConfidenceMode = require('./modes/stageConfidenceMode');
-const gdMasterMode = require('./modes/gdMasterMode');
-const backupPlanMode = require('./modes/backupPlanMode');
-const localScoutMode = require('./modes/localScoutMode');
-const trendPredictorMode = require('./modes/trendPredictorMode');
-const startupFounderMode = require('./modes/startupFounderMode');
-const higherStudiesMode = require('./modes/higherStudiesMode');
-const studentRightsMode = require('./modes/studentRightsMode');
-const scamProtectorMode = require('./modes/scamProtectorMode');
-const rtiHelperMode = require('./modes/rtiHelperMode');
-const formErrorGuardMode = require('./modes/formErrorGuardMode');
-const ruralEmpowerMode = require('./modes/ruralEmpowerMode');
 
-const getModePrompt = (intent) => {
-    const modes = {
-        'JOB_SEARCH': jobMode(),
-        'CAREER_ADVICE': adviceMode(),
-        'WELLNESS': wellnessMode(),
-        'MATH': mathMode(),
-        'UTILITY': utilityMode(),
-        'DRAFTING': draftingMode(),
-        'INTERVIEW': interviewMode(),
-        'NEWS': watchmanMode(),
-        'SOFT_SKILLS': guruMode(),
-        'ROADMAP': architectMode(),
-        'ACADEMIC_AUDIT': auditorMode(),
-        'GRANTS': grantMode(),
-        'SYLLABUS': syllabusMode(),
-        'PYQ': pyqMode(),
-        'CONCEPT': conceptMode(),
-        'SHORTCUT': shortcutMode(),
-        'VOCAB': vocabMode(),
-        'GK_DIGEST': gkDigestMode(),
-        'TEST_STRATEGY': testStrategyMode(),
-        'MNEMONIC': mnemonicMode(),
-        'PRACTICAL_SCIENCE': practicalScienceMode(),
-        'NOTE_NINJA': noteNinjaMode(),
-        'LINKEDIN': linkedinGuruMode(),
-        'NETWORKING': networkingMode(),
-        'NEGOTIATOR': negotiatorMode(),
-        'PIVOT': pivotMode(),
-        'JD_DECODER': jdDecoderMode(),
-        'EMAIL_PRO': emailProMode(),
-        'BODY_LANGUAGE': bodyLanguageMode(),
-        'PART_TIME': partTimeMode(),
-        'SAVINGS': studentSavingsMode(),
-        'FEE_WAIVER': feeWaiverMode(),
-        'MOTIVATION': motivationMode(),
-        'DISTRACTION': distractionGuardMode(),
-        'TIME_BOX': timeBoxMode(),
-        'HABIT': habitBuilderMode(),
-        'PROCRASTINATION': procrastinationMode(),
-        'CODING': codingBasicsMode(),
-        'AI_LITERACY': aiLiteracyMode(),
-        'DATA_SKILLS': dataSkillsMode(),
-        'CYBER_SAFETY': cyberSafetyMode(),
-        'CREATOR': creatorMode(),
-        'SSC': sscExpertMode(),
-        'POLICE': policeExpertMode(),
-        'RAILWAY': railwayExpertMode(),
-        'BANKING': bankingExpertMode(),
-        'TEACHER': teacherExpertMode(),
-        'UPSC': upscFoundationMode(),
-        'ENGLISH_PRACTICE': englishPracticeMode(),
-        'STAGE_CONFIDENCE': stageConfidenceMode(),
-        'GD_MASTER': gdMasterMode(),
-        'BACKUP_PLAN': backupPlanMode(),
-        'LOCAL_SCOUT': localScoutMode(),
-        'TREND_PREDICTOR': trendPredictorMode(),
-        'STARTUP': startupFounderMode(),
-        'HIGHER_STUDIES': higherStudiesMode(),
-        'STUDENT_RIGHTS': studentRightsMode(),
-        'SCAM_PROTECTOR': scamProtectorMode(),
-        'RTI_HELPER': rtiHelperMode(),
-        'FORM_GUARD': formErrorGuardMode(),
-        'RURAL_EMPOWER': ruralEmpowerMode(),
-        'GENERAL': `# MODE: CONVERSATIONAL\nKeep it friendly, short, and helpful. Ask how their preparation is going.`
-    };
-    return modes[intent] || modes['GENERAL'];
+/**
+ * GLOBAL CAPABILITY INDEX
+ * Instead of 50+ files, we use a condensed index of high-level instructions.
+ * The LLM's emergent intelligence handles the specific execution.
+ */
+const CAPABILITY_INDEX = {
+    'JOB_SEARCH': 'Expert in government/private job markets. Focus on Match Score, eligibility, and hidden strategic tips.',
+    'CAREER_ADVICE': 'Long-term pathfinder. Suggests 5-year North Star goals and immediate upskilling steps.',
+    'WELLNESS': 'Empathetic listener. Deals with exam stress, financial anxiety, and motivation.',
+    'MATH': 'Precise calculation engine. Handles percentage, marks, and loan EMIs.',
+    'UTILITY': 'Digital assistant. Scans documents, extracts info, and searches the live web.',
+    'DRAFTING': 'Professional writer. Creates resumes, cover letters, and formal emails.',
+    'ROADMAP': 'Architect of success. Breaks complex goals (like UPSC/SSC) into phase-wise plans.',
+    'ACADEMIC_AUDIT': 'Performance reviewer. Analyzes marksheets and syllabus progress.',
+    'GRANTS': 'Scholarship scout. Connects user profile to financial aid and fee waivers.',
+    'SYLLABUS': 'Exam decoder. Breaks down subjects into high-yield vs low-yield topics.',
+    'SSC': 'Specialist in Staff Selection Commission exams (CGL, CHSL, MTS).',
+    'POLICE': 'Expert in state police recruitments and physical standards.',
+    'RAILWAY': 'Expert in RRB/RRC exams and technical/non-technical roles.',
+    'BANKING': 'Specialist in IBPS, SBI, and insurance exams.',
+    'TEACHER': 'Expert in CTET, State TET, and assistant professor roles.',
+    'UPSC': 'Foundation guide for Civil Services and State PSCs.',
+    'ENGLISH_PRACTICE': 'Language mentor. Focuses on grammar, vocab, and speaking confidence.',
+    'LOCAL_SCOUT': 'Geographic assistant. Finds libraries, coaching, and exam centers nearby.',
+    'SCAM_PROTECTOR': 'Security guard. Warns against fake job portals and predatory consultancies.',
+    'RURAL_EMPOWER': 'Focuses on schemes and opportunities for students from rural backgrounds.'
+};
+
+const getModePrompt = (intents = []) => {
+    if (!intents || intents.length === 0 || (intents.length === 1 && intents[0] === 'GENERAL')) {
+        return `# MODE: CONVERSATIONAL\nBe the helpful "Bada Bhai". Keep it natural and engaging.`;
+    }
+
+    const activeCapabilities = intents
+        .map(intent => {
+            const desc = CAPABILITY_INDEX[intent] || `Specialist in ${intent.replace('_', ' ')}.`;
+            return `- **${intent}**: ${desc}`;
+        })
+        .join('\n');
+
+    return `# DYNAMIC CAPABILITY MENU (Sovereign Mode)
+You have currently activated the following expert skills:
+${activeCapabilities}
+
+# EXECUTION GUIDELINES:
+1. **Synthesize:** If multiple skills are active, merge them into one seamless advice stream.
+2. **Beyond Data:** Don't just give facts; give "Bhai Ki Strategic Tip" for each capability used.
+3. **Emergent Structure:** Use Tables for comparisons, Lists for steps, and Bold for facts.`;
 };
 
 module.exports = { getPersona, getFormatting, getModePrompt };

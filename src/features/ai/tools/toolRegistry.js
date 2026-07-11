@@ -25,6 +25,11 @@ const ProgressTrackerTool = require('./progressTrackerTool');
 const FinanceCalculatorTool = require('./financeCalculatorTool');
 const FlashcardTool = require('./flashcardTool');
 const ScholarshipSearchTool = require('./scholarshipSearchTool');
+const DeepContentSummarizer = require('./deep_content_summarizer');
+const InternshipFinder = require('./internship_finder');
+const GrammarStyleChecker = require('./grammar_style_checker');
+const ExamCenterLocator = require('./exam_center_locator');
+const CitationBuilder = require('./citation_builder');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -416,13 +421,106 @@ const toolDefinitions = [
                 required: []
             }
         }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["SYLLABUS", "CONCEPT", "ACADEMIC_AUDIT"],
+        type: "function",
+        function: {
+            name: "deep_content_summarizer",
+            description: "Summarize large texts, PDFs, or web pages into exam-ready bullet points.",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: { type: "string", description: "The text content to summarize." },
+                    url: { type: "string", description: "URL of the page to summarize." },
+                    mode: { type: "string", enum: ["EXAM_READY", "GENERAL"], default: "EXAM_READY" }
+                },
+                required: []
+            }
+        }
+    },
+    {
+        category: "JOB_SEARCH",
+        secondary_categories: ["PART_TIME"],
+        type: "function",
+        function: {
+            name: "internship_finder",
+            description: "Find relevant and paid internships for students.",
+            parameters: {
+                type: "object",
+                properties: {
+                    field: { type: "string", description: "Field of internship (e.g., 'Web Development', 'Marketing')" },
+                    location: { type: "string", description: "City or 'Remote'" },
+                    type: { type: "string", enum: ["Paid", "Unpaid", "Both"], default: "Paid" }
+                },
+                required: ["field"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["DRAFTING", "EMAIL_PRO", "ENGLISH_PRACTICE"],
+        type: "function",
+        function: {
+            name: "grammar_style_checker",
+            description: "Improve tone and structure of writing (Emails, Assignments, Messages).",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: { type: "string", description: "The text to check and improve." },
+                    target_tone: { type: "string", enum: ["Professional", "Friendly", "Academic", "Concise"], default: "Professional" }
+                },
+                required: ["text"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["LOCAL_SCOUT"],
+        type: "function",
+        function: {
+            name: "exam_center_locator",
+            description: "Locate exam center and provide travel estimation from user location.",
+            parameters: {
+                type: "object",
+                properties: {
+                    center_name: { type: "string", description: "Name of the exam center from admit card." },
+                    user_location: { type: "string", description: "User's current city or area." }
+                },
+                required: ["center_name"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["ACADEMIC_AUDIT"],
+        type: "function",
+        function: {
+            name: "citation_builder",
+            description: "Generate bibliography/citations for academic assignments in APA/MLA format.",
+            parameters: {
+                type: "object",
+                properties: {
+                    source_link: { type: "string" },
+                    source_title: { type: "string" },
+                    author: { type: "string" },
+                    year: { type: "string" },
+                    format: { type: "string", enum: ["APA", "MLA", "Harvard"], default: "APA" }
+                },
+                required: ["source_link"]
+            }
+        }
     }
 ];
 
 /**
  * Helper to get tools by category for Supervisor-Worker architecture
  */
-const getToolsByCategory = (category) => {
+const getToolsByCategory = (categories) => {
+    // Convert to array if it's a single string
+    const categoryList = Array.isArray(categories) ? categories : [categories];
+
     const mandatoryTools = toolDefinitions
         .filter(t => ['update_user_profile', 'get_current_time', 'search_jobs', 'get_user_dashboard_stats'].includes(t.function.name))
         .map(t => {
@@ -430,10 +528,16 @@ const getToolsByCategory = (category) => {
             return rest;
         });
 
-    if (category === 'GENERAL') return mandatoryTools;
+    if (categoryList.includes('GENERAL')) return mandatoryTools;
 
     const categoryTools = toolDefinitions
-        .filter(t => t.category === category || (t.secondary_categories && t.secondary_categories.includes(category)) || (category === 'NEWS' && t.category === 'UTILITY') || (category === 'GRANTS' && t.category === 'UTILITY') || (category === 'ACADEMIC_AUDIT' && t.category === 'UTILITY'))
+        .filter(t =>
+            categoryList.includes(t.category) ||
+            (t.secondary_categories && t.secondary_categories.some(cat => categoryList.includes(cat))) ||
+            (categoryList.includes('NEWS') && t.category === 'UTILITY') ||
+            (categoryList.includes('GRANTS') && t.category === 'UTILITY') ||
+            (categoryList.includes('ACADEMIC_AUDIT') && t.category === 'UTILITY')
+        )
         .map(t => {
             const { category, secondary_categories, ...rest } = t;
             return rest;
@@ -613,6 +717,26 @@ const toolImplementations = {
             qualification: args.qualification || userProfile.qualification
         };
         return await ScholarshipSearchTool.deepSearch(profile);
+    },
+
+    deep_content_summarizer: async (args) => {
+        return await DeepContentSummarizer.summarize(args);
+    },
+
+    internship_finder: async (args) => {
+        return await InternshipFinder.find(args);
+    },
+
+    grammar_style_checker: async (args) => {
+        return await GrammarStyleChecker.check(args);
+    },
+
+    exam_center_locator: async (args) => {
+        return await ExamCenterLocator.locate(args);
+    },
+
+    citation_builder: async (args) => {
+        return await CitationBuilder.build(args);
     }
 };
 
