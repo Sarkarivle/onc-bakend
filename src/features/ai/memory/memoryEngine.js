@@ -1,15 +1,16 @@
 /**
- * MemoryEngine Module (Architectural Version 8.0 - Standard Memory System)
- * Responsibility: Managing Short-Term (Context) and Long-Term (Fact) Memory without Atlas requirement.
+ * MemoryEngine Module (Architectural Version 12.0 - Gemini Pro Standard)
+ * Responsibility: Managing Deep Memory, Cross-Session Intelligence, and Dashboard Sync.
  */
 const Fact = require('./factModel');
 const State = require('./stateModel');
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const getMemoryAuditorPrompt = require('../prompts/memory_auditor');
+const UserProfile = require('../context/userProfile');
 
 class MemoryEngine {
     /**
-     * SEARCH: Efficient Keyword Search over user's long-term memory.
+     * SEARCH: Deep Keyword Search over user's long-term memory (Point 35).
      */
     static async searchMemory(userId, query, limit = 5) {
         try {
@@ -20,7 +21,6 @@ class MemoryEngine {
             const tokenRegex = new RegExp(tokens.map(this._escapeRegex).join('|'), 'i');
             const categoryRegex = new RegExp(this._escapeRegex(tokens[0]), 'i');
 
-            // Standard MongoDB search over user's facts
             const memories = await Fact.find({
                 userId,
                 isDeleted: false,
@@ -52,7 +52,7 @@ class MemoryEngine {
     static async saveMemory(userId, category, factText, importance = 0.5) {
         try {
             if (Fact.db?.readyState !== 1) return null;
-            // Check for existing similar facts to avoid duplicates
+
             const existing = await Fact.findOne({ userId, category, fact: factText });
             if (existing) {
                 existing.usageCount += 1;
@@ -73,58 +73,62 @@ class MemoryEngine {
     }
 
     /**
-     * EXTRACTION: LLM-based fact extraction from conversation.
+     * EXTRACTION: LLM-based fact extraction with Dashboard Sync (Point 29).
      */
     static async extractFacts(userId, userQuery, aiResponse) {
         const q = String(userQuery || "").toLowerCase();
-
-        // Skip common conversational patterns to save tokens
-        const skipWords = ["hi", "hello", "namaste", "batao", "kaise", "theek", "okay", "bye", "time", "baj", "naam", "name"];
+        const skipWords = ["hi", "hello", "namaste", "kaise", "okay", "bye", "naam"];
         if (q.length < 10 || skipWords.some(word => q.includes(word))) return;
 
         const prompt = getMemoryAuditorPrompt(userQuery, aiResponse);
         try {
             const extractions = await LLMProvider.generateLogic(prompt);
             if (Array.isArray(extractions) && extractions.length > 0) {
+                const profileUpdates = {};
+
                 for (const item of extractions) {
-                    // One last check: don't save generic or empty facts
                     if (!item || !item.fact || !item.category) continue;
 
+                    // Filter out generic noise
                     const fact = (item.fact || "").toLowerCase();
-                    if (fact.includes("hindi") || fact.includes("english") || fact.includes("chat") || fact.includes("user")) continue;
+                    if (fact.includes("chat") || fact.includes("user")) continue;
 
                     await this.saveMemory(userId, item.category, item.fact, item.importance);
+
+                    // Map specific categories to Profile Sync (Point 29)
+                    if (item.category === 'EDUCATION' || item.category === 'QUALIFICATION') {
+                        profileUpdates.qualification = item.fact;
+                    } else if (item.category === 'LOCATION') {
+                        profileUpdates.state = item.fact;
+                    } else if (item.category === 'DOB') {
+                        profileUpdates.dob = item.fact;
+                    }
+                }
+
+                // Automatically sync to DB if user profile has empty fields
+                if (Object.keys(profileUpdates).length > 0) {
+                    await UserProfile.syncToDb(userId, profileUpdates);
                 }
             }
-        } catch (e) {}
-    }
-
-    /**
-     * SHORT-TERM: Get sliding window context.
-     */
-    static async getShortTermContext(sessionId, windowSize = 5) {
-        try {
-            if (State.db?.readyState !== 1) return [];
-            const state = await State.findOne({ sessionId });
-            if (!state || !state.history) return [];
-            return state.history.slice(-windowSize);
-        } catch (e) { return []; }
+        } catch (e) {
+            console.error("❌ Extraction Error:", e.message);
+        }
     }
 
     static _calculateScore(memory) {
         const recency = (Date.now() - new Date(memory.lastAccessed)) / (1000 * 60 * 60 * 24);
-        const recencyScore = Math.exp(-recency / 7);
+        const recencyScore = Math.exp(-recency / 14); // 2-week half-life for Gemini Pro depth
         return (memory.importance * 0.4) + (recencyScore * 0.4) + (0.2 * Math.min(memory.usageCount / 10, 1));
     }
 
     static _extractSearchTokens(query) {
-        const stopWords = new Set(['mujhe', 'batao', 'please', 'bhai', 'yaar', 'ke', 'ki', 'ka', 'hai', 'mein', 'me', 'aur', 'the']);
+        const stopWords = new Set(['mujhe', 'batao', 'please', 'bhai', 'yaar', 'ke', 'ki', 'ka', 'hai', 'mein', 'me', 'aur']);
         return String(query || '')
             .toLowerCase()
             .split(/[^a-z0-9]+/i)
             .map(token => token.trim())
             .filter(token => token.length > 1 && !stopWords.has(token))
-            .slice(0, 8);
+            .slice(0, 10);
     }
 
     static _escapeRegex(value) {

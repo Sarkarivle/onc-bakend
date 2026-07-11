@@ -139,7 +139,8 @@ class AgentLoop {
      * Executes the agentic loop.
      */
     static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intent = "GENERAL") {
-        console.log("🚀 AgentLoop: Starting loop for query:", userMessage);
+        const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        console.log(`🚀 AgentLoop: Starting loop [${today}] for query:`, userMessage);
 
         const profile = context.profile || {};
         const userId = context.userId || profile.name || "Bhai";
@@ -158,22 +159,22 @@ class AgentLoop {
 
         const systemPrompt = `${dynamicSystemPrompt}${memoryContext}
 
-# CRITICAL: TOOL_MODE INSTRUCTIONS
-If you decide to use a tool (like search_jobs, calculate_math, etc.):
-1. ZERO-PREAMBLE RULE: Output ONLY the tool call. Do NOT include any conversational text, greetings, or explanations (e.g., NO "Bhai, let me check", NO "I am searching").
-2. ANTI-HALLUCINATION GUARD: NEVER use tags like <function>, </function>, [TOOL], or <thought>. Use the standard JSON tool call format provided by the system.
-3. DATA MAPPING RULE: Map Indian education terms correctly:
-   - "12th pass", "Barhwi", "Inter" -> max_education: "12th"
-   - "10th pass", "Daswi", "High School" -> max_education: "10th"
-   - "Graduate", "BA", "BSc", "BCom" -> max_education: "Graduate"
-4. GENDER MAPPING: Use "Male" or "Female" strictly based on context. Default to "Male" if unknown.
+# PHASE 5: SOVEREIGN STRATEGIST PROTOCOLS
+- **Today's Date:** ${today} (Point 23: Use for all timelines).
+- **Recursive Reasoning (Point 21):** If "search_jobs" or "web_search" returns no relevant links, try 2 more times with different keywords (e.g., broad vs specific).
+- **Scam Mitigation (Point 36):** If tool results contain "Registration Fee for Job", "Telegram link for payment", or "Unofficial hiring", immediately flag it as a **SCAM ALERT**.
+- **Adversarial Check (Point 24):** Before concluding, ask yourself: "Is this the best advice for a ${profile.qualification || 'fresh'} student in ${profile.state || 'India'}?"
 
-# PERSONA & RESPONSE STRUCTURE (Use ONLY if NOT calling a tool):
-1. You are "Jobo", the Bada Bhai AI. Tone: Friendly, elder-brotherly, empathetic. Use "${userId}" frequently.
-2. Structure:
-   - Start with a 1-sentence personalized opening.
-   - Add a blank line (\\n\\n).
-   - Provide the requested information using Markdown (headings, lists).`;
+# CRITICAL: TOOL_MODE INSTRUCTIONS
+If you decide to use a tool:
+1. ZERO-PREAMBLE RULE: Output ONLY the tool call. No chatter.
+2. DATA MAPPING: Map Indian terms (12th, Graduate, etc.) correctly.
+3. persistence: If "search_jobs" fails, use "web_search" to find live updates.
+
+# RESPONSE STRUCTURE (If no tool is needed):
+- Use the 'Jobo' Persona: Wise, Authoritative, Brotherly.
+- Address user as "${userId}".
+- Structure: Summary -> Detailed Insight (Markdown) -> Actionable 7-Day Blueprint.`;
 
         // 2. SANITIZED MESSAGE UNROLLING + CONTEXT STITCHING
         let messages = [
@@ -362,7 +363,7 @@ If you decide to use a tool (like search_jobs, calculate_math, etc.):
                     return { content: assistantMessage.content, intent, capturedData, messages };
                 }
             }
-            return { content: "Bhai, kaafi koshish ki par sahi jawab nahi nikal paya.", intent, capturedData };
+            return { content: "Sorry, main abhi is information ko process nahi kar pa raha hoon. Please apne sawal ko thoda aur clear karein.", intent, capturedData };
         } catch (error) {
             console.error("❌ AgentLoop Error:", error.message);
             throw error;

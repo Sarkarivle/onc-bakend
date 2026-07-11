@@ -197,7 +197,7 @@ class AIOrchestrator {
     }
 
     static _fixedSimpleResponse(intent) {
-        if (intent === 'GREETING') return "Namaste bhai! Main Jobo AI hoon. Jobs, exams aur career me kaise madad karun?";
+        if (intent === 'GREETING') return "Namaste! Main Jobo AI hoon, aapka career aur government jobs assistant. Main aaj aapki kaise madad kar sakta hoon?";
         if (intent === 'IDENTITY') return "Main Jobo AI hoon, aapka career aur government jobs assistant.";
         if (intent === 'ACKNOWLEDGEMENT') return "Theek hai bhai, aur kuch chahiye ho toh batao.";
         return null;

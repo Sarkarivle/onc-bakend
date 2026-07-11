@@ -15,6 +15,16 @@ const AcademicEngine = require('./get_exam_info');
 const AgeCalculator = require('../../eligibility/utils/AgeCalculator');
 const ImageAnalyzer = require('./imageAnalyzer');
 const DashboardTool = require('./dashboardTool');
+const PDFGenerator = require('./pdfGenerator');
+const YouTubeTool = require('./youtubeTool');
+const LocalResourceTool = require('./localResourceTool');
+const ReminderTool = require('./reminderTool');
+const FileConverterTool = require('./fileConverterTool');
+const QuizTool = require('./quizTool');
+const ProgressTrackerTool = require('./progressTrackerTool');
+const FinanceCalculatorTool = require('./financeCalculatorTool');
+const FlashcardTool = require('./flashcardTool');
+const ScholarshipSearchTool = require('./scholarshipSearchTool');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -61,10 +71,11 @@ const toolDefinitions = [
     },
     {
         category: "UTILITY",
+        secondary_categories: ["DRAFTING", "INTERVIEW"],
         type: "function",
         function: {
             name: "web_search",
-            description: "Search live web for latest news, university notices, or current affairs.",
+            description: "Search live web for latest news, university notices, resume formats, or interview questions.",
             parameters: {
                 type: "object",
                 properties: {
@@ -91,10 +102,11 @@ const toolDefinitions = [
     },
     {
         category: "UTILITY",
+        secondary_categories: ["DRAFTING"],
         type: "function",
         function: {
             name: "analyze_image",
-            description: "Analyze an image (Base64) using Vision AI to extract info, marks, or job details.",
+            description: "Analyze an image (Base64) using Vision AI to extract info, marks, job details, or review resumes.",
             parameters: {
                 type: "object",
                 properties: {
@@ -234,6 +246,176 @@ const toolDefinitions = [
                 required: []
             }
         }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["DRAFTING"],
+        type: "function",
+        function: {
+            name: "generate_pdf_draft",
+            description: "Generate a downloadable PDF for a resume, cover letter, or application.",
+            parameters: {
+                type: "object",
+                properties: {
+                    content: { type: "string", description: "The text content to be put into the PDF." },
+                    file_name: { type: "string", description: "Suggested name for the file (e.g., 'My_Resume.pdf')" }
+                },
+                required: ["content"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["CONCEPT", "ROADMAP", "SYLLABUS"],
+        type: "function",
+        function: {
+            name: "youtube_educational_search",
+            description: "Search YouTube for the best educational videos on a specific topic.",
+            parameters: {
+                type: "object",
+                properties: {
+                    topic: { type: "string", description: "The educational topic to search for." }
+                },
+                required: ["topic"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["LOCAL_SCOUT", "ROADMAP"],
+        type: "function",
+        function: {
+            name: "map_local_resources",
+            description: "Find local libraries, coaching centers, or cyber cafes near the user's location.",
+            parameters: {
+                type: "object",
+                properties: {
+                    resource_type: { type: "string", enum: ["Library", "Coaching", "Cyber Cafe", "Exam Center"] },
+                    location: { type: "string", description: "The city or area to search in." }
+                },
+                required: ["resource_type", "location"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["ROADMAP", "JOB_SEARCH"],
+        type: "function",
+        function: {
+            name: "set_career_reminder",
+            description: "Set a reminder for important exam dates, interview times, or application deadlines.",
+            parameters: {
+                type: "object",
+                properties: {
+                    title: { type: "string", description: "What the reminder is for." },
+                    date: { type: "string", description: "Date and time of the reminder (YYYY-MM-DD HH:mm)." }
+                },
+                required: ["title", "date"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        type: "function",
+        function: {
+            name: "smart_file_converter",
+            description: "Convert images to PDF or resize images to meet exam form requirements (e.g., under 200kb).",
+            parameters: {
+                type: "object",
+                properties: {
+                    file_url: { type: "string", description: "The URL or path of the file to convert." },
+                    target_format: { type: "string", enum: ["PDF", "JPEG", "PNG"] },
+                    max_size_kb: { type: "number", description: "Target max size in KB" }
+                },
+                required: ["file_url", "target_format"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["SYLLABUS", "CONCEPT"],
+        type: "function",
+        function: {
+            name: "mock_quiz_generator",
+            description: "Generate practice questions for various subjects/exams.",
+            parameters: {
+                type: "object",
+                properties: {
+                    subject: { type: "string", description: "e.g., 'Math', 'History', 'SSC English'" },
+                    count: { type: "number", description: "Number of questions to generate" }
+                },
+                required: ["subject"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["ROADMAP"],
+        type: "function",
+        function: {
+            name: "syllabus_progress_tracker",
+            description: "Track completion of study topics and get overall stats.",
+            parameters: {
+                type: "object",
+                properties: {
+                    action: { type: "string", enum: ["update", "get_stats"] },
+                    topic: { type: "string", description: "The study topic to update" },
+                    status: { type: "string", enum: ["DONE", "PENDING"] }
+                },
+                required: ["action"]
+            }
+        }
+    },
+    {
+        category: "MATH",
+        type: "function",
+        function: {
+            name: "loan_emi_calculator",
+            description: "Calculate loan EMIs and repayment plans for students.",
+            parameters: {
+                type: "object",
+                properties: {
+                    amount: { type: "number" },
+                    interest_rate: { type: "number", description: "Annual interest rate in %" },
+                    tenure_years: { type: "number", description: "Loan tenure in years" }
+                },
+                required: ["amount", "interest_rate", "tenure_years"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["CONCEPT"],
+        type: "function",
+        function: {
+            name: "flashcard_creator",
+            description: "Generate digital flashcards from notes or text for quick revision.",
+            parameters: {
+                type: "object",
+                properties: {
+                    content: { type: "string", description: "The text to convert into flashcards" }
+                },
+                required: ["content"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        secondary_categories: ["GRANTS"],
+        type: "function",
+        function: {
+            name: "scholarship_deep_search",
+            description: "Find specific scholarships based on user profile and category.",
+            parameters: {
+                type: "object",
+                properties: {
+                    category: { type: "string" },
+                    gender: { type: "string" },
+                    qualification: { type: "string" }
+                },
+                required: []
+            }
+        }
     }
 ];
 
@@ -244,16 +426,16 @@ const getToolsByCategory = (category) => {
     const mandatoryTools = toolDefinitions
         .filter(t => ['update_user_profile', 'get_current_time', 'search_jobs', 'get_user_dashboard_stats'].includes(t.function.name))
         .map(t => {
-            const { category, ...rest } = t;
+            const { category, secondary_categories, ...rest } = t;
             return rest;
         });
 
     if (category === 'GENERAL') return mandatoryTools;
 
     const categoryTools = toolDefinitions
-        .filter(t => t.category === category)
+        .filter(t => t.category === category || (t.secondary_categories && t.secondary_categories.includes(category)) || (category === 'NEWS' && t.category === 'UTILITY') || (category === 'GRANTS' && t.category === 'UTILITY') || (category === 'ACADEMIC_AUDIT' && t.category === 'UTILITY'))
         .map(t => {
-            const { category, ...rest } = t;
+            const { category, secondary_categories, ...rest } = t;
             return rest;
         });
 
@@ -382,6 +564,55 @@ const toolImplementations = {
             console.error("❌ update_user_profile error:", error);
             return { success: false, error: error.message };
         }
+    },
+
+    generate_pdf_draft: async (args) => {
+        return await PDFGenerator.generate(args.content, args.file_name);
+    },
+
+    youtube_educational_search: async (args) => {
+        return await YouTubeTool.search(args.topic);
+    },
+
+    map_local_resources: async (args) => {
+        return await LocalResourceTool.find(args.resource_type, args.location);
+    },
+
+    set_career_reminder: async (args, userProfile = {}) => {
+        return await ReminderTool.set(args.title, args.date, userProfile.name);
+    },
+
+    smart_file_converter: async (args) => {
+        return await FileConverterTool.convert(args.file_url, args.target_format, args.max_size_kb);
+    },
+
+    mock_quiz_generator: async (args) => {
+        return await QuizTool.generate(args.subject, args.count);
+    },
+
+    syllabus_progress_tracker: async (args, userProfile = {}) => {
+        if (args.action === 'update') {
+            return await ProgressTrackerTool.updateProgress(userProfile.name, args.topic, args.status);
+        }
+        return await ProgressTrackerTool.getStats(userProfile.name);
+    },
+
+    loan_emi_calculator: async (args) => {
+        return FinanceCalculatorTool.calculateEMI(args.amount, args.interest_rate, args.tenure_years);
+    },
+
+    flashcard_creator: async (args) => {
+        return await FlashcardTool.create(args.content);
+    },
+
+    scholarship_deep_search: async (args, userProfile = {}) => {
+        const profile = {
+            category: args.category || userProfile.category,
+            gender: args.gender || userProfile.gender,
+            location: userProfile.location,
+            qualification: args.qualification || userProfile.qualification
+        };
+        return await ScholarshipSearchTool.deepSearch(profile);
     }
 };
 

@@ -1,85 +1,87 @@
 /**
- * WebSearch Tool
- * Responsibility: Fetches live news, notifications, and current affairs from the web.
- * Upgraded: Includes a FREE fallback using DuckDuckGo scraping.
+ * WebSearch Tool (Architectural Version 2.0 - Persistent Researcher)
+ * Responsibility: Multi-source live search with automatic fallbacks for Point 21.
  */
 const axios = require('axios');
 const cheerio = require('cheerio');
 
 class WebSearchTool {
     static async search(query) {
-        console.log("🌐 WebSearch: Querying for", query);
-        console.log("🔑 Debug: SEARCH_API_KEY present?", !!process.env.SEARCH_API_KEY);
+        console.log(`🌐 WebSearch: Querying "${query}"...`);
 
-        // 1. Try SearchApi.io (User's preferred provider)
-        const SEARCH_API_KEY = process.env.SEARCH_API_KEY;
-        if (SEARCH_API_KEY) {
+        // 1. Try SearchApi.io (High Quality Google Results)
+        if (process.env.SEARCH_API_KEY) {
             try {
-                const response = await axios.get(`https://www.searchapi.io/api/v1/search?engine=google&q=${encodeURIComponent(query)}&api_key=${SEARCH_API_KEY}`);
+                const response = await axios.get('https://www.searchapi.io/api/v1/search', {
+                    params: { engine: 'google', q: query, api_key: process.env.SEARCH_API_KEY },
+                    timeout: 5000
+                });
 
-                const results = (response.data.organic_results || []).slice(0, 3).map(r => ({
+                const results = (response.data.organic_results || []).slice(0, 5).map(r => ({
                     title: r.title,
                     link: r.link,
-                    snippet: r.snippet
+                    snippet: r.snippet,
+                    date: r.date || "Live"
                 }));
 
-                if (results.length > 0) {
-                    return { success: true, results, source: "SearchApi.io" };
-                }
+                if (results.length > 0) return { success: true, results, source: "Google via SearchApi" };
             } catch (e) {
-                console.warn("⚠️ SearchApi failed:", e.response?.data || e.message);
-                console.warn("Falling back to free search.");
+                console.warn("⚠️ SearchApi failed, trying fallback...");
             }
         }
 
-        // 2. Try SerpApi as secondary
-        const SERP_API_KEY = process.env.SERP_API_KEY;
-        if (SERP_API_KEY) {
+        // 2. Try SerpApi (Secondary High Quality)
+        if (process.env.SERP_API_KEY) {
             try {
-                const response = await axios.get(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&hl=hi&gl=in&api_key=${SERP_API_KEY}`);
-                const results = (response.data.organic_results || []).slice(0, 3).map(r => ({
+                const response = await axios.get('https://serpapi.com/search', {
+                    params: { q: query, api_key: process.env.SERP_API_KEY, hl: 'hi', gl: 'in' },
+                    timeout: 5000
+                });
+
+                const results = (response.data.organic_results || []).slice(0, 5).map(r => ({
                     title: r.title,
                     link: r.link,
-                    snippet: r.snippet
+                    snippet: r.snippet,
+                    date: r.date || "Recent"
                 }));
-                return { success: true, results, source: "SerpApi" };
+
+                if (results.length > 0) return { success: true, results, source: "Google via SerpApi" };
             } catch (e) {
-                console.warn("⚠️ SerpApi failed, falling back to free search.");
+                console.warn("⚠️ SerpApi failed, trying free fallback...");
             }
         }
 
-        // 2. FREE FALLBACK: DuckDuckGo Lite Scraping
+        // 3. FREE FALLBACK: DuckDuckGo Scraper (Point 21: Never give up)
         try {
             const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
             const response = await axios.get(searchUrl, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36' },
+                timeout: 5000
             });
 
             const $ = cheerio.load(response.data);
             const results = [];
 
             $('.result').each((i, el) => {
-                if (i >= 3) return;
+                if (i >= 5) return;
                 const title = $(el).find('.result__title').text().trim();
                 const link = $(el).find('.result__url').text().trim();
                 const snippet = $(el).find('.result__snippet').text().trim();
                 if (title && snippet) {
-                    results.push({ title, link, snippet });
+                    results.push({ title, link: `https://${link}`, snippet });
                 }
             });
 
-            if (results.length > 0) {
-                return { success: true, results, source: "Free Web Search" };
-            }
-
-            throw new Error("No results found in free search");
+            if (results.length > 0) return { success: true, results, source: "DuckDuckGo (Free)" };
         } catch (error) {
-            console.error("❌ WebSearch Error:", error.message);
-            return {
-                success: false,
-                error: "Bhai, abhi live internet search kaam nahi kar rahi. Thodi der baad try karein ya specific topic batayein."
-            };
+            console.error("❌ WebSearch Scraper Error:", error.message);
         }
+
+        return {
+            success: false,
+            error: "Bhai, internet par iska turant jawab nahi mila. Main thode alag query se try kar raha hoon.",
+            code: "EMPTY_RESULT"
+        };
     }
 }
 

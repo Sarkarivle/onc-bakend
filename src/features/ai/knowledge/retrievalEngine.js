@@ -65,20 +65,62 @@ class RetrievalEngine {
             // 5. QUALITY FILTERING
             const finalResults = verifiedResults.filter(r => r.score > 0.3);
 
+            // 6. STRATEGIC INSIGHTS (Phase 3: Gemini Pro Level)
+            const insightResults = finalResults.map(job => this._calculateStrategicInsights(job, profile));
+
             telemetry.latency.total = Date.now() - startTime;
             this._logTelemetry(telemetry);
 
             return {
-                count: finalResults.length,
-                documents: finalResults,
-                jobs: finalResults.map(j => this._formatJob(j)).join("\n"),
-                confidence: finalResults.length > 0 ? finalResults[0].score : 0
+                count: insightResults.length,
+                documents: insightResults,
+                jobs: insightResults.map(j => this._formatJob(j)).join("\n"),
+                confidence: insightResults.length > 0 ? insightResults[0].score : 0
             };
 
         } catch (error) {
             console.error("❌ Retrieval Error:", error.message);
             return { count: 0, jobs: "", documents: [], confidence: 0 };
         }
+    }
+
+    /**
+     * Calculates Match Score, Competition Level, and Skill Gaps (Point 13, 14, 22).
+     */
+    static _calculateStrategicInsights(job, profile) {
+        // 1. Match Score (%)
+        const baseScore = job.score || 0.5;
+        const matchScore = Math.min(Math.round(baseScore * 100), 98); // Max 98% to stay 'AI-honest'
+
+        // 2. Competition Level (Heuristics)
+        let competition = "Medium";
+        const title = job.title.toLowerCase();
+        if (title.includes("constable") || title.includes("railway") || title.includes("group d")) {
+            competition = "Extremely High (Million+ Applicants)";
+        } else if (title.includes("clerk") || title.includes("mts")) {
+            competition = "High";
+        } else if (title.includes("specialist") || title.includes("officer")) {
+            competition = "Moderate (Requires Specific Skills)";
+        }
+
+        // 3. Skill Gap Analysis
+        let skillGaps = [];
+        if (title.includes("clerk") || title.includes("data entry")) {
+            skillGaps.push("Typing Speed (Hindi/English)");
+        }
+        if (title.includes("officer") || title.includes("manager")) {
+            skillGaps.push("Communication & Leadership");
+        }
+        if (title.includes("computer")) {
+            skillGaps.push("CCC/Basic Computer Certificate");
+        }
+
+        return {
+            ...job,
+            matchScore,
+            competition,
+            skillGaps: skillGaps.length > 0 ? skillGaps.join(", ") : "None (Perfect Match)"
+        };
     }
 
     /**
@@ -228,7 +270,7 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
     }
 
     static _formatJob(j) {
-        return `- [${j.title}] | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || "Verified Soon"} | Link: ${j.officialLinks?.apply || "In Details"}`;
+        return `- **[${j.title}]** | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || "Verified Soon"} | **Match Score: ${j.matchScore}%** | **Competition: ${j.competition}** | **Skill Gaps: ${j.skillGaps}** | Link: ${j.officialLinks?.apply || "In Details"}`;
     }
 
     static _logTelemetry(data) {
