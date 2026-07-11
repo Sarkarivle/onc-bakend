@@ -265,7 +265,7 @@ If you decide to use a tool:
                         assistantMessage.tool_calls = assistantMessage.tool_calls || [];
                         while ((match = regex.exec(assistantMessage.content)) !== null) {
                             assistantMessage.tool_calls.push({
-                                id: `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                                id: "call_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
                                 type: 'function',
                                 function: { name: match[1], arguments: match[2] }
                             });
@@ -315,7 +315,7 @@ If you decide to use a tool:
                                     }
 
                                     assistantMessage.tool_calls = [{
-                                        id: `call_leak_${Date.now()}`,
+                                        id: "call_leak_" + Date.now(),
                                         type: 'function',
                                         function: {
                                             name: toolName,
