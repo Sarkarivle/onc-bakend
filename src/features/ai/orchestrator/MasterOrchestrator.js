@@ -8,9 +8,6 @@ const AgentLoop = require('../reasoning/agentLoop');
 const { getPersona, getFormatting, getModePrompt } = require('../prompts');
 
 class MasterOrchestrator {
-    /**
-     * Classifies user intent into a specific category to optimize tool injection.
-     */
     static async classifyIntent(userQuery) {
         const lowerQuery = userQuery.toLowerCase().trim();
         const greetings = ['hi', 'hello', 'hey', 'bhai', 'namaste', 'ji', 'ram ram', 'hlo', 'hii'];
@@ -32,14 +29,10 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "MOOD"}`;
                 mood: result?.mood || 'NEUTRAL'
             };
         } catch (e) {
-            console.error("❌ Supervisor Classification failed:", e.message);
             return { intents: ['GENERAL'], mood: 'NEUTRAL' };
         }
     }
 
-    /**
-     * Entry point for processing user queries.
-     */
     static async processUserQuery(userQuery, chatHistory, context) {
         let intents = ['GENERAL'];
         let mood = 'NEUTRAL';
@@ -47,7 +40,7 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "MOOD"}`;
 
         if (context.image_url) {
             intents = ['UTILITY'];
-            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar ye Resume ya Marksheet hai, toh iska "Expert Critique" dena. Agar normal document hai, toh sirf scan karke info do.)`;
+            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Analyze it directly.)`;
         } else {
             const classification = await this.classifyIntent(userQuery);
             intents = classification.intents;
@@ -57,42 +50,23 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "MOOD"}`;
         const selectedTools = getToolsByCategory(intents);
         const dynamicSystemPrompt = this._getDynamicPrompt(intents, context.profile || {}, context.isVoice, mood);
 
-        console.log(`🤖 Supervisor: Intents [${intents.join(', ')}] | Mood: ${mood}`);
-
         return await AgentLoop.run(finalQuery, chatHistory, context, dynamicSystemPrompt, selectedTools, intents[0]);
     }
 
-    /**
-     * Constructs a specialized system prompt.
-     */
     static _getDynamicPrompt(intents, profile, isVoice = false, mood = 'NEUTRAL') {
         const base = getPersona(profile.name);
         const format = getFormatting();
-        const capabilityIndex = getModePrompt(intents);
+        const capabilities = getModePrompt(intents);
 
-        const moodInstructions = {
-            'STRESSED': "\n# MOOD: STRESSED (Be calming and empathetic)",
-            'CONFUSED': "\n# MOOD: CONFUSED (Explain like I'm 5)",
-            'DETERMINED': "\n# MOOD: DETERMINED (Match their high energy)",
-            'URGENT': "\n# MOOD: URGENT (Skip the fluff, be direct)",
+        const moodMap = {
+            'STRESSED': "\n# MOOD: STRESSED (Calm & Reassuring)",
+            'CONFUSED': "\n# MOOD: CONFUSED (Simple ELI5 steps)",
+            'DETERMINED': "\n# MOOD: DETERMINED (High Energy)",
+            'URGENT': "\n# MOOD: URGENT (Fast & Direct)",
             'NEUTRAL': ""
         };
 
-        let prompt = `${base}${moodInstructions[mood] || ""}\n\n${capabilityIndex}\n\n${format}
-
-# DYNAMIC INTELLIGENCE PROTOCOL
-1. **Persona First:** You are Jobo, the Bada Bhai.
-2. **Visual Calm:** Use Tables for comparisons and Lists for steps.
-3. **Strategic Insight:** Always end with an "Actionable Next Step".`;
-
-        if (isVoice) {
-            prompt += `\n\n# VOICE MODE CRITICAL:
-- Be extremely "TO THE POINT".
-- Maximum 2 short sentences.
-- No markdown, no fluff. Just direct answer.`;
-        }
-
-        return prompt;
+        return `${base}${moodMap[mood] || ""}\n\n${capabilities}\n\n${format}`;
     }
 }
 
