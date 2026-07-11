@@ -1,7 +1,7 @@
 /**
- * AgentLoop Module (Architectural Version 4.2 - Sovereign Worker)
+ * AgentLoop Module (Architectural Version 4.3 - Strict Sovereign Worker)
  * Responsibility: Executing the Tool-Calling Loop with dynamic prompts and tools.
- * Optimized for Groq's Llama-3 Native Tooling.
+ * Fix: Forced Tool Isolation to prevent 400 Bad Request on Groq.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -85,8 +85,16 @@ class AgentLoop {
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
         const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
 
-        // CORE SOVEREIGN SYSTEM PROMPT (Optimized for Tool Integrity)
-        const systemPrompt = dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- **Today's Date:** " + today + "\n- **Current User Profile:** " + (profile.qualification || 'Graduate') + " from " + (profile.location || 'India') + ".\n\n# CRITICAL TOOL PROTOCOL:\n1. If a tool is needed for data, call it NATIVELY.\n2. **NO MIXED CONTENT:** If calling a tool, do NOT output ANY conversational text or preamble. Output ONLY the tool call.\n3. **ZERO TAGS:** Do not use <function> or any XML tags. Use the provided tool calling interface only.\n4. **DATA MAPPING:** Map terms like 'Graduation' to 'Graduate' and 'Shahjahanpur' to 'Uttar Pradesh' correctly in tool arguments.";
+        // NATIVE TOOL PROTOCOL (TOP PRIORITY)
+        const toolProtocol = `
+# CRITICAL: NATIVE TOOL PROTOCOL
+1. If you need data (Jobs, Math, Info), you MUST call a tool.
+2. If calling a tool, your message MUST contain ONLY the tool call.
+3. **ZERO PREAMBLE:** No conversational text, no "Bhai scene ye hai", no reasoning in the output.
+4. **NO TAGS:** Do not use <function> tags. Use the native tool interface only.
+`;
+
+        const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));
@@ -116,19 +124,37 @@ class AgentLoop {
                     messages: sanitizedMessages,
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
                     tool_choice: selectedTools.length > 0 ? "auto" : undefined,
-                    temperature: 0.1 // Lowered for tool stability
+                    temperature: 0.1
                 };
+
+                console.log("📤 AgentLoop Iteration " + iterations + ": Requesting...");
 
                 let response;
                 try {
                     response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
                 } catch (apiError) {
-                    if (apiError.response) console.error("🛑 Groq API Error:", JSON.stringify(apiError.response.data, null, 2));
+                    if (apiError.response) console.error("🛑 Groq API 400 Detail:", JSON.stringify(apiError.response.data, null, 2));
                     throw apiError;
                 }
 
                 const assistantMessage = response.data.choices[0].message;
                 if (!assistantMessage) throw new Error("Assistant message missing.");
+
+                // SANITY FIX: If model hallucinates XML tags despite instructions
+                if (assistantMessage.content && assistantMessage.content.includes('<function=')) {
+                    console.warn("⚠️ Hallucination detected! Stripping tags...");
+                    const regex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
+                    let match;
+                    assistantMessage.tool_calls = assistantMessage.tool_calls || [];
+                    while ((match = regex.exec(assistantMessage.content)) !== null) {
+                        assistantMessage.tool_calls.push({
+                            id: "call_halluc_" + Date.now(),
+                            type: 'function',
+                            function: { name: match[1], arguments: match[2] }
+                        });
+                        assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
+                    }
+                }
 
                 if (!assistantMessage.content) assistantMessage.content = "";
                 messages.push(assistantMessage);
@@ -151,7 +177,7 @@ class AgentLoop {
                     return { content: assistantMessage.content, intent, capturedData, messages };
                 }
             }
-            return { content: "Main abhi thoda confuse hoon, par koshish kar raha hoon. Dubara puchein.", intent, capturedData };
+            return { content: "Main abhi thoda dimaag laga raha hoon, par response nahi mil pa raha. Thodi der mein puchen.", intent, capturedData };
         } catch (error) {
             console.error("❌ AgentLoop Error:", error.message);
             throw error;
