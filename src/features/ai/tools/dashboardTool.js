@@ -19,6 +19,11 @@ class DashboardTool {
 
             let eligibleJobsCount = 0;
             let eligibleGrantsCount = 0;
+            let urgentCount = 0;
+
+            const now = new Date();
+            const fiveDaysFromNow = new Date();
+            fiveDaysFromNow.setDate(now.getDate() + 5);
 
             for (const item of allJobs) {
                 const report = await EligibilityEngine.evaluate(userProfile, item, { skipLLM: true });
@@ -34,6 +39,14 @@ class DashboardTool {
                     } else {
                         eligibleJobsCount++;
                     }
+
+                    // Deadline logic: if lastDate is within 5 days
+                    if (item.lastDate) {
+                        const lastDate = new Date(item.lastDate);
+                        if (lastDate >= now && lastDate <= fiveDaysFromNow) {
+                            urgentCount++;
+                        }
+                    }
                 }
             }
 
@@ -46,14 +59,15 @@ class DashboardTool {
                 /(plan|sapna|target|aim|goal|naukri)/i.test(m.fact)
             ).length;
 
-            console.log(`Final Dashboard Stats -> Jobs: ${eligibleJobsCount}, Grants: ${eligibleGrantsCount}, Plans: ${plansCount}`);
+            console.log(`Final Dashboard Stats -> Jobs: ${eligibleJobsCount}, Grants: ${eligibleGrantsCount}, Plans: ${plansCount}, Urgent: ${urgentCount}`);
 
             return {
                 success: true,
                 stats: {
                     jobs: eligibleJobsCount || 0,
                     grants: eligibleGrantsCount || 0,
-                    plans: plansCount || 0
+                    plans: plansCount || 0,
+                    urgent: urgentCount || 0
                 },
                 message: `Bhai, tere liye abhi ${eligibleJobsCount} Jobs aur ${eligibleGrantsCount} Schemes fit hain.`
             };
