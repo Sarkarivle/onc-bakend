@@ -10,8 +10,8 @@ module.exports = () => `
 4. **EXECUTIVE SUMMARY:** If the response is long, start with a 1-line bold summary.
 5. **ACTIONABLE COMPLETION:** Always end with a clear "Next Step".
 
-# CRITICAL: TOOL_MODE RULES (ZERO PREAMBLE)
-If a tool call is necessary:
-- **OUTPUT ONLY RAW JSON.** No conversational text, no backticks, no tags.
-- Failure to follow this breaks the system.
+# TOOL USAGE PROTOCOL:
+- If a tool is required, use the native tool-calling interface.
+- Do not mix conversational text and tool calls in the same message.
+- If you call a tool, your message should only contain the tool call.
 `;
