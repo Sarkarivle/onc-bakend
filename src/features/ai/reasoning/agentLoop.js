@@ -85,16 +85,15 @@ class AgentLoop {
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
         const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
 
-        // NATIVE TOOL PROTOCOL (TOP PRIORITY)
-        const toolProtocol = `
-# CRITICAL: NATIVE TOOL PROTOCOL
-1. If you need data (Jobs, Math, Info), you MUST call a tool.
-2. If calling a tool, your message MUST contain ONLY the tool call.
-3. **ZERO PREAMBLE:** No conversational text, no "Bhai scene ye hai", no reasoning in the output.
-4. **NO TAGS:** Do not use <function> tags. Use the native tool interface only.
-`;
+        const systemPrompt = dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ")." + `
 
-        const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
+# CRITICAL: NATIVE TOOL PROTOCOL
+1. If you need external data (Jobs, Web Search, Info), you MUST call a tool.
+2. If calling a tool, your response MUST be ONLY the tool call in native JSON format.
+3. NO PREAMBLE: Do NOT say "Bhai scene ye hai", "Sure, let me check", or "I am searching..." when calling a tool.
+4. NO TAGS: Never use <function> tags. Use the native tool_calls API structure only.
+5. You will have a chance to talk to the user and be "Jobo" AFTER you get the tool results.
+`;
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));
@@ -130,14 +129,24 @@ class AgentLoop {
                 console.log("📤 AgentLoop Iteration " + iterations + ": Requesting...");
 
                 let response;
+                let assistantMessage;
                 try {
                     response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
+                    assistantMessage = response.data.choices[0].message;
                 } catch (apiError) {
-                    if (apiError.response) console.error("🛑 Groq API 400 Detail:", JSON.stringify(apiError.response.data, null, 2));
-                    throw apiError;
+                    const errorData = apiError.response?.data?.error;
+                    if (errorData && errorData.failed_generation) {
+                        console.warn("⚠️ Salvaging failed_generation from Groq 400...");
+                        assistantMessage = {
+                            role: 'assistant',
+                            content: errorData.failed_generation
+                        };
+                    } else {
+                        if (apiError.response) console.error("🛑 Groq API 400 Detail:", JSON.stringify(apiError.response.data, null, 2));
+                        throw apiError;
+                    }
                 }
 
-                const assistantMessage = response.data.choices[0].message;
                 if (!assistantMessage) throw new Error("Assistant message missing.");
 
                 // SANITY FIX: If model hallucinates XML tags despite instructions

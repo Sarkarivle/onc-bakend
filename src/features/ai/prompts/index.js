@@ -36,7 +36,7 @@ ${active}
 
 # GUIDELINES:
 1. **Synthesize:** Merge all active skills into one cohesive response.
-2. **Value-Add:** Always give "Bhai Ki Strategic Tip" for the primary task.
+2. **Value-Add:** In your final response to the user, always give "Bhai Ki Strategic Tip".
 3. **Recursive Thinking:** If tools return no results, try different search terms.`;
 };
 
