@@ -1,7 +1,7 @@
 /**
- * AgentLoop Module (Architectural Version 4.1 - Sovereign Worker)
+ * AgentLoop Module (Architectural Version 4.2 - Sovereign Worker)
  * Responsibility: Executing the Tool-Calling Loop with dynamic prompts and tools.
- * Clean, minimal, and Groq-optimized.
+ * Optimized for Groq's Llama-3 Native Tooling.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -56,7 +56,6 @@ class AgentLoop {
     static _unrollHistoryWithContextStitching(history) {
         const flatHistory = [];
         for (const entry of history || []) flatHistory.push(...AgentLoop._normalizeHistoryEntry(entry));
-
         const stitchedMessages = [];
         let i = 0;
         while (i < flatHistory.length) {
@@ -86,15 +85,13 @@ class AgentLoop {
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
         const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
 
-        // CONSOLIDATED SOVEREIGN SYSTEM PROMPT
-        const systemPrompt = dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- **Today's Date:** " + today + "\n- **User Profile:** " + (profile.qualification || 'Graduate') + " from " + (profile.location || 'India') + ".\n\n# NATIVE TOOL PROTOCOL:\n- Use the provided tools for real-time data.\n- If a tool is needed, call it NATIVELY. Do not output conversational text in the same message as a tool call.\n- Zero conversational preamble on tool calls.";
+        // CORE SOVEREIGN SYSTEM PROMPT (Optimized for Tool Integrity)
+        const systemPrompt = dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- **Today's Date:** " + today + "\n- **Current User Profile:** " + (profile.qualification || 'Graduate') + " from " + (profile.location || 'India') + ".\n\n# CRITICAL TOOL PROTOCOL:\n1. If a tool is needed for data, call it NATIVELY.\n2. **NO MIXED CONTENT:** If calling a tool, do NOT output ANY conversational text or preamble. Output ONLY the tool call.\n3. **ZERO TAGS:** Do not use <function> or any XML tags. Use the provided tool calling interface only.\n4. **DATA MAPPING:** Map terms like 'Graduation' to 'Graduate' and 'Shahjahanpur' to 'Uttar Pradesh' correctly in tool arguments.";
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));
 
-        const lastMsg = messages[messages.length - 1];
-        if (lastMsg && lastMsg.role === 'user' && lastMsg.content === userMessage) { /* Skip duplicate */ }
-        else {
+        if (!(messages[messages.length - 1]?.role === 'user' && messages[messages.length - 1]?.content === userMessage)) {
             if (context.image_url) {
                 messages.push({ role: "user", content: [{ type: "text", text: userMessage || "Analyze this image." }, { type: "image_url", image_url: { url: context.image_url } }] });
             } else {
@@ -119,7 +116,7 @@ class AgentLoop {
                     messages: sanitizedMessages,
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
                     tool_choice: selectedTools.length > 0 ? "auto" : undefined,
-                    temperature: 0.3
+                    temperature: 0.1 // Lowered for tool stability
                 };
 
                 let response;
@@ -133,7 +130,6 @@ class AgentLoop {
                 const assistantMessage = response.data.choices[0].message;
                 if (!assistantMessage) throw new Error("Assistant message missing.");
 
-                // Normalize tool calls for sanity
                 if (!assistantMessage.content) assistantMessage.content = "";
                 messages.push(assistantMessage);
 
@@ -155,7 +151,7 @@ class AgentLoop {
                     return { content: assistantMessage.content, intent, capturedData, messages };
                 }
             }
-            return { content: "Main abhi is information ko process nahi kar pa raha hoon, par koshish jari hai.", intent, capturedData };
+            return { content: "Main abhi thoda confuse hoon, par koshish kar raha hoon. Dubara puchein.", intent, capturedData };
         } catch (error) {
             console.error("❌ AgentLoop Error:", error.message);
             throw error;
