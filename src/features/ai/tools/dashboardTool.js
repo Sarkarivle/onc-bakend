@@ -15,15 +15,20 @@ class DashboardTool {
         try {
             // 1. ALL ACTIVE JOBS
             const allJobs = await Job.find({ isActive: true }).lean();
+            console.log(`Total active jobs in DB: ${allJobs.length}`);
 
             let eligibleJobsCount = 0;
             let eligibleGrantsCount = 0;
 
             for (const item of allJobs) {
                 const report = await EligibilityEngine.evaluate(userProfile, item, { skipLLM: true });
-                if (report.status === 'ELIGIBLE') {
-                    // Check if it's a regular job or a grant/scheme
-                    const isGrant = /scheme|scholarship|yojna|grant/i.test((item.category || "") + (item.title || ""));
+
+                // Count if ELIGIBLE or if the profile is just INCOMPLETE (potential matches)
+                if (report.status === 'ELIGIBLE' || report.status === 'INCOMPLETE_PROFILE') {
+                    const category = (item.category || "").toLowerCase();
+                    const title = (item.title || "").toLowerCase();
+                    const isGrant = /scheme|scholarship|yojna|grant|pension/i.test(category + title);
+
                     if (isGrant) {
                         eligibleGrantsCount++;
                     } else {
@@ -33,20 +38,24 @@ class DashboardTool {
             }
 
             // 2. PLANS (Count user goals/plans from memory)
-            const memories = await MemoryEngine.searchMemory(userProfile.name, 'plan goal career', 20);
+            // Broader search to pick up more memories
+            const memories = await MemoryEngine.searchMemory(userProfile.name, 'plan goal career target sapna naukri aim', 50);
+
             const plansCount = memories.filter(m =>
-                ['GOAL', 'PLAN', 'CAREER_GOAL'].includes(m.category) ||
-                m.fact.toLowerCase().includes('plan')
+                ['GOAL', 'PLAN', 'CAREER_GOAL', 'TARGET'].includes(m.category) ||
+                /(plan|sapna|target|aim|goal|naukri)/i.test(m.fact)
             ).length;
+
+            console.log(`Final Dashboard Stats -> Jobs: ${eligibleJobsCount}, Grants: ${eligibleGrantsCount}, Plans: ${plansCount}`);
 
             return {
                 success: true,
                 stats: {
-                    jobs: eligibleJobsCount,
-                    grants: eligibleGrantsCount,
-                    plans: plansCount
+                    jobs: eligibleJobsCount || 0,
+                    grants: eligibleGrantsCount || 0,
+                    plans: plansCount || 0
                 },
-                message: `Bhai, tere liye abhi ${eligibleJobsCount} Jobs, ${eligibleGrantsCount} Grants aur ${plansCount} Career Plans bilkul fit hain.`
+                message: `Bhai, tere liye abhi ${eligibleJobsCount} Jobs aur ${eligibleGrantsCount} Schemes fit hain.`
             };
         } catch (error) {
             console.error("❌ DashboardTool Error:", error.message);

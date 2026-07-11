@@ -256,8 +256,24 @@ const getAiMatchAdviceStream = async (req, res) => {
 
 const getAllJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ isActive: true }).sort({ createdAt: -1 });
-    res.status(200).json({ status: 'success', results: jobs.length, data: jobs });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Job.countDocuments({ isActive: true });
+    const jobs = await Job.find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      status: 'success',
+      results: jobs.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      data: jobs
+    });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -298,9 +314,16 @@ const getMyMatches = async (req, res) => {
   try {
     if (!req.user || !req.user.id) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
 
+    // Note: Since we evaluate eligibility in-memory, we fetch all active jobs
+    // but we can limit the processing or skip for pagination.
+    // For a real production app with thousands of jobs, this evaluation should be pre-computed.
     const allJobs = await Job.find({ isActive: true }).sort({ createdAt: -1 }).lean();
     const matches = [];
 
@@ -314,7 +337,17 @@ const getMyMatches = async (req, res) => {
         }
     }
 
-    res.status(200).json({ status: 'success', results: matches.length, data: matches });
+    // Manual pagination for the matches array
+    const paginatedMatches = matches.slice(skip, skip + limit);
+
+    res.status(200).json({
+      status: 'success',
+      results: paginatedMatches.length,
+      total: matches.length,
+      page,
+      pages: Math.ceil(matches.length / limit),
+      data: paginatedMatches
+    });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }

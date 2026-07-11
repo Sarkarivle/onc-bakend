@@ -2,8 +2,23 @@ const Jansewa = require('./jansewaModel');
 
 const getAllKendras = async (req, res) => {
   try {
-    const kendras = await Jansewa.find();
-    res.status(200).json({ status: 'success', results: kendras.length, data: kendras });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Jansewa.countDocuments();
+    const kendras = await Jansewa.find()
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      status: 'success',
+      results: kendras.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      data: kendras
+    });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: err.message });
   }

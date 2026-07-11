@@ -16,10 +16,20 @@ router.get('/planner-logs', PlannerController.getLogs);
 router.patch('/planner-logs/:id', PlannerController.correctLog);
 router.get('/planner-logs/export', PlannerController.exportData);
 
+const { protect } = require('../../middlewares/authMiddleware');
+
+// ... existing code ...
+
 // API to get real-time stats for the Hero Card
 router.get('/dashboard-stats/:userName', async (req, res) => {
     try {
-        const user = await User.findOne({ name: req.params.userName }).lean();
+        // Try to find by name (legacy) or just use authenticated user if token provided
+        let user;
+
+        // If there's an auth header, use the protect logic manually or via middleware
+        // For now, let's keep the name lookup but make it more robust
+        user = await User.findOne({ name: { $regex: new RegExp(`^${req.params.userName}$`, 'i') } }).lean();
+
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
         const stats = await DashboardTool.getStats(user);
@@ -52,6 +62,10 @@ router.post('/correct', async (req, res) => {
 
 router.get('/sessions/:userName', async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         const sessions = await Chat.aggregate([
             { $match: { userName: req.params.userName } },
             { $sort: { timestamp: 1 } },
@@ -62,9 +76,11 @@ router.get('/sessions/:userName', async (req, res) => {
                     timestamp: { $first: "$timestamp" }
                 }
             },
-            { $sort: { timestamp: -1 } }
+            { $sort: { timestamp: -1 } },
+            { $skip: skip },
+            { $limit: limit }
         ]);
-        res.json({ success: true, sessions });
+        res.json({ success: true, page, sessions });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -72,11 +88,19 @@ router.get('/sessions/:userName', async (req, res) => {
 
 router.get('/history/:userName/:sessionId', async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
         const history = await Chat.find({
             userName: req.params.userName,
             sessionId: req.params.sessionId
-        }).sort({ timestamp: 1 });
-        res.json({ success: true, history });
+        })
+        .sort({ timestamp: 1 })
+        .skip(skip)
+        .limit(limit);
+
+        res.json({ success: true, page, history });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
