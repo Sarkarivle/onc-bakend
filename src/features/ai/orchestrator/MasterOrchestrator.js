@@ -110,29 +110,23 @@ Output ONLY valid JSON: {"intent": "CATEGORY"}`;
      */
     static async processUserQuery(userQuery, chatHistory, context) {
         let intent = 'GENERAL';
+        let finalQuery = userQuery;
 
         console.log("🛠️ MasterOrchestrator: Processing context image_url:", context.image_url ? `${context.image_url.substring(0, 50)}...` : "NONE");
 
         // If image exists, we append a hidden instruction to the query for the AgentLoop
-        let finalQuery = userQuery;
         if (context.image_url) {
             console.log("📸 MasterOrchestrator: Image detected, prioritizing Vision Analysis.");
             intent = 'UTILITY';
 
             // Point 17: Multimodal Career Critique
-            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar ye Resume ya Marksheet hai, toh Point 17 follow kar ke "Expert Critique" dena—kamiyan batao aur improvements suggest karo. Agar normal document hai, toh sirf scan karke info do.)`;
+            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar ye Resume ya Marksheet hai, toh Point 17 follow kar ke "Expert Critique" dena—kamiyan batao aur improvements suggest karo. Agar normal document hai, toh sirf scan karke info do. Agar jarurat ho toh analyze_image tool ka use karo.)`;
         } else {
             intent = await this.classifyIntent(userQuery);
         }
 
         const selectedTools = getToolsByCategory(intent);
         const dynamicSystemPrompt = this._getDynamicPrompt(intent, context.profile || {}, context.isVoice);
-
-        // If image exists, we append a hidden instruction to the query for the AgentLoop
-        let finalQuery = userQuery;
-        if (context.image_url) {
-            finalQuery = `${userQuery}\n\n(Bhai, user ne ek image bheji hai. Is image ko analyze karke user ke sawal ka jawab do. Agar jarurat ho toh analyze_image tool ka use karo.)`;
-        }
 
         console.log(`🤖 Supervisor: Intent [${intent}] | Query: ${finalQuery.substring(0, 100)}...`);
 
@@ -158,6 +152,9 @@ Before providing the final response, you MUST complete these steps internally (d
 4. **COGNITIVE LOAD CHECK:** Is the response structured for 'Visual Calm'? Use bolding and emojis sparingly but effectively.
 
 # SOVEREIGN STRATEGIST: AUTONOMOUS GOAL PLANNING
+- If the user discusses a career path, automatically propose a **6-Month North Star Goal**.
+- **Predictive Failure Guard:** If the user mentions a habit (e.g., skipping subjects), warn them immediately.
+- **Scam Mitigation:** If the query involves suspicious "Work from Home" or "Pay for Job" offers, flag it as a **RED ALERT**.
 
 # AUTHORITATIVE EXPERT TONE
 Do not be a passive assistant. Be a **Strategic Partner**. If a user's plan is weak, say it directly but with brotherly love, and provide a better strategy.`;
