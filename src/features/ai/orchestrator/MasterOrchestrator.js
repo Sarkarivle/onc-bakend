@@ -49,15 +49,6 @@ Output ONLY JSON: {"intent": "CATEGORY"}`;
         }
     }
 
-        try {
-            const result = await LLMProvider.generateLogic(prompt);
-            return result?.intent || 'GENERAL';
-        } catch (e) {
-            console.error("❌ Supervisor Classification failed:", e.message);
-            return 'GENERAL';
-        }
-    }
-
     /**
      * Entry point for processing user queries in the Supervisor-Worker architecture.
      */
