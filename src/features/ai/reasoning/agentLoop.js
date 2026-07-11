@@ -89,10 +89,10 @@ class AgentLoop {
 
 # CRITICAL: NATIVE TOOL PROTOCOL
 1. If you need external data (Jobs, Web Search, Info), you MUST call a tool.
-2. If calling a tool, your response MUST be ONLY the tool call in native JSON format.
+2. YOUR TURN MUST END with the tool call. Do NOT talk to the user.
 3. NO PREAMBLE: Do NOT say "Bhai scene ye hai", "Sure, let me check", or "I am searching..." when calling a tool.
 4. NO TAGS: Never use <function> tags. Use the native tool_calls API structure only.
-5. You will have a chance to talk to the user and be "Jobo" AFTER you get the tool results.
+5. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
 `;
 
         let messages = [{ role: 'system', content: systemPrompt }];
@@ -126,6 +126,7 @@ class AgentLoop {
                     temperature: 0.1
                 };
 
+                const startTime = Date.now();
                 console.log("📤 AgentLoop Iteration " + iterations + ": Requesting...");
 
                 let response;
@@ -133,6 +134,9 @@ class AgentLoop {
                 try {
                     response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
                     assistantMessage = response.data.choices[0].message;
+
+                    // Log the AI Event
+                    LLMProvider._logAIEvent('AGENT_LOOP_TURN_' + iterations, payload, assistantMessage, Date.now() - startTime, response.data.usage, baseUrl);
                 } catch (apiError) {
                     const errorData = apiError.response?.data?.error;
                     if (errorData && errorData.failed_generation) {
@@ -149,7 +153,7 @@ class AgentLoop {
 
                 if (!assistantMessage) throw new Error("Assistant message missing.");
 
-                // SANITY FIX: If model hallucinates XML tags despite instructions
+                // SANITY FIX 1: If model hallucinates XML tags
                 if (assistantMessage.content && assistantMessage.content.includes('<function=')) {
                     console.warn("⚠️ Hallucination detected! Stripping tags...");
                     const regex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
@@ -157,11 +161,34 @@ class AgentLoop {
                     assistantMessage.tool_calls = assistantMessage.tool_calls || [];
                     while ((match = regex.exec(assistantMessage.content)) !== null) {
                         assistantMessage.tool_calls.push({
-                            id: "call_halluc_" + Date.now(),
+                            id: "call_halluc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
                             type: 'function',
                             function: { name: match[1], arguments: match[2] }
                         });
                         assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
+                    }
+                }
+
+                // SANITY FIX 2: If model hallucinates JSON block in content (Common when confused)
+                if (assistantMessage.content && assistantMessage.content.includes('"name":') && assistantMessage.content.includes('"parameters":')) {
+                    try {
+                        const jsonMatch = assistantMessage.content.match(/\{[\s\S]*"name"[\s\S]*"parameters"[\s\S]*\}/);
+                        if (jsonMatch) {
+                            console.warn("⚠️ JSON Hallucination in content detected! Converting to tool_call...");
+                            const parsed = JSON.parse(jsonMatch[0]);
+                            assistantMessage.tool_calls = assistantMessage.tool_calls || [];
+                            assistantMessage.tool_calls.push({
+                                id: "call_json_halluc_" + Date.now(),
+                                type: 'function',
+                                function: {
+                                    name: parsed.name || parsed.function?.name,
+                                    arguments: typeof parsed.parameters === 'object' ? JSON.stringify(parsed.parameters) : (parsed.arguments || "{}")
+                                }
+                            });
+                            assistantMessage.content = assistantMessage.content.replace(jsonMatch[0], '').trim();
+                        }
+                    } catch (e) {
+                        console.warn("Could not parse hallucinated JSON block");
                     }
                 }
 
