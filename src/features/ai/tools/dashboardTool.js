@@ -28,8 +28,7 @@ class DashboardTool {
             for (const item of allJobs) {
                 const report = await EligibilityEngine.evaluate(userProfile, item, { skipLLM: true });
 
-                // Count if ELIGIBLE or if the profile is just INCOMPLETE (potential matches)
-                if (report.status === 'ELIGIBLE' || report.status === 'INCOMPLETE_PROFILE') {
+                if (report.status === 'ELIGIBLE') {
                     const category = (item.category || "").toLowerCase();
                     const title = (item.title || "").toLowerCase();
                     const isGrant = /scheme|scholarship|yojna|grant|pension/i.test(category + title);

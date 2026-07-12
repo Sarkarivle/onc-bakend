@@ -48,34 +48,47 @@ class RetrievalEngine {
 
             // 4. ELIGIBILITY VERIFICATION (Step 3: Integrate EligibilityEngine)
             const verifiedResults = [];
+            const allResults = [];
             for (const candidate of rankedResults) {
                 try {
                     const report = await EligibilityEngine.evaluate(profile, candidate, { skipLLM: true });
+                    const insightJob = this._calculateStrategicInsights(candidate, profile);
+
                     if (report.status === 'ELIGIBLE') {
-                        verifiedResults.push(candidate);
-                    } else {
+                        verifiedResults.push(insightJob);
+                    }
+
+                    allResults.push({
+                        ...insightJob,
+                        eligibility: {
+                            status: report.status,
+                            reason: report.failed_rules?.[0]?.message || report.summary?.[0] || "Criteria mismatch"
+                        }
+                    });
+
+                    if (report.status !== 'ELIGIBLE') {
                         console.log(`🚫 Filtered Ineligible Job: ${candidate.title} | Reason: ${report.failed_rules?.[0]?.message || 'Unknown'}`);
                     }
                 } catch (e) {
                     console.error(`Eligibility error for ${candidate.title}:`, e.message);
-                    verifiedResults.push(candidate); // Fallback
+                    const insightJob = this._calculateStrategicInsights(candidate, profile);
+                    verifiedResults.push(insightJob); // Fallback
+                    allResults.push(insightJob);
                 }
             }
 
             // 5. QUALITY FILTERING
             const finalResults = verifiedResults.filter(r => r.score > 0.3);
 
-            // 6. STRATEGIC INSIGHTS (Phase 3: Gemini Pro Level)
-            const insightResults = finalResults.map(job => this._calculateStrategicInsights(job, profile));
-
             telemetry.latency.total = Date.now() - startTime;
             this._logTelemetry(telemetry);
 
             return {
-                count: insightResults.length,
-                documents: insightResults,
-                jobs: insightResults.map(j => this._formatJob(j)).join("\n"),
-                confidence: insightResults.length > 0 ? insightResults[0].score : 0
+                count: finalResults.length,
+                documents: allResults, // Return all results including ineligible ones for AI to explain
+                verified_count: finalResults.length,
+                jobs: finalResults.map(j => this._formatJob(j)).join("\n"),
+                confidence: finalResults.length > 0 ? finalResults[0].score : 0
             };
 
         } catch (error) {

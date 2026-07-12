@@ -83,17 +83,18 @@ class AgentLoop {
 
         let memories = [];
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
-        const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
-
-        const systemPrompt = dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ")." + `
-
+        // NATIVE TOOL PROTOCOL (TOP PRIORITY)
+        const toolProtocol = `
 # CRITICAL: NATIVE TOOL PROTOCOL
 1. If you need external data (Jobs, Web Search, Info), you MUST call a tool.
 2. YOUR TURN MUST END with the tool call. Do NOT talk to the user.
 3. NO PREAMBLE: Do NOT say "Bhai scene ye hai", "Sure, let me check", or "I am searching..." when calling a tool.
 4. NO TAGS: Never use <function> tags. Use the native tool_calls API structure only.
-5. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
+5. **DATA INTEGRITY:** You MUST base your response ONLY on the results returned by tools. Do NOT ignore "EMPTY_RESULT" or "INELIGIBLE" statuses. If a tool says the user is ineligible, you MUST explain the specific reason provided (e.g., Age, Qualification) rather than giving generic hope.
+6. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
 `;
+
+        const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));

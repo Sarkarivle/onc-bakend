@@ -563,27 +563,36 @@ const toolImplementations = {
             };
 
             const result = await RetrievalEngine.searchJobs(args.job_keyword, profile);
-            const rawJobs = result.documents || [];
+            const allCandidates = result.documents || [];
 
             const verifiedJobs = [];
-            for (const job of rawJobs) {
-                const report = await EligibilityEngine.evaluate(profile, job, { skipLLM: true });
-                if (report.status === 'ELIGIBLE') {
+            const ineligibilityReasons = [];
+
+            for (const job of allCandidates) {
+                if (job.eligibility?.status === 'ELIGIBLE') {
                     const cleanJob = { ...job };
                     delete cleanJob.fullHtmlContent;
                     delete cleanJob._id;
                     verifiedJobs.push(cleanJob);
+                } else {
+                    ineligibilityReasons.push({
+                        title: job.title,
+                        status: job.eligibility?.status || 'INELIGIBLE',
+                        reason: job.eligibility?.reason || "Criteria mismatch"
+                    });
                 }
             }
 
-            // --- THE PIVOT LOGIC START ---
             if (verifiedJobs.length === 0) {
                 return JSON.stringify({
                     status: "EMPTY_RESULT",
-                    message: "Bhai, abhi teri profile ke hisaab se koi active form nahi hai. Par tu chinta mat kar, main tere liye next best step soch raha hu."
+                    message: "Bhai, abhi teri profile ke hisaab se koi active form nahi hai.",
+                    explanation: ineligibilityReasons.length > 0
+                        ? "Matching jobs were found but you are currently ineligible. Here is why:"
+                        : "No jobs found matching the keyword.",
+                    details: ineligibilityReasons.slice(0, 3) // Limit to 3 reasons for brevity
                 });
             }
-            // --- THE PIVOT LOGIC END ---
 
             return JSON.stringify({ status: "SUCCESS", jobs: verifiedJobs });
         } catch (error) {
