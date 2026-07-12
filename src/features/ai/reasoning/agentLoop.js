@@ -88,13 +88,13 @@ class AgentLoop {
         // NATIVE TOOL PROTOCOL (GEMINI ADVANCED REASONING STANDARD)
         const toolProtocol = `
 # CRITICAL: HYBRID REASONING PROTOCOL
-1. **MULTI-TASKING:** Address all parts of the user's query in one cohesive "Gemini-style" response.
-2. **DATA DENSITY:** Once you have the necessary tool data, your final response MUST be rich, detailed, and loaded with specific advice. Never give short or "lazy" answers. Each paragraph should be 3-4 sentences long.
-3. **INTELLIGENCE FIRST:** Use your expert knowledge for career strategy, roadmap steps, and syllabus details. Use tools ONLY to fetch specific missing data (Active Jobs, Eligibility check).
-4. **DO NOT LOOP TRAPS:** If a user asks for a roadmap, do NOT keep calling tools turn after turn. Get the necessary data in 1-2 turns, then provide a high-quality FINAL response.
-5. **EMPATHY & TABLES:** Start with an empathetic tone. Use Markdown Tables for any comparisons.
-6. **SUCCESS PATH:** Even if the user is ineligible today, your goal is to show them the path to future success.
-7. **PREAMBLE RULE:** When calling tools, keep it to ONLY the tool call. In your FINAL response, be the full "Jobo" mentor persona.
+1. **TOOL ISOLATION (TURN 1):** If you need data (Comparison, Jobs, Eligibility), your first response MUST contain ONLY the tool call. No preamble, no "Bhai tension mat le", no reasoning.
+2. **MULTI-TASKING:** Address all parts of the user's query in your FINAL response (after tool results).
+3. **DATA DENSITY:** Once you have the tool data, your FINAL response MUST be rich, detailed (3-4 sentences per paragraph), and follow the "Elite Mentor" structure.
+4. **NO TAGS:** Use native tool interface only. Never use <function> tags.
+5. **SUCCESS PATH:** Even if ineligible, show the future preparation path.
+6. **PRO-TIP & NEXT STEP:** End with these directly, no headings.
+`;
 `;
 
         const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
@@ -158,42 +158,45 @@ class AgentLoop {
 
                 if (!assistantMessage) throw new Error("Assistant message missing.");
 
-                // SANITY FIX 1: If model hallucinates XML tags
-                if (assistantMessage.content && assistantMessage.content.includes('<function=')) {
-                    console.warn("⚠️ Hallucination detected! Stripping tags...");
-                    const regex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
+                // SANITY FIX 1: If model hallucinates XML tags or JSON blocks
+                if (assistantMessage.content && (assistantMessage.content.includes('<function=') || assistantMessage.content.includes('{"name":'))) {
+                    console.warn("⚠️ Hallucination detected! Extracting tool calls...");
+
+                    // Regex for <function=name{args}></function>
+                    const xmlRegex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
                     let match;
                     assistantMessage.tool_calls = assistantMessage.tool_calls || [];
-                    while ((match = regex.exec(assistantMessage.content)) !== null) {
-                        assistantMessage.tool_calls.push({
-                            id: "call_halluc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-                            type: 'function',
-                            function: { name: match[1], arguments: match[2] }
-                        });
-                        assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
-                    }
-                }
 
-                // SANITY FIX 2: If model hallucinates JSON block in content (Common when confused)
-                if (assistantMessage.content && assistantMessage.content.includes('"name":') && assistantMessage.content.includes('"parameters":')) {
-                    try {
-                        const jsonMatch = assistantMessage.content.match(/\{[\s\S]*"name"[\s\S]*"parameters"[\s\S]*\}/);
-                        if (jsonMatch) {
-                            console.warn("⚠️ JSON Hallucination in content detected! Converting to tool_call...");
-                            const parsed = JSON.parse(jsonMatch[0]);
-                            assistantMessage.tool_calls = assistantMessage.tool_calls || [];
+                    while ((match = xmlRegex.exec(assistantMessage.content)) !== null) {
+                        try {
+                            // Ensure arguments is a valid JSON string
+                            let argsRaw = match[2].trim();
                             assistantMessage.tool_calls.push({
-                                id: "call_json_halluc_" + Date.now(),
+                                id: "call_halluc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
                                 type: 'function',
-                                function: {
-                                    name: parsed.name || parsed.function?.name,
-                                    arguments: typeof parsed.parameters === 'object' ? JSON.stringify(parsed.parameters) : (parsed.arguments || "{}")
-                                }
+                                function: { name: match[1], arguments: argsRaw }
                             });
-                            assistantMessage.content = assistantMessage.content.replace(jsonMatch[0], '').trim();
+                            assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
+                        } catch (e) {}
+                    }
+
+                    // Regex for raw JSON blocks if XML tags are missing but JSON is there
+                    if (assistantMessage.content.includes('"name":') && assistantMessage.content.includes('"parameters":')) {
+                        const jsonRegex = /\{[\s\S]*?"name"[\s\S]*?"parameters"[\s\S]*?\}/g;
+                        while ((match = jsonRegex.exec(assistantMessage.content)) !== null) {
+                            try {
+                                const parsed = JSON.parse(match[0]);
+                                assistantMessage.tool_calls.push({
+                                    id: "call_json_halluc_" + Date.now(),
+                                    type: 'function',
+                                    function: {
+                                        name: parsed.name || parsed.function?.name,
+                                        arguments: typeof parsed.parameters === 'object' ? JSON.stringify(parsed.parameters) : (parsed.arguments || "{}")
+                                    }
+                                });
+                                assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
+                            } catch (e) {}
                         }
-                    } catch (e) {
-                        console.warn("Could not parse hallucinated JSON block");
                     }
                 }
 
