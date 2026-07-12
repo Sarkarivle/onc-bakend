@@ -342,7 +342,7 @@ class LLMProvider {
                     payload = {
                         model: model,
                         messages: sanitizedMessages,
-                        max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 350),
+                        max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 1500),
                         temperature: optionsOverride.temperature || 0.7, // Higher for better personality
                         top_p: 0.9,
                         frequency_penalty: 0.3,
@@ -408,7 +408,7 @@ class LLMProvider {
                 payload = {
                     model: model,
                     messages: sanitizedMessages,
-                    max_tokens: Number(process.env.LLM_MAX_TOKENS || 350),
+                    max_tokens: Number(process.env.LLM_MAX_TOKENS || 1500),
                     temperature: 0.2,
                     top_p: 0.9,
                     frequency_penalty: 0.3,
