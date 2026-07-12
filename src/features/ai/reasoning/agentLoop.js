@@ -95,7 +95,6 @@ class AgentLoop {
 5. **SUCCESS PATH:** Even if ineligible, show the future preparation path.
 6. **PRO-TIP & NEXT STEP:** End with these directly, no headings.
 `;
-`;
 
         const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
 
