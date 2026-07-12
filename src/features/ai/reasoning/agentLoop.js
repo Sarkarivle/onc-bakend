@@ -83,6 +83,8 @@ class AgentLoop {
 
         let memories = [];
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
+        const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
+
         // NATIVE TOOL PROTOCOL (TOP PRIORITY)
         const toolProtocol = `
 # CRITICAL: NATIVE TOOL PROTOCOL
