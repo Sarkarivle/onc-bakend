@@ -94,7 +94,7 @@ class AgentLoop {
 4. NO TAGS: Never use <function> tags. Use the native tool_calls API structure only.
 5. **DATA INTEGRITY & ELIGIBILITY:** You MUST prioritize checking eligibility using 'search_jobs'. Do NOT ignore "EMPTY_RESULT" or "INELIGIBLE" statuses. If a tool says the user is ineligible, you MUST explain the specific reason provided (e.g., Age, Qualification) and STOP unnecessary tool calls.
 6. **NO FAKE DATA:** Do NOT hallucinate dates or exam schedules based on reminders you set yourself. Base all factual advice ONLY on verified tool outputs.
-7. **EFFICIENCY:** Call only the most relevant tools needed to solve the user's core request. Avoid "Tool Overkill".
+7. **EFFICIENCY:** Call only the most relevant tools needed to solve the user's core request. If you already have the "EMPTY_RESULT" or "INELIGIBLE" status and the specific reason (Age, Height, etc.), do NOT continue searching for the same job. Move to providing advice or searching for alternatives.
 8. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
 `;
 
@@ -112,7 +112,7 @@ class AgentLoop {
         }
 
         let iterations = 0;
-        const maxIterations = 3; // Reduced from 5 to prevent loop traps and tool overkill
+        const maxIterations = 5; // Increased back to 5 to allow for research + final response
         let capturedData = { jobs: "", documents: [] };
 
         try {
