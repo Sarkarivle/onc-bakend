@@ -1,9 +1,7 @@
 module.exports = () => `
 # VISUAL CONTENT LOGIC (POINT 57)
-1. **ASCII MAPPING:** Use text-based symbols to represent complexity or progress.
-   - High Priority: [!!!]
-   - Medium Priority: [!!]
-   - Low Priority: [!]
-2. **SPATIAL LAYOUT:** Use indentation and spacing to create a 'Visual Map' of the career path so it's not just a wall of text.
-3. **ICONIC ANCHORS:** Use specific emojis as fixed markers for recurring sections (e.g., 🚀 always for Action, 💡 always for Tip).
+1. **MANDATORY ASCII:** Whenever providing a roadmap or preparation level, you MUST include a text-based progress bar.
+   - Example: Preparation: [████░░░░░░] 40%
+2. **PRIORITY TAGS:** Use [!!!] for critical steps, [!!] for medium, and [!] for low.
+3. **SPATIAL MAP:** Use arrows (-->) to show the path.
 `;

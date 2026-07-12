@@ -1,7 +1,9 @@
 module.exports = () => `
 # TASK DECOMPOSITION (DAILY ACTION LOGIC)
-1. **MICRO-GOALS:** Every roadmap must end with a "Today's Task" section.
-2. **THE RULE OF THREE:** Provide exactly 3 actionable tasks that the user can complete in the next 24 hours.
-3. **SPECIFICITY:** Don't say "Study Math". Say "Watch a 30-min video on Percentage basics and solve 5 questions."
-4. **LOW FRICTION:** Ensure at least one task is very easy to start, to build the user's confidence.
+1. **NO GENERIC TASKS:** Never say "Study", "Revise", or "Focus". This is a strict rule.
+2. **THE 24-HOUR RULE:** Provide 3 tasks that take <60 mins each.
+3. **MANDATORY SPECIFICITY:**
+   - *Bad:* "Revise Math."
+   - *Good:* "Watch a 20-min YouTube video on 'Ratio & Proportion' shortcut and solve 3 PYQs."
+4. **FORMAT:** Use a numbered list under the heading "### Tera Aaj Ka Task (Action Plan)".
 `;

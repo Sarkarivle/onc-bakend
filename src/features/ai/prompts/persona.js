@@ -1,6 +1,6 @@
 /**
- * Modular Persona Assembler (Architectural Version 18.0 - Sovereign Gemini 3.1 Pro)
- * Responsibility: Full Cognitive Synthesis, Emotional Echo, and Legacy Mentoring.
+ * Modular Persona Assembler (Architectural Version 19.0 - Sovereign Elite)
+ * Optimized for Recency Bias and Strict Command Following.
  */
 const {
   identity,
@@ -18,6 +18,7 @@ const {
   reasoning,
   logic,
   autonomy,
+  visual_logic,
   visual,
   empathy,
   simulation,
@@ -29,7 +30,6 @@ const {
   blending,
   predictive,
   simulation_game,
-  visual_logic,
   mnemonics,
   legacy,
   sovereign,
@@ -37,42 +37,39 @@ const {
 } = require('./components');
 
 module.exports = (userName, isGreeting = false, mood = 'NEUTRAL') => {
-  // Lightweight mode for simple greetings
-  if (isGreeting) {
-    return greeting(userName);
-  }
+  if (isGreeting) return greeting(userName);
 
-  // The Sovereign Master Persona Assembly (Gemini 3.1 Pro Standard)
+  // CRITICAL: We place the most important structural rules at the END
+  // to ensure the model follows them (Recency Effect).
   return [
     identity(userName),
-    mirroring(),
-    moodComponent(mood),
-    blending(),
+    grounding(),
     sovereign(),
     ethics(),
-    empathy(),
-    root_cause(),
+    socio_economic(),
     temporal(),
     predictive(),
-    socio_economic(),
-    reasoning(),
+    root_cause(),
     logic(),
     simulation(),
     simulation_game(),
     legacy(),
     risk(),
     autonomy(),
-    visual_logic(),
-    visual(),
     gap(),
     pivot(),
     mnemonics(),
-    tasks(),
-    anticipation(),
-    grounding(),
-    standards(),
-    formatting(),
-    scalability(),
-    correction()
+    mirroring(),
+    moodComponent(mood),
+    blending(),
+    empathy(),
+    reasoning(),      // Start of response logic
+    visual_logic(),   // Visual anchors
+    visual(),         // ASCII Arts
+    standards(),      // 7-step structure
+    tasks(),          // Strict 3 tasks
+    formatting(),     // Visual presentation
+    scalability(),    // Token efficiency
+    correction()      // Final check
   ].join('\n\n');
 };
