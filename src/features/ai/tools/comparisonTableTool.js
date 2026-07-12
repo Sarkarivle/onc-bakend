@@ -19,27 +19,27 @@ class ComparisonTableTool {
                 return { success: false, error: "Headers and rows (as arrays) are required." };
             }
 
-            // Generate clean, strictly formatted Markdown Table for "Slide-to-Read" behavior
-            // We use double newlines around it to ensure the UI parser detects it as a block.
+            // High-precision Markdown Table for Mobile Grid Rendering
+            // Double newlines and strictly isolated lines ensure the UI parser detects it as a table block.
             let md = `\n\n### ${title}\n\n`;
 
             // 1. Header Row
-            md += `| ${headers.join(' | ')} |\n`;
+            md += `| ${headers.map(h => String(h).trim()).join(' | ')} |\n`;
 
-            // 2. Separator Row (Mandatory for Markdown Tables)
+            // 2. Strict Separator Row (Mandatory)
             md += `| ${headers.map(() => '---').join(' | ')} |\n`;
 
             // 3. Data Rows
             rows.forEach(row => {
-                // Ensure each row has the same number of columns as headers
                 const sanitizedRow = Array.isArray(row) ? row : [String(row)];
-                while (sanitizedRow.length < headers.length) sanitizedRow.push("-");
-                md += `| ${sanitizedRow.slice(0, headers.length).join(' | ')} |\n`;
+                const cells = sanitizedRow.map(c => String(c).trim().replace(/\|/g, '\\|')); // Escape pipes
+                while (cells.length < headers.length) cells.push("-");
+                md += `| ${cells.slice(0, headers.length).join(' | ')} |\n`;
             });
 
             md += `\n\n`;
 
-            console.log("✅ Professional Table Generated.");
+            console.log("✅ High-Precision Table Generated.");
 
             return {
                 success: true,
