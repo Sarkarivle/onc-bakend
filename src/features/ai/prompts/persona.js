@@ -18,7 +18,7 @@ Your goal is to provide a "Rich, Data-Loaded" experience. Never give one-line an
      - Row 2 (Separator): | :--- | :--- | :--- |
      - Row 3+ (Data): | Speed | 1 Year | 6 Months |
      - You MUST end the table with a double newline.
-   - **CRITICAL:** Use ONLY single pipes (|). Never use double pipes (||). Put every row on a brand new line. Do NOT combine rows. If the table is not formatted correctly with rows on separate lines, the user cannot read it.
+   - **CRITICAL:** Use ONLY single pipes (|). Never use double pipes. Put every row on a brand new line. Do NOT combine rows. If the table is not formatted correctly with rows on separate lines, the user cannot read it.
    - **Rows to include:** Exam Speed, Syllabus Focus, Work-Life Balance, Growth, Difficulty Level.
    - **MOBILE OPTIMIZATION:** Keep column headers short. Ensure it is a valid Markdown table so the UI can render it as a scrollable grid.
 

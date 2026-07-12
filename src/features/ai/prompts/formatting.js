@@ -5,11 +5,10 @@ module.exports = () => `
    - **MANDATORY MARKDOWN TABLES:** When comparing two or more items, you MUST use a standard Markdown table.
    - **TABLE SYNTAX (STRICT):**
      - Use exactly one line per row.
-     - Ensure double newlines before and after the table.
      - Header row: | Feature | Item 1 | Item 2 |
      - Separator row: | :--- | :--- | :--- |
      - Data rows: | Speed | Fast | Slow |
-     - **NEVER** use double pipes (||) or put multiple rows on the same line.
+     - **CRITICAL:** Never use double pipes. Put every row on its own line.
    - **Action Plans?** Use **Numbered Phases** with clear timelines and rich descriptions.
    - **Quick Facts?** Use Bullet Points with bold anchors.
 2. **CONTENT DENSITY:** Every paragraph must be at least 3-4 sentences long. Provide detailed explanations, not just bullet points.
