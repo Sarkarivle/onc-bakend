@@ -9,44 +9,42 @@ class ComparisonTableTool {
      */
     static async generate(args) {
         try {
-            const { title, headers, rows } = args;
+            // Flexible argument parsing (handle singular/plural and case sensitivity)
+            const title = args.title || args.Heading || "Comparison Table";
+            const headers = args.headers || args.header || args.columns || [];
+            const rows = args.rows || args.data || [];
 
-            if (!headers || !rows || !Array.isArray(headers) || !Array.isArray(rows)) {
-                throw new Error("Headers and rows (as arrays) are required for table generation.");
+            if (!Array.isArray(headers) || headers.length === 0 || !Array.isArray(rows) || rows.length === 0) {
+                console.warn("⚠️ Invalid arguments to ComparisonTableTool:", JSON.stringify(args));
+                return { success: false, error: "Headers and rows (as arrays) are required." };
             }
 
-            // Generate high-quality HTML Table for "Real Table" look
-            let html = `\n\n### ${title}\n\n`;
-            html += `<div style="overflow-x:auto;">\n`;
-            html += `<table style="width:100%; border-collapse: collapse; margin: 10px 0; font-family: sans-serif; min-width: 300px; border: 1px solid #dddddd;">\n`;
+            // Generate clean, strictly formatted Markdown Table for "Slide-to-Read" behavior
+            // We use double newlines around it to ensure the UI parser detects it as a block.
+            let md = `\n\n### ${title}\n\n`;
 
-            // Header
-            html += `  <thead>\n`;
-            html += `    <tr style="background-color: #009879; color: #ffffff; text-align: left;">\n`;
-            headers.forEach(h => {
-                html += `      <th style="padding: 12px 15px; border: 1px solid #dddddd;">${h}</th>\n`;
-            });
-            html += `    </tr>\n`;
-            html += `  </thead>\n`;
+            // 1. Header Row
+            md += `| ${headers.join(' | ')} |\n`;
 
-            // Body
-            html += `  <tbody>\n`;
-            rows.forEach((row, index) => {
-                const bgColor = index % 2 === 0 ? '#f3f3f3' : '#ffffff';
-                html += `    <tr style="background-color: ${bgColor};">\n`;
-                row.forEach(cell => {
-                    html += `      <td style="padding: 12px 15px; border: 1px solid #dddddd;">${cell}</td>\n`;
-                });
-                html += `    </tr>\n`;
+            // 2. Separator Row (Mandatory for Markdown Tables)
+            md += `| ${headers.map(() => '---').join(' | ')} |\n`;
+
+            // 3. Data Rows
+            rows.forEach(row => {
+                // Ensure each row has the same number of columns as headers
+                const sanitizedRow = Array.isArray(row) ? row : [String(row)];
+                while (sanitizedRow.length < headers.length) sanitizedRow.push("-");
+                md += `| ${sanitizedRow.slice(0, headers.length).join(' | ')} |\n`;
             });
-            html += `  </tbody>\n`;
-            html += `</table>\n`;
-            html += `</div>\n\n`;
+
+            md += `\n\n`;
+
+            console.log("✅ Professional Table Generated.");
 
             return {
                 success: true,
-                table_markdown: html, // The UI expects this key
-                message: "Professional HTML table generated successfully."
+                table_markdown: md, // The UI expects this key
+                message: "Comparison table generated successfully."
             };
         } catch (error) {
             console.error("❌ ComparisonTableTool Error:", error.message);

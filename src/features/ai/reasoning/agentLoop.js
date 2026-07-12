@@ -157,46 +157,54 @@ class AgentLoop {
 
                 if (!assistantMessage) throw new Error("Assistant message missing.");
 
-                // SANITY FIX 1: If model hallucinates XML tags or JSON blocks
-                if (assistantMessage.content && (assistantMessage.content.includes('<function=') || assistantMessage.content.includes('{"name":'))) {
-                    console.warn("⚠️ Hallucination detected! Extracting tool calls...");
+                // SANITY FIX 1: If model hallucinations include tool-like strings in content
+                if (assistantMessage.content && (assistantMessage.content.includes('<function=') || assistantMessage.content.includes('{"name":') || assistantMessage.content.includes('"function":'))) {
+                    console.warn("⚠️ Hallucination or Hybrid Response detected! Extracting tool calls...");
 
-                    // Regex for <function=name{args}></function>
-                    const xmlRegex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
-                    let match;
                     assistantMessage.tool_calls = assistantMessage.tool_calls || [];
 
+                    // 1. Extract XML-like <function=name>{"args"}</function>
+                    const xmlRegex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
+                    let match;
                     while ((match = xmlRegex.exec(assistantMessage.content)) !== null) {
                         try {
-                            // Ensure arguments is a valid JSON string
-                            let argsRaw = match[2].trim();
                             assistantMessage.tool_calls.push({
-                                id: "call_halluc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+                                id: "call_halluc_xml_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
                                 type: 'function',
-                                function: { name: match[1], arguments: argsRaw }
+                                function: { name: match[1], arguments: match[2].trim() }
                             });
                             assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
                         } catch (e) {}
                     }
 
-                    // Regex for raw JSON blocks if XML tags are missing but JSON is there
-                    if (assistantMessage.content.includes('"name":') && assistantMessage.content.includes('"parameters":')) {
-                        const jsonRegex = /\{[\s\S]*?"name"[\s\S]*?"parameters"[\s\S]*?\}/g;
-                        while ((match = jsonRegex.exec(assistantMessage.content)) !== null) {
-                            try {
-                                const parsed = JSON.parse(match[0]);
+                    // 2. Extract JSON blocks if the model just printed them (common in 400 salvaging)
+                    // We look for objects that have "name" and either "parameters" or "arguments"
+                    const jsonRegex = /\{[\s\S]*?"name"[\s\S]*?(?:"parameters"|"arguments")[\s\S]*?\}/g;
+                    while ((match = jsonRegex.exec(assistantMessage.content)) !== null) {
+                        try {
+                            const parsed = JSON.parse(match[0]);
+                            const toolName = parsed.name || parsed.function?.name;
+                            const toolArgs = parsed.parameters || parsed.arguments || parsed.function?.arguments;
+
+                            if (toolName && toolArgs) {
                                 assistantMessage.tool_calls.push({
-                                    id: "call_json_halluc_" + Date.now(),
+                                    id: "call_halluc_json_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
                                     type: 'function',
                                     function: {
-                                        name: parsed.name || parsed.function?.name,
-                                        arguments: typeof parsed.parameters === 'object' ? JSON.stringify(parsed.parameters) : (parsed.arguments || "{}")
+                                        name: toolName,
+                                        arguments: typeof toolArgs === 'object' ? JSON.stringify(toolArgs) : toolArgs
                                     }
                                 });
                                 assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
-                            } catch (e) {}
-                        }
+                            }
+                        } catch (e) {}
                     }
+                }
+
+                // Turn 1 Enforcement: If we have tool calls in iteration 1, we MUST NOT have content
+                if (iterations === 1 && assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+                    console.log("🛡️ Enforcing Tool Isolation for Turn 1: Stripping conversational preamble.");
+                    assistantMessage.content = "";
                 }
 
                 if (!assistantMessage.content) assistantMessage.content = "";
