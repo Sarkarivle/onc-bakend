@@ -30,6 +30,7 @@ const InternshipFinder = require('./internship_finder');
 const GrammarStyleChecker = require('./grammar_style_checker');
 const ExamCenterLocator = require('./exam_center_locator');
 const CitationBuilder = require('./citation_builder');
+const ComparisonTableTool = require('./comparisonTableTool');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -71,6 +72,30 @@ const toolDefinitions = [
                     expression: { type: "string", description: "The equation to solve." }
                 },
                 required: ["expression"]
+            }
+        }
+    },
+    {
+        category: "UTILITY",
+        type: "function",
+        function: {
+            name: "create_comparison_table",
+            description: "Generate a professional, scrollable Markdown table for comparing career options or features.",
+            parameters: {
+                type: "object",
+                properties: {
+                    title: { type: "string", description: "The heading for the table." },
+                    headers: { type: "array", items: { type: "string" }, description: "Column names (e.g. ['Feature', 'SSC CGL', 'Banking'])" },
+                    rows: {
+                        type: "array",
+                        items: {
+                            type: "array",
+                            items: { type: "string" }
+                        },
+                        description: "Data rows. Each row is an array of strings."
+                    }
+                },
+                required: ["title", "headers", "rows"]
             }
         }
     },
@@ -599,6 +624,10 @@ const toolImplementations = {
             console.error("❌ search_jobs tool error:", error);
             return { success: false, error: error.message };
         }
+    },
+
+    create_comparison_table: async (args) => {
+        return await ComparisonTableTool.generate(args);
     },
 
     calculate_math: async (args) => {
