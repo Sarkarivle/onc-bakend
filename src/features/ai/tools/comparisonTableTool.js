@@ -20,21 +20,12 @@ class ComparisonTableTool {
             }
 
             // High-precision Markdown Table for Mobile Grid Rendering
-            // Double newlines and strictly isolated lines ensure the UI parser detects it as a table block.
-            let md = `\n\n### ${title}\n\n`;
+            // Each part MUST be on a new line. We use double newlines to ensure it's not swallowed by code blocks.
+            let md = `\n\n| Feature | ${headers.slice(1).join(' | ')} |\n`;
+            md += `| :--- | ${headers.slice(1).map(() => ':---').join(' | ')} |\n`;
 
-            // 1. Header Row
-            md += `| ${headers.map(h => String(h).trim()).join(' | ')} |\n`;
-
-            // 2. Strict Separator Row (Mandatory)
-            md += `| ${headers.map(() => '---').join(' | ')} |\n`;
-
-            // 3. Data Rows
             rows.forEach(row => {
-                const sanitizedRow = Array.isArray(row) ? row : [String(row)];
-                const cells = sanitizedRow.map(c => String(c).trim().replace(/\|/g, '\\|')); // Escape pipes
-                while (cells.length < headers.length) cells.push("-");
-                md += `| ${cells.slice(0, headers.length).join(' | ')} |\n`;
+                md += `| ${row.join(' | ')} |\n`;
             });
 
             md += `\n\n`;

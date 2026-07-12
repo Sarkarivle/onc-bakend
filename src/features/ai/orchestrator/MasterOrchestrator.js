@@ -10,9 +10,12 @@ const { getPersona, getFormatting, getModePrompt } = require('../prompts');
 class MasterOrchestrator {
     static async classifyIntent(userQuery) {
         const lowerQuery = userQuery.toLowerCase().trim();
-        const greetings = ['hi', 'hello', 'hey', 'bhai', 'namaste', 'ji', 'ram ram', 'hlo', 'hii'];
+        const greetings = [
+            'hi', 'hello', 'hey', 'bhai', 'namaste', 'ji', 'ram ram', 'hlo', 'hii',
+            'hi kaise ho', 'kaise ho', 'kaise ho bhai', 'how are you', 'sup'
+        ];
         if (greetings.includes(lowerQuery) || lowerQuery.length < 3) {
-            return { intents: ['GENERAL'], mood: 'NEUTRAL' };
+            return { intents: ['GREETING'], mood: 'NEUTRAL' };
         }
 
         const prompt = `You are a Strict JSON Expert. Analyze user query for relevant Intents and Mood.
@@ -59,9 +62,10 @@ Output ONLY JSON: {"intents": ["CAT1", "CAT2"], "mood": "MOOD"}`;
     }
 
     static _getDynamicPrompt(intents, profile, isVoice = false, mood = 'NEUTRAL') {
-        const base = getPersona(profile.name);
-        const format = getFormatting();
-        const capabilities = getModePrompt(intents);
+        const isGreeting = intents.includes('GREETING');
+        const base = getPersona(profile.name, isGreeting, mood);
+        const format = isGreeting ? "" : getFormatting();
+        const capabilities = isGreeting ? "" : getModePrompt(intents, profile);
 
         const moodMap = {
             'STRESSED': "\n# MOOD: STRESSED (Calm & Reassuring)",

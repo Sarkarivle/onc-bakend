@@ -22,7 +22,16 @@ const CAPABILITY_INDEX = {
     'SCAM_PROTECTOR': 'Security guard against fake job portals.'
 };
 
-const getModePrompt = (intents = []) => {
+const REQUIREMENT_MAP = {
+    'POLICE': ['height', 'chest', 'gender', 'state'],
+    'JOB_SEARCH': ['qualification', 'dob', 'state', 'category'],
+    'ROADMAP': ['qualification', 'dob', 'state'],
+    'TEACHER': ['professionalDegrees', 'state'],
+    'DEFENSE': ['height', 'gender', 'dob'],
+    'SSC': ['qualification', 'state']
+};
+
+const getModePrompt = (intents = [], profile = {}) => {
     if (!intents || intents.length === 0 || (intents.length === 1 && intents[0] === 'GENERAL')) {
         return `# MODE: CONVERSATIONAL\nBe the wise "Bada Bhai". Keep it natural.`;
     }
@@ -31,8 +40,25 @@ const getModePrompt = (intents = []) => {
         .map(intent => `- **${intent}**: ${CAPABILITY_INDEX[intent] || 'Specialist in ' + intent}`)
         .join('\n');
 
+    // Detect Missing Context for Active Intents
+    let contextMissing = [];
+    intents.forEach(intent => {
+        if (REQUIREMENT_MAP[intent]) {
+            const missing = REQUIREMENT_MAP[intent].filter(field => !profile[field]);
+            contextMissing.push(...missing);
+        }
+    });
+    contextMissing = [...new Set(contextMissing)]; // Unique fields
+
+    const gapInstruction = contextMissing.length > 0
+        ? `\n# MISSING USER CONTEXT (CRITICAL):
+The user wants information regarding ${intents.join(', ')}, but your database is missing: ${contextMissing.join(', ')}.
+**INSTRUCTION:** Do NOT give a final eligibility verdict. Politely ask the user for these missing details in your "Empathetic Hook" or as a "Bhai Ki Request".`
+        : "";
+
     return `# DYNAMIC CAPABILITIES ACTIVATED:
 ${active}
+${gapInstruction}
 
 # GUIDELINES:
 1. **Synthesize:** Merge all active skills into one cohesive response.
