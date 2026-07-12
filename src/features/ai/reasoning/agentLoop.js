@@ -92,8 +92,10 @@ class AgentLoop {
 2. YOUR TURN MUST END with the tool call. Do NOT talk to the user.
 3. NO PREAMBLE: Do NOT say "Bhai scene ye hai", "Sure, let me check", or "I am searching..." when calling a tool.
 4. NO TAGS: Never use <function> tags. Use the native tool_calls API structure only.
-5. **DATA INTEGRITY:** You MUST base your response ONLY on the results returned by tools. Do NOT ignore "EMPTY_RESULT" or "INELIGIBLE" statuses. If a tool says the user is ineligible, you MUST explain the specific reason provided (e.g., Age, Qualification) rather than giving generic hope.
-6. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
+5. **DATA INTEGRITY & ELIGIBILITY:** You MUST prioritize checking eligibility using 'search_jobs'. Do NOT ignore "EMPTY_RESULT" or "INELIGIBLE" statuses. If a tool says the user is ineligible, you MUST explain the specific reason provided (e.g., Age, Qualification) and STOP unnecessary tool calls.
+6. **NO FAKE DATA:** Do NOT hallucinate dates or exam schedules based on reminders you set yourself. Base all factual advice ONLY on verified tool outputs.
+7. **EFFICIENCY:** Call only the most relevant tools needed to solve the user's core request. Avoid "Tool Overkill".
+8. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
 `;
 
         const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
@@ -110,7 +112,7 @@ class AgentLoop {
         }
 
         let iterations = 0;
-        const maxIterations = 5;
+        const maxIterations = 3; // Reduced from 5 to prevent loop traps and tool overkill
         let capturedData = { jobs: "", documents: [] };
 
         try {
