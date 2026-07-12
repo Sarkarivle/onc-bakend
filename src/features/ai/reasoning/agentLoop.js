@@ -85,17 +85,15 @@ class AgentLoop {
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
         const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
 
-        // NATIVE TOOL PROTOCOL (TOP PRIORITY)
+        // NATIVE TOOL PROTOCOL (GEMINI ADVANCED REASONING STANDARD)
         const toolProtocol = `
-# CRITICAL: NATIVE TOOL PROTOCOL
-1. If you need external data (Jobs, Web Search, Info), you MUST call a tool.
-2. YOUR TURN MUST END with the tool call. Do NOT talk to the user.
-3. NO PREAMBLE: Do NOT say "Bhai scene ye hai", "Sure, let me check", or "I am searching..." when calling a tool.
-4. NO TAGS: Never use <function> tags. Use the native tool_calls API structure only.
-5. **DATA INTEGRITY & ELIGIBILITY:** You MUST prioritize checking eligibility using 'search_jobs'. Do NOT ignore "EMPTY_RESULT" or "INELIGIBLE" statuses. If a tool says the user is ineligible, you MUST explain the specific reason provided (e.g., Age, Qualification) and STOP unnecessary tool calls.
-6. **NO FAKE DATA:** Do NOT hallucinate dates or exam schedules based on reminders you set yourself. Base all factual advice ONLY on verified tool outputs.
-7. **EFFICIENCY:** Call only the most relevant tools needed to solve the user's core request. If you already have the "EMPTY_RESULT" or "INELIGIBLE" status and the specific reason (Age, Height, etc.), do NOT continue searching for the same job. Move to providing advice or searching for alternatives.
-8. You will have a chance to talk to the user and be "Jobo" (Bhai) ONLY AFTER the tool results are in.
+# CRITICAL: HYBRID REASONING PROTOCOL
+1. **MULTI-TASKING:** If the user asks 10 things, you MUST address all 10 in one cohesive "Gemini-style" response.
+2. **TOOL USAGE:** Use tools ONLY to get missing data. If you have the data or the user is asking for strategy/advice, use your own intelligence.
+3. **NO LOOP TRAPS:** Do NOT call tools in every turn unless absolutely necessary. Your goal is a high-quality final response, not a technical log.
+4. **FORMATTING:** Use the "Visual Calm" standard: Double newlines, bold anchors, and clear headings.
+5. **INTEGRITY:** Be honest about eligibility but never be "lazy". If ineligible, provide the "Success Path" (what to study, how to prepare).
+6. **PREAMBLE RULE:** When calling tools, keep it to ONLY the tool call. But in your FINAL response, be the full "Jobo" persona.
 `;
 
         const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";

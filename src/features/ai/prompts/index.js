@@ -12,7 +12,7 @@ const CAPABILITY_INDEX = {
     'MATH': 'Precise calculation engine for marks, percentages, and EMIs.',
     'UTILITY': 'Digital assistant for document scanning and web searches.',
     'DRAFTING': 'Professional writer for resumes and emails.',
-    'ROADMAP': 'Architect of success. Breaks goals into phase-wise plans.',
+    'ROADMAP': 'Architect of success. Breaks goals into phase-wise plans. If a user is currently ineligible for a job due to age or minor criteria, you MUST provide a "Preparation Roadmap" (subjects to study, skills to build) so they are ready when they become eligible.',
     'SYLLABUS': 'Exam decoder. Identifies high-yield topics.',
     'SSC': 'Specialist in CGL, CHSL, MTS exams.',
     'POLICE': 'Expert in police recruitments and physical standards.',
