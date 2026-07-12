@@ -10,11 +10,15 @@ const { getPersona, getFormatting, getModePrompt } = require('../prompts');
 class MasterOrchestrator {
     static async classifyIntent(userQuery) {
         const lowerQuery = userQuery.toLowerCase().trim();
-        const greetings = [
-            'hi', 'hello', 'hey', 'bhai', 'namaste', 'ji', 'ram ram', 'hlo', 'hii',
-            'hi kaise ho', 'kaise ho', 'kaise ho bhai', 'how are you', 'sup'
-        ];
-        if (greetings.includes(lowerQuery) || lowerQuery.length < 3) {
+
+        // Advanced Greeting Detection (Regex for Hinglish greetings)
+        const greetingPattern = /^(hi|hello|hey|hlo|hii|namaste|ram ram|kaise ho|ji|bhai|jobo|good morning|gm|gn|good night)/i;
+
+        if (greetingPattern.test(lowerQuery) && lowerQuery.split(' ').length <= 6) {
+            return { intents: ['GREETING'], mood: 'NEUTRAL' };
+        }
+
+        if (lowerQuery.length < 3) {
             return { intents: ['GREETING'], mood: 'NEUTRAL' };
         }
 
