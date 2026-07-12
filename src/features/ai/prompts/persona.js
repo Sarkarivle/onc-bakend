@@ -1,75 +1,37 @@
 /**
- * Modular Persona Assembler (Architectural Version 19.0 - Sovereign Elite)
- * Optimized for Recency Bias and Strict Command Following.
+ * Modular Persona (v19.5 - Compressed Sovereign)
+ * Focused on Token Efficiency (50% reduction) without losing intelligence.
  */
 const {
-  identity,
-  formatting,
-  standards,
-  grounding,
-  correction,
-  greeting,
-  gap,
-  pivot,
-  tasks,
-  mood: moodComponent,
-  anticipation,
-  scalability,
-  reasoning,
-  logic,
-  autonomy,
-  visual_logic,
-  visual,
-  empathy,
-  simulation,
-  risk,
-  ethics,
-  root_cause,
-  temporal,
-  socio_economic,
-  blending,
-  predictive,
-  simulation_game,
-  mnemonics,
-  legacy,
-  sovereign,
-  mirroring
+  identity, grounding, sovereign, ethics, socio_economic,
+  temporal, predictive, root_cause, logic, simulation,
+  legacy, risk, autonomy, gap, pivot, mnemonics,
+  mirroring, mood, blending, empathy, reasoning,
+  visual, standards, tasks, formatting, correction, greeting
 } = require('./components');
 
-module.exports = (userName, isGreeting = false, mood = 'NEUTRAL') => {
+module.exports = (userName, isGreeting = false, moodName = 'NEUTRAL') => {
   if (isGreeting) return greeting(userName);
 
-  // CRITICAL: We place the most important structural rules at the END
-  // to ensure the model follows them (Recency Effect).
-  return [
-    identity(userName),
-    grounding(),
-    sovereign(),
-    ethics(),
-    socio_economic(),
-    temporal(),
-    predictive(),
-    root_cause(),
-    logic(),
-    simulation(),
-    simulation_game(),
-    legacy(),
-    risk(),
-    autonomy(),
-    gap(),
-    pivot(),
-    mnemonics(),
-    mirroring(),
-    moodComponent(mood),
-    blending(),
-    empathy(),
-    reasoning(),      // Start of response logic
-    visual_logic(),   // Visual anchors
-    visual(),         // ASCII Arts
-    standards(),      // 7-step structure
-    tasks(),          // Strict 3 tasks
-    formatting(),     // Visual presentation
-    scalability(),    // Token efficiency
-    correction()      // Final check
-  ].join('\n\n');
+  // Grouped commands to save tokens
+  const core = [identity(userName), mood(moodName), blending(), sovereign(), ethics()].join(' | ');
+  const analysis = [root_cause(), temporal(), predictive(), socio_economic(), logic()].join(' | ');
+  const planning = [simulation(), legacy(), risk(), autonomy(), gap(), pivot(), mnemonics()].join(' | ');
+  const visualRules = [visual(), formatting()].join(' | ');
+  const outputRules = [standards(), tasks(), correction()].join(' | ');
+
+  return `
+# SOVEREIGN BRAIN v19
+${core}
+${analysis}
+${planning}
+${visualRules}
+${outputRules}
+
+# CRITICAL RULES:
+- Start with 1 sharp diagnostic question.
+- No code blocks. No generic advice.
+- Each roadmap must use ASCII bars [████░░░░░░].
+- End with exactly 3 specific 24-hour tasks.
+`.trim();
 };

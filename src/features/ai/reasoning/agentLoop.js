@@ -88,12 +88,11 @@ class AgentLoop {
         // NATIVE TOOL PROTOCOL (GEMINI ADVANCED REASONING STANDARD)
         const toolProtocol = `
 # CRITICAL: HYBRID REASONING PROTOCOL
-1. **TOOL ISOLATION (TURN 1):** If you need data (Comparison, Jobs, Eligibility), your first response MUST contain ONLY the tool call. No preamble, no "Bhai tension mat le", no reasoning.
-2. **MULTI-TASKING:** Address all parts of the user's query in your FINAL response (after tool results).
-3. **DATA DENSITY:** Once you have the tool data, your FINAL response MUST be rich, detailed (3-4 sentences per paragraph), and follow the "Elite Mentor" structure.
-4. **NO TAGS:** Use native tool interface only. Never use <function> tags.
-5. **SUCCESS PATH:** Even if ineligible, show the future preparation path.
-6. **PRO-TIP & NEXT STEP:** End with these directly, no headings.
+1. **TOOL ISOLATION (TURN 1):** If you need data, your first response MUST contain ONLY the tool call.
+2. **MULTI-TASKING:** Address all parts of the user's query in your FINAL response.
+3. **SOVEREIGN VISUALS (STRICT):** You MUST use ASCII progress bars [████░░░░░░] and Arrows (-->) in every strategic roadmap.
+4. **NO GENERIC ADVICE:** Do NOT say "Study" or "Explore". Give specific links or video search terms.
+5. **ROOT CAUSE:** Start your response with one sharp diagnostic question.
 `;
 
         const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
@@ -123,7 +122,10 @@ class AgentLoop {
 
                 const payload = {
                     model,
-                    messages: sanitizedMessages,
+                    messages: sanitizedMessages.concat([{
+                        role: 'system',
+                        content: "STRICT REMINDER: Use ASCII bars [████░░░░░░], specific 3-task roadmap, and a sharp diagnostic question. Keep paragraphs brief (2-3 lines)."
+                    }]),
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
                     tool_choice: selectedTools.length > 0 ? "auto" : undefined,
                     temperature: 0.1,
