@@ -2,6 +2,8 @@
  * Sovereign Auditor v1.0 - (GEMINI QUALITY EVALUATOR)
  * Responsibility: Autonomous stress-testing of the entire AI pipeline.
  */
+require('dotenv').config(); // Load environment variables
+const mongoose = require('mongoose');
 const MasterOrchestrator = require('../orchestrator/MasterOrchestrator');
 
 const STRESS_TEST_CASES = [
@@ -16,6 +18,12 @@ async function runSovereignAudit() {
     console.log("--------------------------------------------------");
     console.log("🚀 JOBO AI SOVEREIGN AUDIT STARTING...");
     console.log("--------------------------------------------------");
+
+    // Ensure environment is ready
+    if (!process.env.GROQ_API_KEY) {
+        console.error("❌ ERROR: GROQ_API_KEY is missing in .env file!");
+        process.exit(1);
+    }
 
     const mockContext = {
         profile: { name: "Himanshu", qualification: "Graduate", dob: "2006-01-01", domicileState: "UP" }
