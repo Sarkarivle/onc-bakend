@@ -20,18 +20,23 @@ const { protect } = require('../../middlewares/authMiddleware');
 
 // ... existing code ...
 
-// API to get real-time stats for the Hero Card
+// --- DASHBOARD ROUTE ---
+router.get('/dashboard-stats', protect, async (req, res) => {
+    try {
+        // Use the authenticated user from the protect middleware
+        const stats = await DashboardTool.getStats(req.user);
+        res.json(stats);
+    } catch (error) {
+        console.error("Dashboard Stats Error:", error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Legacy route for backward compatibility (optional but recommended to keep for a bit)
 router.get('/dashboard-stats/:userName', async (req, res) => {
     try {
-        // Try to find by name (legacy) or just use authenticated user if token provided
-        let user;
-
-        // If there's an auth header, use the protect logic manually or via middleware
-        // For now, let's keep the name lookup but make it more robust
-        user = await User.findOne({ name: { $regex: new RegExp(`^${req.params.userName}$`, 'i') } }).lean();
-
+        const user = await User.findOne({ name: { $regex: new RegExp(`^${req.params.userName}$`, 'i') } }).lean();
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
-
         const stats = await DashboardTool.getStats(user);
         res.json(stats);
     } catch (error) {

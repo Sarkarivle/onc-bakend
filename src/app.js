@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const mongoose = require('mongoose');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
@@ -19,7 +20,7 @@ const aiRoutes = require('./features/ai/aiRoutes');
 
 const app = express();
 console.log('##############################################');
-console.log('🚀 ONC-BACKEND STARTING: VERSION 6.0 (STABLE)');
+console.log('🚀 JOBO-BACKEND STARTING: VERSION 6.0 (STABLE)');
 console.log('##############################################');
 
 // 1. GLOBAL MIDDLEWARES
@@ -35,6 +36,19 @@ app.use((req, res, next) => {
 morgan.token('request-id', req => req.requestId);
 app.use(morgan(':method :url :status :response-time ms requestId=:request-id'));
 
+const dbStateName = () => {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  return states[mongoose.connection.readyState] || 'unknown';
+};
+
+app.get('/health', (req, res) => {
+  const dbState = dbStateName();
+  res.status(dbState === 'connected' ? 200 : 503).json({
+    status: dbState === 'connected' ? 'ok' : 'degraded',
+    database: dbState,
+  });
+});
+
 const limiter = rateLimit({
   max: 100,
   windowMs: 60 * 60 * 1000,
@@ -43,6 +57,15 @@ const limiter = rateLimit({
   message: { success: false, message: 'Too many requests, try again in an hour' }
 });
 app.use('/api', limiter);
+
+app.use('/api', (req, res, next) => {
+  if (mongoose.connection.readyState === 1) return next();
+  return res.status(503).json({
+    status: 'error',
+    message: 'Database unavailable',
+    database: dbStateName(),
+  });
+});
 
 const aiLimiter = rateLimit({
   max: Number(process.env.AI_RATE_LIMIT_PER_HOUR || 40),
@@ -82,7 +105,7 @@ app.use('/api/v1/ai', aiRoutes);
 // Web Admin Pages
 app.get('/admin/config.js', (req, res) => {
     res.set('Content-Type', 'application/javascript');
-    res.send(`window.ONC_CONFIG = ${JSON.stringify(constants)};`);
+    res.send(`window.JOBO_CONFIG = ${JSON.stringify(constants)};`);
 });
 
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));

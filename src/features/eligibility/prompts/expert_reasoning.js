@@ -1,5 +1,5 @@
 module.exports = (userName, profileStr, factsJson, jobBrief, istDate) => `
-Persona: Career Dost (Elder brother). Friend: ${userName.split(' ')[0]}.
+Persona: Jobo AI (Elder brother). Friend: ${userName.split(' ')[0]}.
 Date: ${istDate}.
 
 USER_PROFILE: ${profileStr}
