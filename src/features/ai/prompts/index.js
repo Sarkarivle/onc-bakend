@@ -1,25 +1,35 @@
 /**
- * Modular Prompt Library (Architectural Version 4.1 - Capability-based)
+ * Modular Prompt Library (v5.0 - Truly Dynamic Gemini Architecture)
+ * Responsibility: Intent-based Mode Loading and Capability Activation.
  */
 
 const getPersona = require('./persona');
 const getFormatting = require('./formatting');
 
-const CAPABILITY_INDEX = {
-    'JOB_SEARCH': 'Expert in job markets. Focus on Match Score, eligibility, and hidden strategic tips.',
-    'CAREER_ADVICE': 'Long-term pathfinder. Suggests 5-year North Star goals and upskilling.',
-    'WELLNESS': 'Empathetic listener. Deals with stress and motivation.',
-    'MATH': 'Precise calculation engine for marks, percentages, and EMIs.',
-    'UTILITY': 'Digital assistant for document scanning and web searches.',
-    'DRAFTING': 'Professional writer for resumes and emails.',
-    'ROADMAP': 'Architect of success. Breaks goals into phase-wise plans. If a user is currently ineligible for a job due to age or minor criteria, you MUST provide a "Preparation Roadmap" (subjects to study, skills to build) so they are ready when they become eligible.',
-    'SYLLABUS': 'Exam decoder. Identifies high-yield topics.',
-    'SSC': 'Specialist in CGL, CHSL, MTS exams.',
-    'POLICE': 'Expert in police recruitments and physical standards.',
-    'BANKING': 'Specialist in IBPS, SBI, and insurance exams.',
-    'TEACHER': 'Expert in CTET and State TET exams.',
-    'UPSC': 'Foundation guide for Civil Services.',
-    'SCAM_PROTECTOR': 'Security guard against fake job portals.'
+// Mapping Intents to their full expert mode files
+const MODE_FILE_MAP = {
+    'JOB_SEARCH': 'jobMode',
+    'CAREER_ADVICE': 'adviceMode',
+    'WELLNESS': 'wellnessMode',
+    'MATH': 'mathMode',
+    'UTILITY': 'utilityMode',
+    'DRAFTING': 'draftingMode',
+    'ROADMAP': 'architectMode',
+    'SYLLABUS': 'syllabusMode',
+    'SSC': 'sscExpertMode',
+    'POLICE': 'policeExpertMode',
+    'BANKING': 'bankingExpertMode',
+    'TEACHER': 'teacherExpertMode',
+    'UPSC': 'upscFoundationMode',
+    'SCAM_PROTECTOR': 'scamProtectorMode',
+    'PYQ': 'pyqMode',
+    'CONCEPT': 'conceptMode',
+    'SHORTCUT': 'shortcutMode',
+    'GK_DIGEST': 'gkDigestMode',
+    'MNEMONIC': 'mnemonicMode',
+    'INTERVIEW': 'interviewMode',
+    'PIVOT': 'pivotMode',
+    'JD_DECODER': 'jdDecoderMode'
 };
 
 const REQUIREMENT_MAP = {
@@ -36,11 +46,23 @@ const getModePrompt = (intents = [], profile = {}) => {
         return `# MODE: CONVERSATIONAL\nBe the wise "Bada Bhai". Keep it natural.`;
     }
 
-    const active = intents
-        .map(intent => `- **${intent}**: ${CAPABILITY_INDEX[intent] || 'Specialist in ' + intent}`)
-        .join('\n');
+    // 1. Load Full Expert Mode Contents
+    const expertContents = intents
+        .map(intent => {
+            const fileName = MODE_FILE_MAP[intent];
+            if (fileName) {
+                try {
+                    const modeFn = require(`./modes/${fileName}`);
+                    return modeFn();
+                } catch (e) {
+                    return `- **${intent}**: Specialist expert mode active.`;
+                }
+            }
+            return `- **${intent}**: Specialist capability active.`;
+        })
+        .join('\n\n');
 
-    // Detect Missing Context for Active Intents
+    // 2. Detect Missing Context for Active Intents
     let contextMissing = [];
     intents.forEach(intent => {
         if (REQUIREMENT_MAP[intent]) {
@@ -48,22 +70,25 @@ const getModePrompt = (intents = [], profile = {}) => {
             contextMissing.push(...missing);
         }
     });
-    contextMissing = [...new Set(contextMissing)]; // Unique fields
+    contextMissing = [...new Set(contextMissing)];
 
     const gapInstruction = contextMissing.length > 0
         ? `\n# MISSING USER CONTEXT (CRITICAL):
-The user wants information regarding ${intents.join(', ')}, but your database is missing: ${contextMissing.join(', ')}.
-**INSTRUCTION:** Do NOT give a final eligibility verdict. Politely ask the user for these missing details in your "Empathetic Hook" or as a "Bhai Ki Request".`
+The user wants info regarding ${intents.join(', ')}, but database is missing: ${contextMissing.join(', ')}.
+**INSTRUCTION:** Ask for these details warmly before giving a final verdict.`
         : "";
 
-    return `# DYNAMIC CAPABILITIES ACTIVATED:
-${active}
+    return `
+# DYNAMIC EXPERTISE ACTIVATED:
+${expertContents}
+
 ${gapInstruction}
 
-# GUIDELINES:
-1. **Synthesize:** Merge all active skills into one cohesive response.
-2. **Value-Add:** In your final response to the user, always give "Bhai Ki Strategic Tip".
-3. **Recursive Thinking:** If tools return no results, try different search terms.`;
+# INTEGRATION GUIDELINES:
+1. **Synthesize:** Merge the above expert modes into one cohesive "Bada Bhai" response.
+2. **Prioritize:** If multiple modes are active, focus on the user's primary intent first.
+3. **Value-Add:** Always include one "Bhai Ki Strategic Tip".
+`.trim();
 };
 
 module.exports = { getPersona, getFormatting, getModePrompt };

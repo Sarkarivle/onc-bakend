@@ -34,5 +34,6 @@ module.exports = {
     mnemonics: require('./mnemonic_mastery'),
     legacy: require('./legacy_builder'),
     sovereign: require('./sovereign_intelligence'),
-    mirroring: require('./tone_mirroring')
+    mirroring: require('./tone_mirroring'),
+    memory_recall: require('./memory_personalization')
 };

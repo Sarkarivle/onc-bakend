@@ -95,6 +95,11 @@ class AgentLoop {
 5. **ROOT CAUSE:** Start your response with one sharp diagnostic question.
 `;
 
+        const isPlanning = intent === 'ROADMAP' || intent === 'CAREER_ADVICE' || intent === 'ACADEMIC_AUDIT';
+        const dynamicReminder = isPlanning
+            ? "STRICT: Use ASCII bars [████░░░░░░] and a 3-task roadmap."
+            : "STRICT: Give a DIRECT answer first. No long roadmaps unless asked. Brief paragraphs (2 lines).";
+
         const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
 
         let messages = [{ role: 'system', content: systemPrompt }];
@@ -109,7 +114,7 @@ class AgentLoop {
         }
 
         let iterations = 0;
-        const maxIterations = 5; // Increased back to 5 to allow for research + final response
+        const maxIterations = 5;
         let capturedData = { jobs: "", documents: [] };
 
         try {
@@ -124,7 +129,7 @@ class AgentLoop {
                     model,
                     messages: sanitizedMessages.concat([{
                         role: 'system',
-                        content: "STRICT REMINDER: Use ASCII bars [████░░░░░░], specific 3-task roadmap, and a sharp diagnostic question. Keep paragraphs brief (2-3 lines)."
+                        content: dynamicReminder
                     }]),
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
                     tool_choice: selectedTools.length > 0 ? "auto" : undefined,

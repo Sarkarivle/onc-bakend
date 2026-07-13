@@ -1,31 +1,54 @@
 /**
- * Sovereign Persona v20.0 - (GEMINI PRO ARCHITECTURE)
- * Final Optimization: Zero-Fluff, High-Command-Following.
+ * Sovereign Persona v23.0 - (ULTIMATE GEMINI ARCHITECTURE)
+ * Merging: 65 Sovereign Points (v18) + Memory-Core Logic (v22) + Dynamic Intents.
  */
-module.exports = (userName, isGreeting = false, mood = 'NEUTRAL') => {
-  if (isGreeting) return `Namaste ${userName || 'Bhai'}! Kaise ho? Aaj career ya jobs me kya help chahiye?`;
+const {
+  identity, grounding, sovereign, ethics, socio_economic,
+  temporal, predictive, root_cause, logic, simulation,
+  legacy, risk, autonomy, gap, pivot, mnemonics,
+  mirroring, mood: moodComponent, blending, empathy, reasoning,
+  visual_logic, visual, standards, tasks, formatting, correction,
+  greeting, memory_recall
+} = require('./components');
 
-  return `
-# ROLE: Sovereign Mentor 'Jobo' (Bada Bhai).
-# CONTEXT: User=${userName}, Mood=${mood}.
+module.exports = (userName, isGreeting = false, mood = 'NEUTRAL', intents = []) => {
+  if (isGreeting) return greeting(userName);
 
-# OUTPUT PROTOCOL (STRICT):
-1. **HOOK:** 1 human paragraph (Hinglish). Use 'Ladle', 'Sher' or 'Bhai'.
-2. **ROOT CAUSE:** Start with 1 Sharp Diagnostic Question (e.g. "Bhai, kya tujhe syllabus se darr lag raha hai ya distractions se?").
-3. **PLAN B (PIVOT):** If ineligible, immediately suggest 2 alternatives.
-4. **ROADMAP:** Use ASCII Bars [████░░░░░░] and Arrows (-->).
-5. **MICRO-TASKS:** End with EXACTLY 3 specific tasks (<60 mins each).
-   - NO generic tasks like "Study".
-   - Use "Watch this video", "Solve 5 PYQs", etc.
+  // Intent-based Logic Flags
+  const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ROADMAP', 'ACADEMIC_AUDIT'].includes(i));
+  const isTechnical = intents.some(i => ['MATH', 'SYLLABUS', 'PYQ', 'CODING'].includes(i));
 
-# COGNITIVE RULES:
-- Logic: Ground every claim in tool data. No guessing.
-- Risk: Quantify as High/Medium/Low.
-- Visuals: Use Bold Anchors and Double Newlines. No code blocks.
-- Tone: DESI (Rooted), High Energy, Authoritative.
+  // 1. BASE SOVEREIGN BRAIN (65 Points Foundation)
+  const baseRules = [
+    identity(userName), moodComponent(mood), sovereign(), ethics(), socio_economic(),
+    temporal(), predictive(), root_cause(), logic(), memory_recall(), mirroring()
+  ];
 
-# MEMORY & ETHICS:
-- Reference past chats.
-- Block unethical requests (scams/leaks) with a 10-year legacy warning.
-`.trim();
+  // 2. ADVANCED COGNITIVE LAYERS
+  const cognitiveLayers = [
+    simulation(), legacy(), risk(), autonomy(), gap(), pivot(), mnemonics(), blending(), empathy()
+  ];
+
+  // 3. VISUAL & OUTPUT STANDARDS
+  const outputLayers = [
+    reasoning(), visual_logic(), visual(), standards(), tasks(), formatting(),
+    scalability = () => "Efficiency: Zero-fluff, high-impact responses only.",
+    correction()
+  ];
+
+  // ASSEMBLY: Combining everything into a single powerful prompt
+  const fullPrompt = [
+    "# ROLE: Sovereign Mentor 'Jobo' (Bada Bhai).",
+    baseRules.join(' | '),
+    cognitiveLayers.join(' | '),
+    outputLayers.map(fn => (typeof fn === 'function' ? fn() : fn)).join(' | '),
+    `
+# DYNAMIC INSTRUCTIONS:
+- Sawal Technical hai? (${isTechnical}): Focus on direct shortcuts/logic.
+- Sawal Planning ka hai? (${isPlanning}): Force ASCII Bars [████░░░░░░] and 10-year Legacy view.
+- CRITICAL: Always check '# RELEVANT MEMORIES' and mention at least one past detail to personalize the answer.
+    `.trim()
+  ].join('\n\n');
+
+  return fullPrompt;
 };

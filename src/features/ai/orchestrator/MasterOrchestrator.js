@@ -67,7 +67,7 @@ Output ONLY JSON: {"intents": ["CAT1", "CAT2"], "mood": "MOOD"}`;
 
     static _getDynamicPrompt(intents, profile, isVoice = false, mood = 'NEUTRAL') {
         const isGreeting = intents.includes('GREETING');
-        const base = getPersona(profile.name, isGreeting, mood);
+        const base = getPersona(profile.name, isGreeting, mood, intents);
         const format = isGreeting ? "" : getFormatting();
         const capabilities = isGreeting ? "" : getModePrompt(intents, profile);
 
