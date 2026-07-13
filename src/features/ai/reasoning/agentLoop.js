@@ -1,6 +1,6 @@
 /**
- * AgentLoop Module v25.5 - (ULTRA-LEAN SOVEREIGN WORKER)
- * Fixed Syntax Errors and Universal Token Sanitization.
+ * AgentLoop Module v28.0 - (GEMINI SOVEREIGN CORE)
+ * Features: Zero-JSON Leakage, Auto-Correction, and Token Efficiency.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -10,114 +10,90 @@ const axios = require('axios');
 class AgentLoop {
     static _normalizeHistoryEntry(entry) {
         if (!entry || typeof entry !== 'object') return [];
-        if (entry.role) {
-            const normalized = { role: entry.role };
-            if (Object.prototype.hasOwnProperty.call(entry, 'content')) normalized.content = entry.content;
-            else if (entry.role === 'assistant' && entry.tool_calls) normalized.content = "";
-            if (entry.tool_calls) normalized.tool_calls = entry.tool_calls;
-            if (entry.tool_call_id) normalized.tool_call_id = entry.tool_call_id;
-            if (entry.name) normalized.name = entry.name;
-            return [normalized];
-        }
-        const normalizedMessages = [];
-        if (entry.user) normalizedMessages.push({ role: 'user', content: entry.user });
-        if (entry.assistant) {
-            if (typeof entry.assistant === 'object' && entry.assistant !== null) {
-                normalizedMessages.push(...AgentLoop._normalizeHistoryEntry({ role: 'assistant', ...entry.assistant }));
-            } else { normalizedMessages.push({ role: 'assistant', content: entry.assistant }); }
-        }
-        return normalizedMessages;
-    }
-
-    static _unrollHistoryWithContextStitching(history) {
-        const flatHistory = [];
-        for (const entry of history || []) flatHistory.push(...AgentLoop._normalizeHistoryEntry(entry));
-        return flatHistory.slice(-10); // Keep only last 10 for tokens
+        if (entry.role) return [entry];
+        const msgs = [];
+        if (entry.user) msgs.push({ role: 'user', content: entry.user });
+        if (entry.assistant) msgs.push({ role: 'assistant', content: typeof entry.assistant === 'string' ? entry.assistant : "" });
+        return msgs;
     }
 
     static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
         const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const profile = context.profile || {};
         const userId = context.userId || profile.name || "Bhai";
-        const primaryIntent = intents[0];
 
-        const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT'].includes(i));
-        const dynamicReminder = isPlanning
-            ? "STRICT: Use ASCII bars [████░░░░░░] and a 3-task roadmap."
-            : "STRICT: Give a DIRECT answer. No roadmap. Brief paragraphs.";
+        const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'SSC', 'POLICE', 'BANKING'].includes(i));
+        const protocol = isPlanning
+            ? "MANDATORY: 1 Sharp Diagnostic Question + ASCII Progress Bar + 3 Specific Tasks."
+            : "MANDATORY: Direct concise answer. No roadmap.";
 
-        const systemPrompt = `# PROTOCOL\n${dynamicSystemPrompt}\n\n# CONTEXT\nToday: ${today} | User: ${userId}\nReminder: ${dynamicReminder}`;
+        const systemPrompt = `${dynamicSystemPrompt}\n\n# PROTOCOL\n${protocol}\n\n# OPERATIONAL CONTEXT\nToday: ${today} | User: ${userId} (${profile.qualification})`;
 
         let messages = [{ role: 'system', content: systemPrompt }];
-        messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));
+        const flatHistory = [];
+        for (const entry of history || []) flatHistory.push(...this._normalizeHistoryEntry(entry));
+        messages.push(...flatHistory.slice(-6));
         messages.push({ role: 'user', content: userMessage });
 
         let iterations = 0;
         let capturedData = { jobs: "", documents: [] };
 
-        while (iterations < 3) { // Max 3 iterations for speed
+        while (iterations < 3) {
             iterations++;
-            const sanitizedMessages = LLMProvider.sanitizeMessages(messages);
-            const model = LLMProvider.getModel('personality', sanitizedMessages);
-
-            const payload = {
-                model,
-                messages: sanitizedMessages.concat([{
-                    role: 'system',
-                    content: dynamicReminder
-                }]),
-                tools: selectedTools.length > 0 ? selectedTools : undefined,
-                tool_choice: selectedTools.length > 0 ? "auto" : undefined,
-                temperature: 0.1,
-                max_tokens: 1000
-            };
+            const sanitized = LLMProvider.sanitizeMessages(messages);
+            const model = LLMProvider.getModel('personality', sanitized);
 
             try {
-                const response = await axios.post(await LLMProvider.getBaseUrl(), payload, { headers: LLMProvider.getHeaders(), timeout: 60000 });
+                const turnStart = Date.now();
+                const response = await axios.post(await LLMProvider.getBaseUrl(), {
+                    model, messages: sanitized, tools: selectedTools.length > 0 ? selectedTools : undefined,
+                    temperature: 0.1, max_tokens: 1200
+                }, { headers: LLMProvider.getHeaders(), timeout: 60000 });
+
                 const assistantMessage = response.data.choices[0].message;
-
-                // Unified AI Logging
-                LLMProvider._logAIEvent('AGENT_LOOP_TURN_' + iterations, payload, assistantMessage, 0, response.data.usage);
-
-                messages.push(assistantMessage);
+                LLMProvider._logAIEvent('TURN_' + iterations, { model }, assistantMessage, Date.now() - turnStart, response.data.usage);
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+                    messages.push(assistantMessage);
                     for (const toolCall of assistantMessage.tool_calls) {
                         const implementation = toolImplementations[toolCall.function.name];
-                        let toolResult;
                         try {
-                            const args = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
+                            const args = JSON.parse(toolCall.function.arguments);
                             const raw = implementation ? await implementation(args, profile) : { error: "N/A" };
 
-                            // UNIVERSAL SANITIZER: Smart Summary for High-Intel responses
-                            if (toolCall.function.name === 'search_jobs' && raw.jobs) {
-                                capturedData.jobs = raw.jobs || "";
-                                capturedData.documents = raw.documents || [];
-                                toolResult = {
-                                    status: "success",
-                                    total: (raw.jobs || []).length,
-                                    top_matches: (raw.jobs || []).slice(0, 3).map(j => ({
-                                        title: j.title,
-                                        match: (j.matchScore || 0) + "%",
-                                        eligibility: j.eligibility?.status || "Unknown"
-                                    }))
-                                };
-                            } else {
-                                const str = JSON.stringify(raw);
-                                toolResult = str.length > 200 ? str.substring(0, 200) + "..." : raw;
-                            }
-                        } catch (e) { toolResult = { error: "failed" }; }
-                        messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolResult) });
+                            // INTERNAL DATA CAPTURE
+                            if (toolCall.function.name === 'search_jobs') capturedData.jobs = raw.jobs || "";
+
+                            // SANITIZED FEEDBACK TO AI
+                            const toolFeedback = toolCall.function.name === 'search_jobs'
+                                ? { status: "success", results: (raw.jobs || []).slice(0,3).map(j => j.title).join(", ") }
+                                : raw;
+
+                            messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolFeedback) });
+                        } catch (e) { messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Error" }); }
                     }
                 } else {
-                    return { content: assistantMessage.content, intent: primaryIntent, capturedData, messages };
+                    // --- SOVEREIGN QUALITY CHECK ---
+                    let content = assistantMessage.content || "";
+
+                    // 1. JSON Leakage Prevention
+                    if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+                        console.warn("⚠️ JSON Leakage Detected! Forcing Re-generation...");
+                        messages.push({ role: 'system', content: "CRITICAL: You just output raw JSON. Translate this into a warm 'Bada Bhai' Hinglish response immediately." });
+                        iterations--; continue;
+                    }
+
+                    // 2. Generic Answer Prevention
+                    if (content.length < 50 && !intents.includes('GREETING')) {
+                        messages.push({ role: 'system', content: "CRITICAL: Your answer is too short. Provide a more helpful, detailed response." });
+                        iterations--; continue;
+                    }
+
+                    return { content, intent: intents[0], capturedData, messages };
                 }
-            } catch (err) {
-                console.error("❌ AgentLoop Iteration Error:", err.message);
-                throw err;
-            }
+            } catch (err) { throw err; }
         }
-        return { content: "Bhai, server busy hai. Thodi der mein puchen.", intent: primaryIntent, capturedData };
+        return { content: "Bhai, server thoda slow hai, ek baar phir puchen.", intent: intents[0] };
     }
 }
 
