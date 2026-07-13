@@ -15,6 +15,7 @@
     "test:all": "npm run test:intents && npm run test:conversation && npm run test:responses && npm run test:safety && npm run test:data && npm run test:performance",
     "test:live-ai": "node test_suite/runLiveAiTests.js",
     "test:brain": "node test_suite/runNeuralTests.js",
+    "test:sovereign": "node src/features/ai/quality/sovereignAuditor.js",
     "test:release": "npm run test:all && npm run test:brain",
     "test:release-live": "npm run test:all && npm run test:brain && npm run test:live-ai"
   },
