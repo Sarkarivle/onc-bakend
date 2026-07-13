@@ -272,37 +272,25 @@ class LLMProvider {
 
                 if (!raw) throw new Error("Empty response from LLM");
 
-                // ADVANCED EXTRACTION: Handle stuttering at the end of JSON (e.g. "}}", "}.")
-                const firstBrace = raw.indexOf('{');
-                if (firstBrace === -1) throw new Error("No JSON start found");
-
-                let bracketCount = 0;
-                let lastBrace = -1;
-                let inString = false;
-                let escaped = false;
-
-                for (let j = firstBrace; j < raw.length; j++) {
-                    const char = raw[j];
-                    if (char === '"' && !escaped) inString = !inString;
-
-                    if (!inString) {
-                        if (char === '{') bracketCount++;
-                        else if (char === '}') {
-                            bracketCount--;
-                            if (bracketCount === 0) {
-                                lastBrace = j;
-                                break;
-                            }
-                        }
-                    }
-                    if (char === '\\') escaped = !escaped;
-                    else escaped = false;
+                // UNIVERSAL JSON EXTRACTOR (Bulletproof for Gemini Level)
+                const jsonMatch = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                if (!jsonMatch) {
+                    console.warn("⚠️ No JSON brackets found, returning raw as logic.");
+                    return { raw_response: raw };
                 }
 
-                if (lastBrace === -1) throw new Error("Incomplete JSON structure");
-
-                const jsonString = raw.substring(firstBrace, lastBrace + 1);
-                return JSON.parse(jsonString);
+                const jsonString = jsonMatch[0];
+                try {
+                    return JSON.parse(jsonString);
+                } catch (parseError) {
+                    // Deep Cleaning: Remove common LLM artifacts
+                    const cleanJson = jsonString
+                        .replace(/\\n/g, "")
+                        .replace(/\\r/g, "")
+                        .replace(/\s+/g, " ")
+                        .trim();
+                    try { return JSON.parse(cleanJson); } catch (e) { throw new Error("JSON Parse Final Failure"); }
+                }
             } catch (error) {
                 if (error.response) {
                     console.error("[LLMProvider] Logic Error status:", error.response.status);

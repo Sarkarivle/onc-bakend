@@ -66,6 +66,11 @@ Output ONLY JSON: {"intents": ["CAT1", "CAT2"], "mood": "MOOD"}`;
             const classification = await this.classifyIntent(userQuery);
             intents = classification.intents;
             mood = classification.mood;
+
+            // GEMINI 3 DYNAMIC PATCH: Filter redundant intents to save tokens
+            if (intents.includes('ROADMAP') && intents.includes('CAREER_ADVICE')) {
+                intents = intents.filter(i => i !== 'CAREER_ADVICE'); // Roadmap covers it
+            }
         }
 
         const selectedTools = getToolsByCategory(intents);

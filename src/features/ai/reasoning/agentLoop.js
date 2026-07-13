@@ -225,20 +225,30 @@ class AgentLoop {
                     for (const toolCall of assistantMessage.tool_calls) {
                         const implementation = toolImplementations[toolCall.function.name];
                         let toolResult;
-                        try {
-                            const args = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
-                            toolResult = implementation ? await implementation(args, profile) : { error: "Not implemented" };
+                            // UNIVERSAL TOKEN OPTIMIZATION: Sanitize all tool results
+                            const rawResult = implementation ? await implementation(args, profile) : { error: "Not implemented" };
 
-                            // TOKEN OPTIMIZATION: Sanitize large tool results for next iteration
-                            if (toolCall.function.name === 'search_jobs' && toolResult.jobs) {
-                                capturedData.jobs = toolResult.jobs;
-                                capturedData.documents = toolResult.documents || [];
-                                // Send only a light-weight summary to the AI to save tokens
-                                toolResult = {
-                                    status: toolResult.status,
-                                    job_count: toolResult.jobs_found_count || toolResult.jobs.length,
-                                    summary: toolResult.jobs.map(j => `${j.title} (Status: ${j.eligibility?.status || 'Check Needed'})`).join(', ')
-                                };
+                            // Capture original data for app internal use
+                            if (toolCall.function.name === 'search_jobs') {
+                                capturedData.jobs = rawResult.jobs || "";
+                                capturedData.documents = rawResult.documents || [];
+                            }
+
+                            // Sanitize what goes back to LLM Prompt (Gemini Pro Strategy)
+                            if (typeof rawResult === 'object' && rawResult !== null) {
+                                toolResult = { status: rawResult.status || "success" };
+                                if (rawResult.jobs) {
+                                    toolResult.job_count = rawResult.jobs.length;
+                                    toolResult.summary = rawResult.jobs.slice(0, 3).map(j => `${j.title} (Match: ${j.matchScore}%)`).join(', ');
+                                } else if (rawResult.stats) {
+                                    toolResult.stats = rawResult.stats;
+                                } else {
+                                    // General fallback: convert object to a very short string
+                                    const str = JSON.stringify(rawResult);
+                                    toolResult.data_preview = str.length > 300 ? str.substring(0, 300) + "..." : str;
+                                }
+                            } else {
+                                toolResult = rawResult;
                             }
                         } catch (e) { toolResult = { error: "Execution failed" }; }
                         messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolResult) });
