@@ -71,12 +71,6 @@ class LLMProvider {
     }
 
     static async getBaseUrl() {
-        // --- ADDED: MODELS LOGGER ---
-        if (!this.modelsLogged) {
-            this.modelsLogged = true;
-            this.logAvailableModels().catch(() => {});
-        }
-
         const now = Date.now();
         if (this.settingsCache.baseUrl && this.settingsCache.expiresAt > now) {
             return this.settingsCache.baseUrl;
@@ -200,30 +194,8 @@ class LLMProvider {
     }
 
     static _logAIEvent(type, payload, response, duration, usage = null, url = '') {
-        console.log('\n================== AI DEBUG LOG START ==================');
-        console.log(`Type     : ${type}`);
-        console.log(`Model    : ${payload.model}`);
-        console.log(`Duration : ${duration}ms`);
-        if (url) console.log(`URL      : ${url}`);
-
-        console.log('\n--- DATA SENT TO AI ---');
-        if (payload.messages) {
-            payload.messages.forEach(m => {
-                console.log(`[${m.role.toUpperCase()}]: ${m.content}`);
-            });
-        }
-
-        console.log('\n--- AI RESPONSE ---');
-        const respStr = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
-        console.log(respStr);
-
-        if (usage) {
-            console.log('\n--- TOKEN USAGE ---');
-            console.log(`Prompt Tokens     : ${usage.prompt_tokens || usage.prompt_eval_count || 0}`);
-            console.log(`Completion Tokens : ${usage.completion_tokens || usage.eval_count || 0}`);
-            console.log(`Total Tokens      : ${usage.total_tokens || ((usage.prompt_eval_count || 0) + (usage.eval_count || 0))}`);
-        }
-        console.log('================== AI DEBUG LOG END ====================\n');
+        // Optimized Log Summary for Production
+        console.log(`[AI Event] ${type} | ${payload.model} | ${duration}ms | Tokens: ${usage?.total_tokens || '?'}`);
     }
 
     /**

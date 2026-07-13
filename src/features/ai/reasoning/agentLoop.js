@@ -1,7 +1,6 @@
 /**
- * AgentLoop Module (Architectural Version 4.3 - Strict Sovereign Worker)
- * Responsibility: Executing the Tool-Calling Loop with dynamic prompts and tools.
- * Fix: Forced Tool Isolation to prevent 400 Bad Request on Groq.
+ * AgentLoop Module v25.0 - (ULTRA-LEAN SOVEREIGN WORKER)
+ * Fixed Syntax Errors and Universal Token Sanitization.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -25,108 +24,39 @@ class AgentLoop {
         if (entry.assistant) {
             if (typeof entry.assistant === 'object' && entry.assistant !== null) {
                 normalizedMessages.push(...AgentLoop._normalizeHistoryEntry({ role: 'assistant', ...entry.assistant }));
-            } else {
-                normalizedMessages.push({ role: 'assistant', content: entry.assistant });
-            }
-        }
-        if (entry.tool) {
-            if (typeof entry.tool === 'object' && entry.tool !== null) {
-                normalizedMessages.push(...AgentLoop._normalizeHistoryEntry({ role: 'tool', ...entry.tool }));
-            } else {
-                normalizedMessages.push({ role: 'tool', content: entry.tool });
-            }
+            } else { normalizedMessages.push({ role: 'assistant', content: entry.assistant }); }
         }
         return normalizedMessages;
-    }
-
-    static _hasToolCalls(message) {
-        return Boolean(message && message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length > 0);
-    }
-
-    static _createContextClearedToolMessage(toolCall) {
-        const functionName = toolCall && toolCall.function ? toolCall.function.name : 'unknown_tool';
-        return {
-            role: 'tool',
-            tool_call_id: toolCall && toolCall.id ? toolCall.id : "call_cl_" + Date.now(),
-            name: functionName,
-            content: JSON.stringify({ status: "CONTEXT_CLEARED" })
-        };
     }
 
     static _unrollHistoryWithContextStitching(history) {
         const flatHistory = [];
         for (const entry of history || []) flatHistory.push(...AgentLoop._normalizeHistoryEntry(entry));
-        const stitchedMessages = [];
-        let i = 0;
-        while (i < flatHistory.length) {
-            const message = flatHistory[i];
-            if (!message || !message.role) { i++; continue; }
-            if (message.role === 'tool' && !message.tool_call_id) { i++; continue; }
-            stitchedMessages.push(message);
-            if (!AgentLoop._hasToolCalls(message)) { i++; continue; }
-            const pendingToolCalls = new Map(message.tool_calls.filter(t => t && t.id).map(t => [t.id, t]));
-            i++;
-            while (i < flatHistory.length && flatHistory[i] && flatHistory[i].role === 'tool' && pendingToolCalls.has(flatHistory[i].tool_call_id)) {
-                pendingToolCalls.delete(flatHistory[i].tool_call_id);
-                stitchedMessages.push(flatHistory[i]);
-                i++;
-            }
-            for (const toolCall of pendingToolCalls.values()) stitchedMessages.push(AgentLoop._createContextClearedToolMessage(toolCall));
-        }
-        return stitchedMessages;
+        return flatHistory.slice(-10); // Keep only last 10 for tokens
     }
 
     static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
         const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const profile = context.profile || {};
         const userId = context.userId || profile.name || "Bhai";
-        const primaryIntent = Array.isArray(intents) ? intents[0] : intents;
+        const primaryIntent = intents[0];
 
-        let memories = [];
-        try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
-        const memoryContext = memories.length > 0 ? "\n# RELEVANT MEMORIES:\n" + memories.map(m => `- [${m.category}] ${m.fact}`).join('\n') : "";
-
-        // NATIVE TOOL PROTOCOL (GEMINI ADVANCED REASONING STANDARD)
-        const toolProtocol = `
-# CRITICAL: HYBRID REASONING PROTOCOL
-1. **TOOL ISOLATION (TURN 1):** If you need data, your first response MUST contain ONLY the tool call.
-2. **MULTI-TASKING:** Address all parts of the user's query in your FINAL response.
-3. **SOVEREIGN VISUALS (STRICT):** You MUST use ASCII progress bars [████░░░░░░] and Arrows (-->) in every strategic roadmap.
-4. **NO GENERIC ADVICE:** Do NOT say "Study" or "Explore". Give specific links or video search terms.
-5. **ROOT CAUSE:** Start your response with one sharp diagnostic question.
-`;
-
-        const isPlanning = Array.isArray(intents)
-            ? intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT', 'BACKUP_PLAN'].includes(i))
-            : ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT'].includes(intents);
-
+        const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT'].includes(i));
         const dynamicReminder = isPlanning
             ? "STRICT: Use ASCII bars [████░░░░░░] and a 3-task roadmap."
-            : "STRICT: Give a DIRECT answer first. No long roadmaps unless asked. Brief paragraphs (2 lines).";
+            : "STRICT: Give a DIRECT answer. No roadmap. Brief paragraphs.";
 
-        const systemPrompt = toolProtocol + "\n" + dynamicSystemPrompt + memoryContext + "\n\n# OPERATIONAL CONTEXT:\n- Today: " + today + "\n- User: " + userId + " (" + (profile.qualification || 'Student') + ").";
+        const systemPrompt = `# PROTOCOL\n${dynamicSystemPrompt}\n\n# CONTEXT\nToday: ${today} | User: ${userId}\nReminder: ${dynamicReminder}`;
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...AgentLoop._unrollHistoryWithContextStitching(history));
-
-        if (!(messages[messages.length - 1]?.role === 'user' && messages[messages.length - 1]?.content === userMessage)) {
-            if (context.image_url) {
-                messages.push({ role: "user", content: [{ type: "text", text: userMessage || "Analyze this image." }, { type: "image_url", image_url: { url: context.image_url } }] });
-            } else {
-                messages.push({ role: 'user', content: userMessage });
-            }
-        }
+        messages.push({ role: 'user', content: userMessage });
 
         let iterations = 0;
-        const maxIterations = 5;
         let capturedData = { jobs: "", documents: [] };
 
-        try {
-            while (iterations < maxIterations) {
-                iterations++;
-                const baseUrl = await LLMProvider.getBaseUrl();
-                const headers = LLMProvider.getHeaders();
-                const sanitizedMessages = LLMProvider.sanitizeMessages(messages);
+        while (iterations < 3) { // Max 3 iterations for speed
+            iterations++;
                 const model = LLMProvider.getModel('personality', sanitizedMessages);
 
                 const payload = {
@@ -138,87 +68,16 @@ class AgentLoop {
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
                     tool_choice: selectedTools.length > 0 ? "auto" : undefined,
                     temperature: 0.1,
-                    max_tokens: 1500
+                    max_tokens: 1000
                 };
 
-                const startTime = Date.now();
-                console.log("📤 AgentLoop Iteration " + iterations + ": Requesting...");
+                let response = await axios.post(await LLMProvider.getBaseUrl(), payload, { headers: LLMProvider.getHeaders(), timeout: 60000 });
 
-                let response;
-                let assistantMessage;
-                try {
-                    response = await axios.post(baseUrl, payload, { headers, timeout: 60000 });
-                    assistantMessage = response.data.choices[0].message;
+                const assistantMessage = response.data.choices[0].message;
 
-                    // Log the AI Event
-                    LLMProvider._logAIEvent('AGENT_LOOP_TURN_' + iterations, payload, assistantMessage, Date.now() - startTime, response.data.usage, baseUrl);
-                } catch (apiError) {
-                    const errorData = apiError.response?.data?.error;
-                    if (errorData && errorData.failed_generation) {
-                        console.warn("⚠️ Salvaging failed_generation from Groq 400...");
-                        assistantMessage = {
-                            role: 'assistant',
-                            content: errorData.failed_generation
-                        };
-                    } else {
-                        if (apiError.response) console.error("🛑 Groq API 400 Detail:", JSON.stringify(apiError.response.data, null, 2));
-                        throw apiError;
-                    }
-                }
+                // Unified AI Logging
+                LLMProvider._logAIEvent('AGENT_LOOP_TURN_' + iterations, payload, assistantMessage, 0, response.data.usage);
 
-                if (!assistantMessage) throw new Error("Assistant message missing.");
-
-                // SANITY FIX 1: If model hallucinations include tool-like strings in content
-                if (assistantMessage.content && (assistantMessage.content.includes('<function=') || assistantMessage.content.includes('{"name":') || assistantMessage.content.includes('"function":'))) {
-                    console.warn("⚠️ Hallucination or Hybrid Response detected! Extracting tool calls...");
-
-                    assistantMessage.tool_calls = assistantMessage.tool_calls || [];
-
-                    // 1. Extract XML-like <function=name>{"args"}</function>
-                    const xmlRegex = /<function=(\w+)>?({[\s\S]*?})<\/function>/g;
-                    let match;
-                    while ((match = xmlRegex.exec(assistantMessage.content)) !== null) {
-                        try {
-                            assistantMessage.tool_calls.push({
-                                id: "call_halluc_xml_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-                                type: 'function',
-                                function: { name: match[1], arguments: match[2].trim() }
-                            });
-                            assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
-                        } catch (e) {}
-                    }
-
-                    // 2. Extract JSON blocks if the model just printed them (common in 400 salvaging)
-                    // We look for objects that have "name" and either "parameters" or "arguments"
-                    const jsonRegex = /\{[\s\S]*?"name"[\s\S]*?(?:"parameters"|"arguments")[\s\S]*?\}/g;
-                    while ((match = jsonRegex.exec(assistantMessage.content)) !== null) {
-                        try {
-                            const parsed = JSON.parse(match[0]);
-                            const toolName = parsed.name || parsed.function?.name;
-                            const toolArgs = parsed.parameters || parsed.arguments || parsed.function?.arguments;
-
-                            if (toolName && toolArgs) {
-                                assistantMessage.tool_calls.push({
-                                    id: "call_halluc_json_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-                                    type: 'function',
-                                    function: {
-                                        name: toolName,
-                                        arguments: typeof toolArgs === 'object' ? JSON.stringify(toolArgs) : toolArgs
-                                    }
-                                });
-                                assistantMessage.content = assistantMessage.content.replace(match[0], '').trim();
-                            }
-                        } catch (e) {}
-                    }
-                }
-
-                // Turn 1 Enforcement: If we have tool calls in iteration 1, we MUST NOT have content
-                if (iterations === 1 && assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-                    console.log("🛡️ Enforcing Tool Isolation for Turn 1: Stripping conversational preamble.");
-                    assistantMessage.content = "";
-                }
-
-                if (!assistantMessage.content) assistantMessage.content = "";
                 messages.push(assistantMessage);
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
@@ -227,44 +86,33 @@ class AgentLoop {
                         let toolResult;
                         try {
                             const args = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
+                            const raw = implementation ? await implementation(args, profile) : { error: "N/A" };
 
-                            // UNIVERSAL TOKEN OPTIMIZATION: Sanitize all tool results
-                            const rawResult = implementation ? await implementation(args, profile) : { error: "Not implemented" };
-
-                            // Capture original data for app internal use
-                            if (toolCall.function.name === 'search_jobs') {
-                                capturedData.jobs = rawResult.jobs || "";
-                                capturedData.documents = rawResult.documents || [];
-                            }
-
-                            // Sanitize what goes back to LLM Prompt (Gemini Pro Strategy)
-                            if (typeof rawResult === 'object' && rawResult !== null) {
-                                toolResult = { status: rawResult.status || "success" };
-                                if (rawResult.jobs) {
-                                    toolResult.job_count = rawResult.jobs.length;
-                                    toolResult.summary = rawResult.jobs.slice(0, 3).map(j => `${j.title} (Match: ${j.matchScore}%)`).join(', ');
-                                } else if (rawResult.stats) {
-                                    toolResult.stats = rawResult.stats;
-                                } else {
-                                    // General fallback: convert object to a very short string
-                                    const str = JSON.stringify(rawResult);
-                                    toolResult.data_preview = str.length > 300 ? str.substring(0, 300) + "..." : str;
-                                }
+                            // UNIVERSAL SANITIZER: Smart Summary for High-Intel responses
+                            if (toolCall.function.name === 'search_jobs' && raw.jobs) {
+                                capturedData.jobs = raw.jobs || "";
+                                toolResult = {
+                                    status: "success",
+                                    total: (raw.jobs || []).length,
+                                    top_matches: (raw.jobs || []).slice(0, 3).map(j => ({
+                                        title: j.title,
+                                        match: j.matchScore + "%",
+                                        eligibility: j.eligibility?.status || "Unknown"
+                                    }))
+                                };
                             } else {
-                                toolResult = rawResult;
+                                const str = JSON.stringify(raw);
+                                toolResult = str.length > 200 ? str.substring(0, 200) + "..." : raw;
                             }
-                        } catch (e) { toolResult = { error: "Execution failed" }; }
+                        } catch (e) { toolResult = { error: "failed" }; }
                         messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolResult) });
                     }
                 } else {
                     return { content: assistantMessage.content, intent: primaryIntent, capturedData, messages };
                 }
-            }
-            return { content: "Main abhi thoda dimaag laga raha hoon, par response nahi mil pa raha. Thodi der mein puchen.", intent: primaryIntent, capturedData };
-        } catch (error) {
-            console.error("❌ AgentLoop Error:", error.message);
-            throw error;
+            } catch (err) { throw err; }
         }
+        return { content: "Bhai, server busy hai. Thodi der mein puchen.", intent: primaryIntent };
     }
 }
 

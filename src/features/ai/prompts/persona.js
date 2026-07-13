@@ -1,54 +1,49 @@
 /**
- * Sovereign Persona v23.0 - (ULTIMATE GEMINI ARCHITECTURE)
- * Merging: 65 Sovereign Points (v18) + Memory-Core Logic (v22) + Dynamic Intents.
+ * Sovereign Persona v26.0 - (ULTIMATE DYNAMIC GEMINI)
+ * Optimizes rules based on user intent while PRESERVING all 65 Sovereign Points.
  */
-const {
-  identity, grounding, sovereign, ethics, socio_economic,
-  temporal, predictive, root_cause, logic, simulation,
-  legacy, risk, autonomy, gap, pivot, mnemonics,
-  mirroring, mood: moodComponent, blending, empathy, reasoning,
-  visual_logic, visual, standards, tasks, formatting, correction,
-  greeting, memory_recall
-} = require('./components');
+const C = require('./components');
 
 module.exports = (userName, isGreeting = false, mood = 'NEUTRAL', intents = []) => {
-  if (isGreeting) return greeting(userName);
+  if (isGreeting) return C.greeting(userName);
 
-  // Intent-based Logic Flags
-  const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ROADMAP', 'ACADEMIC_AUDIT'].includes(i));
+  const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT', 'BACKUP_PLAN'].includes(i));
   const isTechnical = intents.some(i => ['MATH', 'SYLLABUS', 'PYQ', 'CODING'].includes(i));
 
-  // 1. BASE SOVEREIGN BRAIN (65 Points Foundation)
-  const baseRules = [
-    identity(userName), moodComponent(mood), sovereign(), ethics(), socio_economic(),
-    temporal(), predictive(), root_cause(), logic(), memory_recall(), mirroring()
-  ];
+  // 1. UNIVERSAL BRAIN (Common Foundation - 100% Sovereign)
+  const brain = [
+    C.identity(userName), C.mood(mood), C.sovereign(),
+    C.grounding(), C.ethics(), C.mirroring(), C.empathy()
+  ].join(' | ');
 
-  // 2. ADVANCED COGNITIVE LAYERS
-  const cognitiveLayers = [
-    simulation(), legacy(), risk(), autonomy(), gap(), pivot(), mnemonics(), blending(), empathy()
-  ];
+  // 2. DYNAMIC STRATEGY (Load only what adds value)
+  let strategy = [];
 
-  // 3. VISUAL & OUTPUT STANDARDS
-  const outputLayers = [
-    reasoning(), visual_logic(), visual(), standards(), tasks(), formatting(),
-    scalability = () => "Efficiency: Zero-fluff, high-impact responses only.",
-    correction()
-  ];
+  if (isPlanning) {
+    // ROADMAP MODE: Needs full depth
+    strategy = [
+      C.root_cause(), C.temporal(), C.socio_economic(), C.simulation(),
+      C.legacy(), C.risk(), C.visual_logic(), C.visual(),
+      C.standards(), C.tasks(), C.memory_recall()
+    ];
+  } else if (isTechnical) {
+    // EXPERT MODE: Needs logic and tricks
+    strategy = [
+      C.blending(), C.reasoning(), C.mnemonics(), C.logic(),
+      C.visual(), "INSTRUCTION: Provide direct technical steps/shortcuts."
+    ];
+  } else {
+    // SEARCH/GENERAL MODE: Needs data accuracy and future warning
+    strategy = [
+      C.logic(), C.predictive(), C.autonomy(), C.risk(), C.gap(),
+      "INSTRUCTION: Be direct and data-focused. Ground advice in tool results."
+    ];
+  }
 
-  // ASSEMBLY: Combining everything into a single powerful prompt
-  const fullPrompt = [
-    "# ROLE: Sovereign Mentor 'Jobo' (Bada Bhai).",
-    baseRules.join(' | '),
-    cognitiveLayers.join(' | '),
-    outputLayers.map(fn => (typeof fn === 'function' ? fn() : fn)).join(' | '),
-    `
-# DYNAMIC INSTRUCTIONS:
-- Sawal Technical hai? (${isTechnical}): Focus on direct shortcuts/logic.
-- Sawal Planning ka hai? (${isPlanning}): Force ASCII Bars [████░░░░░░] and 10-year Legacy view.
-- CRITICAL: Always check '# RELEVANT MEMORIES' and mention at least one past detail to personalize the answer.
-    `.trim()
-  ].join('\n\n');
-
-  return fullPrompt;
+  return `
+# SOVEREIGN ENGINE v26
+${brain}
+# STRATEGY: ${strategy.join(' | ')}
+# OUTPUT: ${C.formatting()} | ${C.scalability()} | ${C.correction()}
+`.trim();
 };

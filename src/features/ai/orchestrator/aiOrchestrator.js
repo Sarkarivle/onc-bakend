@@ -17,6 +17,7 @@ const { shapeResponse, SAFE_RESPONSES, normalizeRequest } = require('../quality/
 const PlannerLog = require('../models/PlannerLog');
 const AgentLoop = require('../reasoning/agentLoop');
 const MasterOrchestrator = require('./MasterOrchestrator');
+const NeuralAuditor = require('../quality/neuralAuditor');
 
 class AIOrchestrator {
     static async _logDecision(query, plan, meta) {
@@ -79,6 +80,9 @@ class AIOrchestrator {
             const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
 
             await SessionManager.saveInteraction(userName, sessionId, userMessage, formatted);
+
+            // NEURAL AUDIT (Background)
+            NeuralAuditor.audit(userMessage, formatted, intent, 0, Date.now() - traceId).catch(() => {});
 
             await Telemetry.trackStage(traceId, 'BACKGROUND_SERVICES',
                 () => BackgroundServices.runAll({
