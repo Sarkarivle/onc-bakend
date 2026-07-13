@@ -16,6 +16,7 @@
     "test:live-ai": "node test_suite/runLiveAiTests.js",
     "test:brain": "node test_suite/runNeuralTests.js",
     "test:sovereign": "node src/features/ai/quality/sovereignAuditor.js",
+    "test:battle": "node src/features/ai/test_suite/battle_lab/battleSimulator.js",
     "test:release": "npm run test:all && npm run test:brain",
     "test:release-live": "npm run test:all && npm run test:brain && npm run test:live-ai"
   },
