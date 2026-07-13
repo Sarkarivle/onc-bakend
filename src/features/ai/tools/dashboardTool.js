@@ -11,11 +11,17 @@ class DashboardTool {
      * Calculates personalized counts for Jobs, Grants, and Plans.
      */
     static async getStats(userProfile) {
-        console.log(`📊 DashboardTool: Fetching stats for ${userProfile.name} (ID: ${userProfile._id})`);
+        console.log(`📊 DashboardTool: Fetching stats for ${userProfile?.name} (ID: ${userProfile?._id})`);
         try {
-            // 1. ALL ACTIVE JOBS
-            const allJobs = await Job.find({ isActive: true }).lean();
-            console.log(`- Total active jobs in DB: ${allJobs.length}`);
+            // 1. ALL ACTIVE JOBS (Inclusive query to handle legacy data without isActive field)
+            const allJobs = await Job.find({
+                $or: [
+                    { isActive: true },
+                    { isActive: { $exists: false } }
+                ]
+            }).lean();
+
+            console.log(`- Total jobs found in DB: ${allJobs.length}`);
 
             let eligibleJobsCount = 0;
             let eligibleGrantsCount = 0;
@@ -66,7 +72,14 @@ class DashboardTool {
             // 2. PLANS (Count user goals/plans from memory)
             let plansCount = 0;
             try {
-                const memories = await MemoryEngine.searchMemory(userProfile.name, 'plan goal career target sapna naukri aim', 50);
+                // Try searching with name
+                let memories = await MemoryEngine.searchMemory(userProfile.name, 'plan goal career target sapna naukri aim', 50);
+
+                // Fallback to ID if no memories found by name
+                if ((!memories || memories.length === 0) && userProfile._id) {
+                    memories = await MemoryEngine.searchMemory(userProfile._id.toString(), 'plan goal career target sapna naukri aim', 50);
+                }
+
                 plansCount = (memories || []).filter(m =>
                     ['GOAL', 'PLAN', 'CAREER_GOAL', 'TARGET'].includes(m.category) ||
                     /(plan|sapna|target|aim|goal|naukri)/i.test(m.fact)

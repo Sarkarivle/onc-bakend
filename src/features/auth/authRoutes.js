@@ -13,6 +13,7 @@ const handle = (fnName) => (req, res, next) => {
 
 router.post('/signup', handle('signup'));
 router.post('/login', handle('login'));
+router.post('/send-otp', handle('sendOTP'));
 
 // Protected routes
 router.use(authMiddleware.protect);
