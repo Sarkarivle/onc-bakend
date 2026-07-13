@@ -224,9 +224,17 @@ class AgentLoop {
                         try {
                             const args = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
                             toolResult = implementation ? await implementation(args, profile) : { error: "Not implemented" };
+
+                            // TOKEN OPTIMIZATION: Sanitize large tool results for next iteration
                             if (toolCall.function.name === 'search_jobs' && toolResult.jobs) {
                                 capturedData.jobs = toolResult.jobs;
                                 capturedData.documents = toolResult.documents || [];
+                                // Send only a light-weight summary to the AI to save tokens
+                                toolResult = {
+                                    status: toolResult.status,
+                                    job_count: toolResult.jobs_found_count || toolResult.jobs.length,
+                                    summary: toolResult.jobs.map(j => `${j.title} (Status: ${j.eligibility?.status || 'Check Needed'})`).join(', ')
+                                };
                             }
                         } catch (e) { toolResult = { error: "Execution failed" }; }
                         messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolResult) });

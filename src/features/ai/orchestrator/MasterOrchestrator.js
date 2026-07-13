@@ -32,6 +32,15 @@ Output ONLY JSON: {"intents": ["CAT1", "CAT2"], "mood": "MOOD"}`;
 
         try {
             const result = await LLMProvider.generateLogic(prompt);
+
+            // Intelligence Patch: Force ROADMAP if user asks "how to", "plan", or "what to do"
+            const q = lowerQuery;
+            if (q.includes('kya kare') || q.includes('kaise kare') || q.includes('taiari') || q.includes('plan') || q.includes('roadmap') || q.includes('strategy')) {
+                if (result.intents && !result.intents.includes('ROADMAP')) {
+                    result.intents.push('ROADMAP');
+                }
+            }
+
             // Safety filter: ensure only valid intents are returned
             const validIntents = (result?.intents || ['GENERAL']).filter(i =>
                 ['JOB_SEARCH', 'CAREER_ADVICE', 'MATH', 'WELLNESS', 'UTILITY', 'DRAFTING', 'INTERVIEW', 'NEWS', 'SOFT_SKILLS', 'ROADMAP', 'ACADEMIC_AUDIT', 'GRANTS', 'SYLLABUS', 'PYQ', 'CONCEPT', 'SHORTCUT', 'VOCAB', 'GK_DIGEST', 'TEST_STRATEGY', 'MNEMONIC', 'PRACTICAL_SCIENCE', 'NOTE_NINJA', 'LINKEDIN', 'NETWORKING', 'NEGOTIATOR', 'PIVOT', 'JD_DECODER', 'EMAIL_PRO', 'BODY_LANGUAGE', 'PART_TIME', 'SAVINGS', 'FEE_WAIVER', 'MOTIVATION', 'DISTRACTION', 'TIME_BOX', 'HABIT', 'PROCRASTINATION', 'CODING', 'AI_LITERACY', 'DATA_SKILLS', 'CYBER_SAFETY', 'CREATOR', 'SSC', 'POLICE', 'RAILWAY', 'BANKING', 'TEACHER', 'UPSC', 'ENGLISH_PRACTICE', 'STAGE_CONFIDENCE', 'GD_MASTER', 'BACKUP_PLAN', 'LOCAL_SCOUT', 'TREND_PREDICTOR', 'STARTUP', 'HIGHER_STUDIES', 'STUDENT_RIGHTS', 'SCAM_PROTECTOR', 'RTI_HELPER', 'FORM_GUARD', 'RURAL_EMPOWER', 'GENERAL'].includes(i)
