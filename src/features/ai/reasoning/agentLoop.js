@@ -1,6 +1,6 @@
 /**
- * AgentLoop Module v32.0 - (SOVEREIGN FORTRESS)
- * Implements Identity Locking and Turn-by-Turn Reinforcement.
+ * AgentLoop Module v34.0 - (SOVEREIGN COMMANDER)
+ * Forces 100% adherence to ASCII bars and persona via User-Turn Injection.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
