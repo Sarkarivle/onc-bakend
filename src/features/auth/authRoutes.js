@@ -1,5 +1,6 @@
 const express = require('express');
 const authController = require('./authController');
+const policyController = require('./policyController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -14,6 +15,7 @@ const handle = (fnName) => (req, res, next) => {
 router.post('/signup', handle('signup'));
 router.post('/login', handle('login'));
 router.post('/send-otp', handle('sendOTP'));
+router.get('/policies', policyController.getPolicies);
 
 // Protected routes
 router.use(authMiddleware.protect);

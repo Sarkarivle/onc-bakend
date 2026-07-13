@@ -44,8 +44,8 @@ class DashboardTool {
                             const category = (item.category || "").toLowerCase();
                             const title = (item.title || "").toLowerCase();
 
-                            // Improved Grant/Scheme detection
-                            const isGrant = /scheme|scholarship|yojna|yojana|grant|pension|subsidy|beema|bima|card|result/i.test(category + title);
+                            // Improved Grant/Scheme detection (Supporting both English and Hindi/Transliterated)
+                            const isGrant = /scheme|scholarship|yojna|yojana|grant|pension|subsidy|beema|bima|card|result|योजना|छात्रवृत्ति|अनुदान|पेंशन|बीमा/i.test(category + title);
 
                             if (isGrant) {
                                 eligibleGrantsCount++;
@@ -54,9 +54,15 @@ class DashboardTool {
                             }
 
                             // Deadline logic
-                            if (item.lastDate) {
-                                const lastDate = new Date(item.lastDate);
-                                if (lastDate >= now && lastDate <= fiveDaysFromNow) {
+                            let jobDeadline = item.lastDate ? new Date(item.lastDate) : null;
+                            if (!jobDeadline && item.importantDates?.applicationLastDate) {
+                                // Try to parse string date if Date object is missing
+                                const parsed = new Date(item.importantDates.applicationLastDate);
+                                if (!isNaN(parsed.getTime())) jobDeadline = parsed;
+                            }
+
+                            if (jobDeadline) {
+                                if (jobDeadline >= now && jobDeadline <= fiveDaysFromNow) {
                                     urgentCount++;
                                 }
                             }
@@ -72,12 +78,14 @@ class DashboardTool {
             // 2. PLANS (Count user goals/plans from memory)
             let plansCount = 0;
             try {
-                // Try searching with name
-                let memories = await MemoryEngine.searchMemory(userProfile.name, 'plan goal career target sapna naukri aim', 50);
+                // Fix: Use userId instead of name for memory search
+                const searchId = userProfile._id ? userProfile._id.toString() : userProfile.id;
+                let memories = await MemoryEngine.searchMemory(searchId, 'plan goal career target sapna naukri aim', 50);
 
-                // Fallback to ID if no memories found by name
-                if ((!memories || memories.length === 0) && userProfile._id) {
-                    memories = await MemoryEngine.searchMemory(userProfile._id.toString(), 'plan goal career target sapna naukri aim', 50);
+                // Fallback to name if ID search failed and name is not generic
+                if ((!memories || memories.length === 0) && userProfile.name && !userProfile.name.includes('User')) {
+                    const nameMemories = await MemoryEngine.searchMemory(userProfile.name, 'plan goal career target sapna naukri aim', 50);
+                    if (nameMemories.length > 0) memories = nameMemories;
                 }
 
                 plansCount = (memories || []).filter(m =>
