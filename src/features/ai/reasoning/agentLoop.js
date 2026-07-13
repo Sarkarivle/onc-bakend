@@ -1,5 +1,5 @@
 /**
- * AgentLoop Module v25.0 - (ULTRA-LEAN SOVEREIGN WORKER)
+ * AgentLoop Module v25.5 - (ULTRA-LEAN SOVEREIGN WORKER)
  * Fixed Syntax Errors and Universal Token Sanitization.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
@@ -57,22 +57,23 @@ class AgentLoop {
 
         while (iterations < 3) { // Max 3 iterations for speed
             iterations++;
-                const model = LLMProvider.getModel('personality', sanitizedMessages);
+            const sanitizedMessages = LLMProvider.sanitizeMessages(messages);
+            const model = LLMProvider.getModel('personality', sanitizedMessages);
 
-                const payload = {
-                    model,
-                    messages: sanitizedMessages.concat([{
-                        role: 'system',
-                        content: dynamicReminder
-                    }]),
-                    tools: selectedTools.length > 0 ? selectedTools : undefined,
-                    tool_choice: selectedTools.length > 0 ? "auto" : undefined,
-                    temperature: 0.1,
-                    max_tokens: 1000
-                };
+            const payload = {
+                model,
+                messages: sanitizedMessages.concat([{
+                    role: 'system',
+                    content: dynamicReminder
+                }]),
+                tools: selectedTools.length > 0 ? selectedTools : undefined,
+                tool_choice: selectedTools.length > 0 ? "auto" : undefined,
+                temperature: 0.1,
+                max_tokens: 1000
+            };
 
-                let response = await axios.post(await LLMProvider.getBaseUrl(), payload, { headers: LLMProvider.getHeaders(), timeout: 60000 });
-
+            try {
+                const response = await axios.post(await LLMProvider.getBaseUrl(), payload, { headers: LLMProvider.getHeaders(), timeout: 60000 });
                 const assistantMessage = response.data.choices[0].message;
 
                 // Unified AI Logging
@@ -91,12 +92,13 @@ class AgentLoop {
                             // UNIVERSAL SANITIZER: Smart Summary for High-Intel responses
                             if (toolCall.function.name === 'search_jobs' && raw.jobs) {
                                 capturedData.jobs = raw.jobs || "";
+                                capturedData.documents = raw.documents || [];
                                 toolResult = {
                                     status: "success",
                                     total: (raw.jobs || []).length,
                                     top_matches: (raw.jobs || []).slice(0, 3).map(j => ({
                                         title: j.title,
-                                        match: j.matchScore + "%",
+                                        match: (j.matchScore || 0) + "%",
                                         eligibility: j.eligibility?.status || "Unknown"
                                     }))
                                 };
@@ -110,9 +112,12 @@ class AgentLoop {
                 } else {
                     return { content: assistantMessage.content, intent: primaryIntent, capturedData, messages };
                 }
-            } catch (err) { throw err; }
+            } catch (err) {
+                console.error("❌ AgentLoop Iteration Error:", err.message);
+                throw err;
+            }
         }
-        return { content: "Bhai, server busy hai. Thodi der mein puchen.", intent: primaryIntent };
+        return { content: "Bhai, server busy hai. Thodi der mein puchen.", intent: primaryIntent, capturedData };
     }
 }
 
