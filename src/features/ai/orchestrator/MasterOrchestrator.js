@@ -71,7 +71,7 @@ Output ONLY JSON: {"intents": ["CAT1", "CAT2"], "mood": "MOOD"}`;
         const selectedTools = getToolsByCategory(intents);
         const dynamicSystemPrompt = this._getDynamicPrompt(intents, context.profile || {}, context.isVoice, mood);
 
-        return await AgentLoop.run(finalQuery, chatHistory, context, dynamicSystemPrompt, selectedTools, intents[0]);
+        return await AgentLoop.run(finalQuery, chatHistory, context, dynamicSystemPrompt, selectedTools, intents);
     }
 
     static _getDynamicPrompt(intents, profile, isVoice = false, mood = 'NEUTRAL') {

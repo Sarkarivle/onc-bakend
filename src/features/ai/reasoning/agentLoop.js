@@ -76,10 +76,11 @@ class AgentLoop {
         return stitchedMessages;
     }
 
-    static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intent = "GENERAL") {
+    static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
         const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const profile = context.profile || {};
         const userId = context.userId || profile.name || "Bhai";
+        const primaryIntent = Array.isArray(intents) ? intents[0] : intents;
 
         let memories = [];
         try { memories = await MemoryEngine.searchMemory(userId, userMessage); } catch (e) {}
@@ -95,7 +96,10 @@ class AgentLoop {
 5. **ROOT CAUSE:** Start your response with one sharp diagnostic question.
 `;
 
-        const isPlanning = intent === 'ROADMAP' || intent === 'CAREER_ADVICE' || intent === 'ACADEMIC_AUDIT';
+        const isPlanning = Array.isArray(intents)
+            ? intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT', 'BACKUP_PLAN'].includes(i))
+            : ['ROADMAP', 'CAREER_ADVICE', 'ACADEMIC_AUDIT'].includes(intents);
+
         const dynamicReminder = isPlanning
             ? "STRICT: Use ASCII bars [████░░░░░░] and a 3-task roadmap."
             : "STRICT: Give a DIRECT answer first. No long roadmaps unless asked. Brief paragraphs (2 lines).";
@@ -240,10 +244,10 @@ class AgentLoop {
                         messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolResult) });
                     }
                 } else {
-                    return { content: assistantMessage.content, intent, capturedData, messages };
+                    return { content: assistantMessage.content, intent: primaryIntent, capturedData, messages };
                 }
             }
-            return { content: "Main abhi thoda dimaag laga raha hoon, par response nahi mil pa raha. Thodi der mein puchen.", intent, capturedData };
+            return { content: "Main abhi thoda dimaag laga raha hoon, par response nahi mil pa raha. Thodi der mein puchen.", intent: primaryIntent, capturedData };
         } catch (error) {
             console.error("❌ AgentLoop Error:", error.message);
             throw error;
