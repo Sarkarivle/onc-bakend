@@ -225,6 +225,9 @@ class AgentLoop {
                     for (const toolCall of assistantMessage.tool_calls) {
                         const implementation = toolImplementations[toolCall.function.name];
                         let toolResult;
+                        try {
+                            const args = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
+
                             // UNIVERSAL TOKEN OPTIMIZATION: Sanitize all tool results
                             const rawResult = implementation ? await implementation(args, profile) : { error: "Not implemented" };
 
