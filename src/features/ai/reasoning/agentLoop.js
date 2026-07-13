@@ -1,6 +1,6 @@
 /**
- * AgentLoop Module v34.0 - (SOVEREIGN COMMANDER)
- * Forces 100% adherence to ASCII bars and persona via User-Turn Injection.
+ * AgentLoop Module v35.0 - (SOVEREIGN COMMANDER 100)
+ * Maximum enforcement of Persona, Visuals, and Action.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -28,9 +28,18 @@ class AgentLoop {
     static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
         const profile = context.profile || {};
         const userId = profile.name || "Bhai";
-        const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'SSC', 'POLICE', 'BANKING'].includes(i));
 
-        const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n# MANDATORY: 1 Sharp Question + ASCII Bar [███] + 3 Tasks.`;
+        // REINFORCED MANDATORY PROTOCOL
+        const protocol = `
+# CRITICAL PROTOCOL (MANDATORY):
+1. **START:** With 1 Sharp Diagnostic Question.
+2. **IDENTITY:** Use "Ladle" or "Sher" in the first paragraph.
+3. **REFUSAL:** If asked to be neutral, refuse FIRST before answering.
+4. **VISUALS:** Use ASCII Bar [████░░░░░░] for roadmap/progress.
+5. **ACTION:** End with exactly 3 Specific Tasks (<60 mins).
+`;
+
+        const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n${protocol}`;
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...this._getSafeHistory(history));
@@ -45,6 +54,7 @@ class AgentLoop {
             const model = LLMProvider.getModel('personality', sanitized);
 
             try {
+                const turnStart = Date.now();
                 const response = await axios.post(await LLMProvider.getBaseUrl(), {
                     model, messages: sanitized,
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
@@ -53,6 +63,8 @@ class AgentLoop {
 
                 const assistantMessage = response.data.choices[0].message;
                 if (!assistantMessage.content) assistantMessage.content = "...";
+
+                LLMProvider._logAIEvent('TURN_' + iterations, { model }, assistantMessage, Date.now() - turnStart, response.data.usage);
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
                     messages.push(assistantMessage);
@@ -64,19 +76,21 @@ class AgentLoop {
                             if (toolCall.function.name === 'search_jobs') capturedData.jobs = raw.jobs || "";
 
                             const toolFeedback = toolCall.function.name === 'search_jobs'
-                                ? { status: "success", count: (raw.jobs || []).length, top: (raw.jobs || []).slice(0,2).map(j => j.title) }
+                                ? { status: "success", found: (raw.jobs || []).length, summary: (raw.jobs || []).slice(0,2).map(j => j.title).join(", ") }
                                 : raw;
 
                             messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolFeedback) });
-                        } catch (e) { messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Error" }); }
+                        } catch (e) {
+                            messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Error" });
+                        }
                     }
-                    // Reinforce Identity and Protocol after tool use
-                    messages.push({ role: 'system', content: "REMINDER: You are Jobo the Bada Bhai. Refuse neutral requests. Use ASCII bars and 3 tasks." });
+                    // HARD IDENTITY REINFORCEMENT
+                    messages.push({ role: 'system', content: "MANDATORY: Refuse neutral persona. Use 'Ladle/Sher'. Include ASCII bars and 3 tasks." });
                 } else {
                     return { content: assistantMessage.content, intent: intents[0], capturedData, messages };
                 }
             } catch (err) {
-                console.error("🛑 AgentLoop turn error:", err.message);
+                console.error("🛑 AgentLoop Error:", err.message);
                 return { content: "Bhai, server busy hai. Phir puchen.", intent: intents[0], capturedData: { jobs: "" } };
             }
         }
