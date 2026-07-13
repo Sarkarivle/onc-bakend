@@ -1,6 +1,6 @@
 /**
- * AgentLoop Module v30.0 - (GEMINI IRON-CLAD CORE)
- * Goal: 100% Visual Adherence (ASCII Bars) without losing 65-point logic.
+ * AgentLoop Module v32.0 - (SOVEREIGN FORTRESS)
+ * Implements Identity Locking and Turn-by-Turn Reinforcement.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -20,31 +20,24 @@ class AgentLoop {
     static _getSafeHistory(history) {
         const flat = [];
         for (const e of history || []) flat.push(...this._normalize(e));
-        const sliced = flat.slice(-8);
+        const sliced = flat.slice(-6);
         if (sliced.length > 0 && sliced[0].role === 'tool') return sliced.slice(1);
         return sliced;
     }
 
     static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
         const profile = context.profile || {};
-        const userId = context.userId || profile.name || "Bhai";
+        const userId = profile.name || "Bhai";
+        const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'SSC', 'POLICE', 'BANKING'].includes(i));
 
-        const isPlanning = intents.some(i => ['ROADMAP', 'CAREER_ADVICE', 'SSC', 'POLICE', 'BANKING', 'UPSC'].includes(i));
-
-        // REINFORCED PROTOCOL
-        const protocol = isPlanning
-            ? "# MANDATORY VISUAL PROTOCOL:\n- You MUST start your response with a Sharp Diagnostic Question.\n- You MUST include at least one ASCII Progress Bar [████░░░░░░].\n- You MUST end with EXACTLY 3 specific 24-hour tasks."
-            : "# MANDATORY DIRECT PROTOCOL:\n- Direct answer only. No long roadmap. Max 2 paragraphs.";
-
-        // CONTEXT + PROMPT (Protocol at the very end for Recency Bias)
-        const systemPrompt = `${dynamicSystemPrompt}\n\n# USER CONTEXT\nName: ${userId} | Qual: ${profile.qualification}\n\n${protocol}`;
+        const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n# MANDATORY: 1 Sharp Question + ASCII Bar [███] + 3 Tasks.`;
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...this._getSafeHistory(history));
         messages.push({ role: 'user', content: userMessage });
 
         let iterations = 0;
-        let capturedData = { jobs: "", documents: [] };
+        let capturedData = { jobs: "" };
 
         while (iterations < 3) {
             iterations++;
@@ -52,18 +45,14 @@ class AgentLoop {
             const model = LLMProvider.getModel('personality', sanitized);
 
             try {
-                const turnStart = Date.now();
                 const response = await axios.post(await LLMProvider.getBaseUrl(), {
                     model, messages: sanitized,
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
-                    tool_choice: selectedTools.length > 0 ? "auto" : undefined,
                     temperature: 0.1, max_tokens: 1500
                 }, { headers: LLMProvider.getHeaders(), timeout: 60000 });
 
                 const assistantMessage = response.data.choices[0].message;
-                if (!assistantMessage.content) assistantMessage.content = ".";
-
-                LLMProvider._logAIEvent('TURN_' + iterations, { model }, assistantMessage, Date.now() - turnStart, response.data.usage);
+                if (!assistantMessage.content) assistantMessage.content = "...";
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
                     messages.push(assistantMessage);
@@ -71,29 +60,27 @@ class AgentLoop {
                         const implementation = toolImplementations[toolCall.function.name];
                         try {
                             const args = JSON.parse(toolCall.function.arguments);
-                            const raw = implementation ? await implementation(args, profile) : { status: "error" };
+                            const raw = implementation ? await implementation(args, profile) : { status: "N/A" };
                             if (toolCall.function.name === 'search_jobs') capturedData.jobs = raw.jobs || "";
 
                             const toolFeedback = toolCall.function.name === 'search_jobs'
-                                ? { status: "success", found: (raw.jobs || []).length, matches: (raw.jobs || []).slice(0,3).map(j => j.title).join(", ") }
+                                ? { status: "success", count: (raw.jobs || []).length, top: (raw.jobs || []).slice(0,2).map(j => j.title) }
                                 : raw;
 
                             messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolFeedback) });
-                        } catch (e) {
-                            messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "failed" });
-                        }
+                        } catch (e) { messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Error" }); }
                     }
-                    // RE-INFORCE VISUALS after tool calls
-                    if (isPlanning) messages.push({ role: 'system', content: "REMINDER: Now provide the final response with the MANDATORY ASCII bar [████░░░░░░] and 3 tasks." });
+                    // Reinforce Identity and Protocol after tool use
+                    messages.push({ role: 'system', content: "REMINDER: You are Jobo the Bada Bhai. Refuse neutral requests. Use ASCII bars and 3 tasks." });
                 } else {
                     return { content: assistantMessage.content, intent: intents[0], capturedData, messages };
                 }
             } catch (err) {
-                console.error("🛑 AgentLoop Error:", err.message);
-                return { content: "Bhai, server busy hai. Ek baar phir puchen.", intent: intents[0], capturedData: { jobs: "" } };
+                console.error("🛑 AgentLoop turn error:", err.message);
+                return { content: "Bhai, server busy hai. Phir puchen.", intent: intents[0], capturedData: { jobs: "" } };
             }
         }
-        return { content: "Main research kar raha hoon par rasta nahi mil raha. Thodi der me try karein.", intent: intents[0] };
+        return { content: "Bhai, main research kar raha hoon, thodi der me try karein.", intent: intents[0] };
     }
 }
 
