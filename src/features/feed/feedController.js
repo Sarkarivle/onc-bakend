@@ -1,5 +1,10 @@
 const FeedPost = require('./feedModel');
 
+// Simple Memory Cache (Works like Redis but inside Node.js)
+let feedCache = null;
+let cacheTime = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 Minutes
+
 exports.createPost = async (req, res) => {
   try {
     const { content, imageUrl } = req.body;
@@ -9,6 +14,9 @@ exports.createPost = async (req, res) => {
       content,
       imageUrl
     });
+
+    // Clear cache when new post is created
+    feedCache = null;
 
     res.status(201).json({
       success: true,
@@ -24,12 +32,27 @@ exports.createPost = async (req, res) => {
 
 exports.getFeed = async (req, res) => {
   try {
-    // Fetch all posts, sorted by newest first
-    const posts = await FeedPost.find().sort('-createdAt');
+    // 1. Check if valid cache exists
+    if (feedCache && (Date.now() - cacheTime < CACHE_DURATION)) {
+      return res.status(200).json({
+        success: true,
+        results: feedCache.length,
+        fromCache: true,
+        data: feedCache
+      });
+    }
+
+    // 2. Otherwise fetch from MongoDB
+    const posts = await FeedPost.find().sort('-createdAt').limit(50);
+
+    // 3. Update Cache
+    feedCache = posts;
+    cacheTime = Date.now();
 
     res.status(200).json({
       success: true,
       results: posts.length,
+      fromCache: false,
       data: posts
     });
   } catch (err) {
@@ -53,6 +76,10 @@ exports.likePost = async (req, res) => {
         }
 
         await post.save();
+
+        // Invalidate cache on like change
+        feedCache = null;
+
         res.json({ success: true, likes: post.likes.length, isLiked: index === -1 });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -72,6 +99,10 @@ exports.addComment = async (req, res) => {
         });
 
         await post.save();
+
+        // Invalidate cache on new comment
+        feedCache = null;
+
         res.status(201).json({ success: true, data: post.comments });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
