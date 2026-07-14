@@ -10,7 +10,13 @@ exports.createPost = async (req, res) => {
 
     // Force refresh cache for everyone when NEW content is added
     const redis = getRedis();
-    if (redis) await redis.del(CACHE_KEY);
+    if (redis) {
+        await redis.del(CACHE_KEY);
+        // Optionally broadcast new post event
+        await redis.publish('feed_updates', JSON.stringify({
+            type: 'new_post'
+        }));
+    }
 
     res.status(201).json({ success: true, data: newPost });
   } catch (err) {
