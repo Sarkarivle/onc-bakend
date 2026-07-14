@@ -3,6 +3,21 @@ const { getRedis } = require('../../config/redis');
 
 const CACHE_KEY = 'jobo:feed:all';
 
+exports.createPost = async (req, res) => {
+  try {
+    const { content, imageUrl } = req.body;
+    const newPost = await FeedPost.create({ user: req.user.id, content, imageUrl });
+
+    // Force refresh cache for everyone when NEW content is added
+    const redis = getRedis();
+    if (redis) await redis.del(CACHE_KEY);
+
+    res.status(201).json({ success: true, data: newPost });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 exports.getFeed = async (req, res) => {
   try {
     const redis = getRedis();
