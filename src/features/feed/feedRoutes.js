@@ -4,26 +4,24 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 
 const router = express.Router();
 
+const handle = (fnName) => (req, res, next) => {
+    try {
+        const handler = feedController && feedController[fnName];
+        if (typeof handler === 'function') {
+            return handler(req, res, next);
+        }
+
+        throw new Error(`Feed controller method ${fnName} not found`);
+    } catch (err) {
+        return res.status(500).json({ status: 'error', message: err.message });
+    }
+};
+
 router.use(authMiddleware.protect);
 
-router.get('/', (req, res, next) => {
-    if (feedController.getFeed) return feedController.getFeed(req, res, next);
-    res.status(500).json({ error: 'getFeed method not found' });
-});
-
-router.post('/', (req, res, next) => {
-    if (feedController.createPost) return feedController.createPost(req, res, next);
-    res.status(500).json({ error: 'createPost method not found' });
-});
-
-router.patch('/:id/like', (req, res, next) => {
-    if (feedController.likePost) return feedController.likePost(req, res, next);
-    res.status(500).json({ error: 'likePost method not found' });
-});
-
-router.post('/:id/comment', (req, res, next) => {
-    if (feedController.addComment) return feedController.addComment(req, res, next);
-    res.status(500).json({ error: 'addComment method not found' });
-});
+router.get('/', handle('getFeed'));
+router.post('/', handle('createPost'));
+router.patch('/:id/like', handle('likePost'));
+router.post('/:id/comment', handle('addComment'));
 
 module.exports = router;
