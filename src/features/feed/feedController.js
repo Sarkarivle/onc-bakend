@@ -1,65 +1,66 @@
 const FeedPost = require('./feedModel');
+const { getRedis } = require('../../config/redis');
 
-// Simple Memory Cache (Works like Redis but inside Node.js)
-let feedCache = null;
-let cacheTime = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 Minutes
+// Fail-safe Local Memory Cache
+let localCache = null;
+let localCacheTime = null;
+const CACHE_KEY = 'jobo:feed:all';
+const CACHE_TTL = 300; // 5 Minutes in seconds
 
 exports.createPost = async (req, res) => {
   try {
     const { content, imageUrl } = req.body;
-
     const newPost = await FeedPost.create({
       user: req.user.id,
       content,
       imageUrl
     });
 
-    // Clear cache when new post is created
-    feedCache = null;
+    // Invalidate Cache
+    const redis = getRedis();
+    if (redis) await redis.del(CACHE_KEY);
+    localCache = null;
 
-    res.status(201).json({
-      success: true,
-      data: newPost
-    });
+    res.status(201).json({ success: true, data: newPost });
   } catch (err) {
-    res.status(400).json({
-      success: false,
-      message: err.message
-    });
+    res.status(400).json({ success: false, message: err.message });
   }
 };
 
 exports.getFeed = async (req, res) => {
   try {
-    // 1. Check if valid cache exists
-    if (feedCache && (Date.now() - cacheTime < CACHE_DURATION)) {
-      return res.status(200).json({
-        success: true,
-        results: feedCache.length,
-        fromCache: true,
-        data: feedCache
-      });
+    const redis = getRedis();
+
+    // 1. Try REDIS (Global Cache)
+    if (redis) {
+      const cachedData = await redis.get(CACHE_KEY);
+      if (cachedData) {
+        return res.status(200).json({
+          success: true,
+          from: 'redis',
+          data: JSON.parse(cachedData)
+        });
+      }
     }
 
-    // 2. Otherwise fetch from MongoDB
-    const posts = await FeedPost.find().sort('-createdAt').limit(50);
+    // 2. Try Local Memory (Fall-back)
+    if (localCache && (Date.now() - localCacheTime < CACHE_TTL * 1000)) {
+       return res.status(200).json({ success: true, from: 'memory', data: localCache });
+    }
 
-    // 3. Update Cache
-    feedCache = posts;
-    cacheTime = Date.now();
+    // 3. Database fetch (If no cache)
+    const posts = await FeedPost.find().sort('-createdAt').limit(100);
 
-    res.status(200).json({
-      success: true,
-      results: posts.length,
-      fromCache: false,
-      data: posts
-    });
+    // 4. Update both caches
+    if (redis) {
+        await redis.set(CACHE_KEY, JSON.stringify(posts), { EX: CACHE_TTL });
+    }
+    localCache = posts;
+    localCacheTime = Date.now();
+
+    res.status(200).json({ success: true, from: 'db', data: posts });
   } catch (err) {
-    res.status(400).json({
-      success: false,
-      message: err.message
-    });
+    res.status(400).json({ success: false, message: err.message });
   }
 };
 
@@ -77,8 +78,10 @@ exports.likePost = async (req, res) => {
 
         await post.save();
 
-        // Invalidate cache on like change
-        feedCache = null;
+        // Invalidate Cache after interaction
+        const redis = getRedis();
+        if (redis) await redis.del(CACHE_KEY);
+        localCache = null;
 
         res.json({ success: true, likes: post.likes.length, isLiked: index === -1 });
     } catch (err) {
@@ -100,8 +103,10 @@ exports.addComment = async (req, res) => {
 
         await post.save();
 
-        // Invalidate cache on new comment
-        feedCache = null;
+        // Invalidate Cache
+        const redis = getRedis();
+        if (redis) await redis.del(CACHE_KEY);
+        localCache = null;
 
         res.status(201).json({ success: true, data: post.comments });
     } catch (err) {
