@@ -53,7 +53,26 @@ exports.likePost = async (req, res) => {
         }
 
         await post.save();
-        res.json({ success: true, likes: post.likes.length });
+        res.json({ success: true, likes: post.likes.length, isLiked: index === -1 });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+exports.addComment = async (req, res) => {
+    try {
+        const { text } = req.body;
+        const post = await FeedPost.findById(req.params.id);
+        if (!post) throw new Error('Post not found');
+
+        post.comments.push({
+            user: req.user.id,
+            text,
+            createdAt: Date.now()
+        });
+
+        await post.save();
+        res.status(201).json({ success: true, data: post.comments });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

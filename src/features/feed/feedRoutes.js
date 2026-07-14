@@ -11,5 +11,6 @@ router.route('/')
   .post(feedController.createPost);
 
 router.patch('/:id/like', feedController.likePost);
+router.post('/:id/comment', feedController.addComment);
 
 module.exports = router;
