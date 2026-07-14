@@ -6,6 +6,7 @@ const SmartGateway = require('./src/features/ai/quality/smartGateway');
 const { initRedis, getRedis } = require('./src/config/redis');
 const analytics = require('./src/services/analyticsService');
 const chatSocket = require('./src/features/chat/chatSocket');
+const { createAdapter } = require('@socket.io/redis-adapter');
 
 let io = null;
 let serverInstance = null;
@@ -34,6 +35,13 @@ mongoose.connect(mongoURI)
         const redis = getRedis();
         if (redis && io) {
             try {
+                // Setup Redis Adapter for Socket.io scaling
+                const pubClient = redis;
+                const subClient = redis.duplicate();
+                await subClient.connect();
+                io.adapter(createAdapter(pubClient, subClient));
+                console.log('🔄 Socket.io Redis Adapter Enabled');
+
                 const subscriber = redis.duplicate();
                 await subscriber.connect();
                 await subscriber.subscribe('feed_updates', (message) => {
