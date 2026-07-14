@@ -153,12 +153,21 @@ exports.getChatHistory = async (req, res) => {
         const blockerPhone = block ? block.blockerPhone : null;
         const isPartnerDeactivated = partner ? (partner.isDeactivated || partner.accountStatus === 'Deactivated') : false;
 
+        // Check if partner is online using Redis
+        const { getRedis } = require('../../config/redis');
+        const redis = getRedis();
+        let isPartnerOnline = false;
+        if (redis) {
+            isPartnerOnline = await redis.sIsMember('online_users', p2);
+        }
+
         if (parseInt(page) === 1) {
             res.json({
                 messages,
                 isBlocked,
                 blockerPhone,
                 isPartnerDeactivated,
+                isPartnerOnline,
                 hasReviewed: false // Simplified
             });
         } else {

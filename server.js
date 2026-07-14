@@ -35,6 +35,10 @@ mongoose.connect(mongoURI)
         const redis = getRedis();
         if (redis && io) {
             try {
+                // Clear ghost online users on startup
+                await redis.del('online_users');
+                console.log('🧹 Redis Online Users Cleared');
+
                 // Setup Redis Adapter for Socket.io scaling
                 const pubClient = redis;
                 const subClient = redis.duplicate();
