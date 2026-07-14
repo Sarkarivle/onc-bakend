@@ -11,6 +11,41 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
+async function emitModerationChange(req, { blockerPhone, blockedPhone, isBlocked }) {
+    const b1 = normalize(blockerPhone);
+    const b2 = normalize(blockedPhone);
+    if (!b1 || !b2) return;
+
+    const io = req.app.get('io');
+    const roomId = [b1, b2].sort().join('_');
+    const type = isBlocked ? 'block_event' : 'unblock_event';
+
+    const systemMsg = new Message({
+        roomId,
+        senderPhone: b1,
+        receiverPhone: b2,
+        message: isBlocked ? 'This chat was blocked' : 'This chat was unblocked',
+        type,
+        timestamp: new Date()
+    });
+    await systemMsg.save();
+    await updateConversationSummary(systemMsg);
+
+    if (!io) return;
+
+    const stateInfo = { blockerPhone: b1, blockedPhone: b2, isBlocked };
+    io.to(`user_${b1}`).emit('moderation_state_updated', stateInfo);
+    io.to(`user_${b2}`).emit('moderation_state_updated', stateInfo);
+
+    const senderMsg = systemMsg.toObject();
+    senderMsg.message = isBlocked ? 'You blocked this user' : 'You unblocked this user';
+    io.to(`user_${b1}`).emit('receive_message', senderMsg);
+
+    const receiverMsg = systemMsg.toObject();
+    receiverMsg.message = isBlocked ? 'This user blocked you' : 'This user unblocked you';
+    io.to(`user_${b2}`).emit('receive_message', receiverMsg);
+}
+
 exports.getInbox = async (req, res) => {
     try {
         let phone = normalize(req.params.phone);
@@ -254,6 +289,7 @@ exports.blockUser = async (req, res) => {
         await Block.findOneAndUpdate({
             blockerPhone: b1, blockedPhone: b2
         }, { reason: req.body.reason, timestamp: new Date() }, { upsert: true });
+        await emitModerationChange(req, { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false });
@@ -267,6 +303,7 @@ exports.unblockUser = async (req, res) => {
         b1 = normalize(b1);
         const b2 = normalize(req.body.blockedPhone);
         await Block.findOneAndDelete({ blockerPhone: b1, blockedPhone: b2 });
+        await emitModerationChange(req, { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false });

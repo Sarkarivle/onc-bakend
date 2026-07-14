@@ -197,7 +197,7 @@ module.exports = (io) => {
                     roomId,
                     senderPhone: b1,
                     receiverPhone: b2,
-                    message: 'You blocked this contact',
+                    message: 'This chat was blocked',
                     type: 'block_event',
                     timestamp: new Date()
                 });
@@ -208,11 +208,13 @@ module.exports = (io) => {
                 io.to(`user_${b1}`).emit('moderation_state_updated', blockInfo);
                 io.to(`user_${b2}`).emit('moderation_state_updated', blockInfo);
 
-                io.to(`user_${b1}`).emit('receive_message', systemMsg);
+                const senderMsg = systemMsg.toObject();
+                senderMsg.message = 'You blocked this user';
+                io.to(`user_${b1}`).emit('receive_message', senderMsg);
 
                 // Clone for receiver with different message
                 const receiverMsg = systemMsg.toObject();
-                receiverMsg.message = 'This contact has blocked you';
+                receiverMsg.message = 'This user blocked you';
                 io.to(`user_${b2}`).emit('receive_message', receiverMsg);
             } catch (e) {
                 console.error('Block error:', e);
@@ -234,7 +236,7 @@ module.exports = (io) => {
                     roomId,
                     senderPhone: b1,
                     receiverPhone: b2,
-                    message: 'You unblocked this contact',
+                    message: 'This chat was unblocked',
                     type: 'unblock_event',
                     timestamp: new Date()
                 });
@@ -244,10 +246,12 @@ module.exports = (io) => {
                 io.to(`user_${b1}`).emit('moderation_state_updated', unblockInfo);
                 io.to(`user_${b2}`).emit('moderation_state_updated', unblockInfo);
 
-                io.to(`user_${b1}`).emit('receive_message', systemMsg);
+                const senderMsg = systemMsg.toObject();
+                senderMsg.message = 'You unblocked this user';
+                io.to(`user_${b1}`).emit('receive_message', senderMsg);
 
                 const receiverMsg = systemMsg.toObject();
-                receiverMsg.message = 'This contact has unblocked you';
+                receiverMsg.message = 'This user unblocked you';
                 io.to(`user_${b2}`).emit('receive_message', receiverMsg);
             } catch (e) {}
         });
