@@ -1,4 +1,5 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const Feedback = require('../feedback/feedbackModel');
 const Chat = require('../chat/chatModel');
 const Correction = require('./correctionModel');
@@ -24,16 +25,64 @@ const getRequestedUserName = (req) => {
 
 const buildAiInput = (req) => ({
     ...req.body,
-    userName: getRequestUserName(req),
+    userName: req.user?.name || 'Guest',
     userId: req.user?._id?.toString(),
     authRole: req.user?.role,
+    isGuest: !req.user,
     requestId: req.requestId
 });
+
+const optionalProtect = async (req, res, next) => {
+    try {
+        const header = req.headers.authorization || '';
+        if (!header.startsWith('Bearer ')) return next();
+        const token = header.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super-ultra-secret-key');
+        const currentUser = await User.findById(decoded.id);
+        if (currentUser) req.user = currentUser;
+    } catch (_) {
+        // Guest AI should still work; protected history/admin routes remain strict.
+    }
+    next();
+};
 
 // --- NEW SHADOW DASHBOARD ROUTES ---
 router.get('/planner-logs', adminOnly, PlannerController.getLogs);
 router.patch('/planner-logs/:id', adminOnly, PlannerController.correctLog);
 router.get('/planner-logs/export', adminOnly, PlannerController.exportData);
+
+// Public/guest-safe assistant routes. Auth is used when present, but not required for basic chat.
+router.post('/voice-stream', optionalProtect, VoiceController.handleVoiceStream);
+
+router.post('/ask', optionalProtect, async (req, res) => {
+    try {
+        if (!req.body || typeof req.body !== 'object') {
+            return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
+        }
+        const response = await AIOrchestrator.processRequest(buildAiInput(req));
+        res.json(response);
+    } catch (error) {
+        console.error("AI Error:", error.message);
+        res.status(200).json({
+            success: false,
+            requestId: req.requestId,
+            message: "Bhai, server thoda slow hai. Ek baar check karo net ya thodi der me try karo.",
+            answer: ""
+        });
+    }
+});
+
+router.post('/ask-stream', optionalProtect, async (req, res) => {
+    try {
+        if (!req.body || typeof req.body !== 'object') {
+            return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
+        }
+        await AIOrchestrator.processRequestStream(buildAiInput(req), res);
+    } catch (error) {
+        console.error("Streaming Route Error:", error);
+        res.end();
+    }
+});
 
 router.use(protect);
 
@@ -146,40 +195,6 @@ router.get('/history/:userName', async (req, res) => {
         res.json({ success: true, history });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// AI assistant route.
-router.post('/voice-stream', VoiceController.handleVoiceStream);
-
-router.post('/ask', async (req, res) => {
-    try {
-        if (!req.body || typeof req.body !== 'object') {
-            return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
-        }
-        const response = await AIOrchestrator.processRequest(buildAiInput(req));
-        res.json(response);
-    } catch (error) {
-        console.error("AI Error:", error.message);
-        res.status(200).json({
-            success: false,
-            requestId: req.requestId,
-            message: "Bhai, server thoda slow hai. Ek baar check karo net ya thodi der me try karo.",
-            answer: ""
-        });
-    }
-});
-
-// REDESIGNED Streaming AI route.
-router.post('/ask-stream', async (req, res) => {
-    try {
-        if (!req.body || typeof req.body !== 'object') {
-            return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
-        }
-        await AIOrchestrator.processRequestStream(buildAiInput(req), res);
-    } catch (error) {
-        console.error("Streaming Route Error:", error);
-        res.end();
     }
 });
 

@@ -7,7 +7,7 @@ class UserProfile {
         const User = require('../../auth/userModel');
         let dbUser = null;
 
-        if (User.db?.readyState === 1 && userName && userName !== 'User') {
+        if (User.db?.readyState === 1 && userName && !['User', 'Guest'].includes(userName)) {
             dbUser = await User.findOne({ name: userName }).lean();
         }
 

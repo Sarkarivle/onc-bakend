@@ -54,6 +54,12 @@ class AIOrchestrator {
                 Telemetry.endTrace(traceId);
                 return { ...shapeResponse(safeResponse), requestId: traceId };
             }
+            if (gatewayStatus.status === 'GREET') {
+                const greeting = this._fixedSimpleResponse('GREETING');
+                traceFinalized = true;
+                Telemetry.endTrace(traceId);
+                return { ...shapeResponse(greeting), requestId: traceId };
+            }
 
             const [history, profile] = await Telemetry.trackStage(traceId, 'CONTEXT_LOADING',
                 () => Promise.all([
@@ -125,6 +131,15 @@ class AIOrchestrator {
 
             if (gatewayStatus.status === 'BLOCK') {
                 stream.error(new Error(this._safeGatewayResponse(gatewayStatus.reason)));
+                traceFinalized = true;
+                Telemetry.endTrace(traceId);
+                return;
+            }
+            if (gatewayStatus.status === 'GREET') {
+                const greeting = this._fixedSimpleResponse('GREETING');
+                await stream.pushChunk(greeting);
+                await stream.pushChunk(`\n\n[METADATA]${JSON.stringify({ suggestions: ["Latest jobs dikhao", "Career help chahiye", "Scholarship batao"], finalAnswer: greeting })}`);
+                await stream.finishStream();
                 traceFinalized = true;
                 Telemetry.endTrace(traceId);
                 return;
