@@ -182,6 +182,7 @@ module.exports = (io) => {
             const { blockerPhone, blockedPhone, reason } = data;
             const b1 = normalize(blockerPhone);
             const b2 = normalize(blockedPhone);
+            const roomId = [b1, b2].sort().join('_');
 
             try {
                 const Block = require('./models/blockModel');
@@ -191,24 +192,62 @@ module.exports = (io) => {
                     { upsert: true }
                 );
 
+                // Create a system message for the block event
+                const systemMsg = new Message({
+                    roomId,
+                    senderPhone: b1,
+                    receiverPhone: b2,
+                    message: 'You blocked this contact',
+                    type: 'block_event',
+                    timestamp: new Date()
+                });
+                await systemMsg.save();
+
                 // Notify both about block state update
                 io.to(`user_${b1}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
                 io.to(`user_${b2}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
-            } catch (e) {}
+
+                io.to(`user_${b1}`).emit('receive_message', systemMsg);
+
+                // Clone for receiver
+                const receiverMsg = systemMsg.toObject();
+                receiverMsg.message = 'This contact has blocked you';
+                io.to(`user_${b2}`).emit('receive_message', receiverMsg);
+            } catch (e) {
+                console.error('Block error:', e);
+            }
         });
 
         socket.on('unblock_user', async (data) => {
             const { blockerPhone, blockedPhone } = data;
             const b1 = normalize(blockerPhone);
             const b2 = normalize(blockedPhone);
+            const roomId = [b1, b2].sort().join('_');
 
             try {
                 const Block = require('./models/blockModel');
                 await Block.findOneAndDelete({ blockerPhone: b1, blockedPhone: b2 });
 
+                // Create a system message for the unblock event
+                const systemMsg = new Message({
+                    roomId,
+                    senderPhone: b1,
+                    receiverPhone: b2,
+                    message: 'You unblocked this contact',
+                    type: 'unblock_event',
+                    timestamp: new Date()
+                });
+                await systemMsg.save();
+
                 // Notify both
                 io.to(`user_${b1}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
                 io.to(`user_${b2}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
+
+                io.to(`user_${b1}`).emit('receive_message', systemMsg);
+
+                const receiverMsg = systemMsg.toObject();
+                receiverMsg.message = 'This contact has unblocked you';
+                io.to(`user_${b2}`).emit('receive_message', receiverMsg);
             } catch (e) {}
         });
 
