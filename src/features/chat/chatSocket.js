@@ -178,6 +178,40 @@ module.exports = (io) => {
             }
         });
 
+        socket.on('block_user', async (data) => {
+            const { blockerPhone, blockedPhone, reason } = data;
+            const b1 = normalize(blockerPhone);
+            const b2 = normalize(blockedPhone);
+
+            try {
+                const Block = require('./models/blockModel');
+                await Block.findOneAndUpdate(
+                    { blockerPhone: b1, blockedPhone: b2 },
+                    { reason: reason || 'Manual Block', timestamp: new Date() },
+                    { upsert: true }
+                );
+
+                // Notify both about block state update
+                io.to(`user_${b1}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
+                io.to(`user_${b2}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
+            } catch (e) {}
+        });
+
+        socket.on('unblock_user', async (data) => {
+            const { blockerPhone, blockedPhone } = data;
+            const b1 = normalize(blockerPhone);
+            const b2 = normalize(blockedPhone);
+
+            try {
+                const Block = require('./models/blockModel');
+                await Block.findOneAndDelete({ blockerPhone: b1, blockedPhone: b2 });
+
+                // Notify both
+                io.to(`user_${b1}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
+                io.to(`user_${b2}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
+            } catch (e) {}
+        });
+
         socket.on('disconnect', async () => {
             if (socket.userPhone) {
                 console.log(`🔌 User disconnected: ${socket.userPhone}`);
