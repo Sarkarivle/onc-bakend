@@ -7,6 +7,7 @@ const State = require('./stateModel');
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const getMemoryAuditorPrompt = require('../prompts/memory_auditor');
 const UserProfile = require('../context/userProfile');
+const VectorService = require('../knowledge/vectorService');
 
 class MemoryEngine {
     /**
@@ -52,18 +53,26 @@ class MemoryEngine {
     static async saveMemory(userId, category, factText, importance = 0.5) {
         try {
             if (Fact.db?.readyState !== 1) return null;
+            if (!userId || ['User', 'Guest'].includes(userId)) return null;
+            const cleanFact = String(factText || '').trim();
+            const cleanCategory = String(category || '').trim().toUpperCase();
+            if (!cleanFact || !cleanCategory) return null;
 
-            const existing = await Fact.findOne({ userId, category, fact: factText });
+            const existing = await Fact.findOne({ userId, category: cleanCategory, fact: cleanFact });
             if (existing) {
                 existing.usageCount += 1;
                 existing.lastAccessed = Date.now();
                 return await existing.save();
             }
 
+            const embedding = await VectorService.generate(`${cleanCategory}: ${cleanFact}`);
+            if (!Array.isArray(embedding) || embedding.length === 0) return null;
+
             return await Fact.create({
                 userId,
-                category,
-                fact: factText,
+                category: cleanCategory,
+                fact: cleanFact,
+                embedding,
                 importance,
                 confidence: 1.0
             });
@@ -76,6 +85,7 @@ class MemoryEngine {
      * EXTRACTION: LLM-based fact extraction with Dashboard Sync (Point 29).
      */
     static async extractFacts(userId, userQuery, aiResponse) {
+        if (!userId || ['User', 'Guest'].includes(userId)) return;
         const q = String(userQuery || "").toLowerCase();
         const skipWords = ["hi", "hello", "namaste", "kaise", "okay", "bye", "naam"];
         if (q.length < 10 || skipWords.some(word => q.includes(word))) return;

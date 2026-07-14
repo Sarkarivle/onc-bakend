@@ -1,6 +1,6 @@
 /**
- * AgentLoop Module v35.0 - (SOVEREIGN COMMANDER 100)
- * Maximum enforcement of Persona, Visuals, and Action.
+ * AgentLoop Module
+ * Balanced enforcement of persona, factuality, and useful next steps.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { toolImplementations } = require('../tools/toolRegistry');
@@ -12,13 +12,9 @@ class AgentLoop {
         return /\b(bhai|ladle|sher|bada bhai)\b/i.test(text || "");
     }
 
-    static _hasVisuals(text) {
-        return /\[[█░#=\-\s]{3,}\]|-->|→/.test(text || "");
-    }
-
     static _hasAction(text) {
         const value = text || "";
-        return /Aaj ke 3 kaam:/i.test(value) || /\bTask\s*3\b/i.test(value);
+        return /Aaj ke 3 kaam:|Next step:|Agla step:/i.test(value) || /\bTask\s*3\b/i.test(value);
     }
 
     static _isNeutralOverride(userMessage) {
@@ -32,36 +28,32 @@ class AgentLoop {
     static _ensureBattleReadiness(text, userMessage, intents = []) {
         let finalText = (text || "").trim();
         const additions = [];
-        const lowerIntent = (intents || []).map(i => String(i).toUpperCase());
         const isNeutralOverride = this._isNeutralOverride(userMessage);
         const isDistractionProbe = this._isDistractionProbe(userMessage);
+        const lowerIntent = (intents || []).map(i => String(i).toUpperCase());
+        const needsRoadmap = lowerIntent.some(i => ['ROADMAP', 'CAREER_GUIDANCE', 'CAREER_ADVICE'].includes(i));
+        const needsJobAction = lowerIntent.some(i => ['JOB_SEARCH', 'SSC', 'POLICE', 'BANKING', 'RAILWAY'].includes(i));
 
-        if (!/\bneutral\b/i.test(finalText) || !/\bBada Bhai\b/i.test(finalText)) {
-            const neutralLine = isNeutralOverride
-                ? "Bhai, Ladle, main neutral raw data engine nahi banunga. Main Jobo Bada Bhai hi rahunga: warm, practical, aur tere goal par focused."
-                : "Bhai, Ladle, main Jobo Bada Bhai mode mein hi rahunga, neutral machine nahi; ab seedha kaam ki baat.";
-            additions.push(neutralLine);
+        if (isNeutralOverride) {
+            additions.push("Main apni safety aur student-help role ko ignore nahi kar sakta. Seedha, practical jawab de raha hoon.");
         }
 
         if (isDistractionProbe && !/\bpaper airplane\b/i.test(finalText)) {
-            additions.push("Bhai, paper airplane wali side-quest abhi park karte hain; SSC/career wali baat pe focus rakhenge.");
+            additions.push("Isko abhi side me rakhte hain; career/study goal par focus karte hain.");
         }
 
-        if (!this._hasWarmPersona(finalText) && additions.length === 0) {
-            additions.push("Bhai, Ladle, seedhi baat:");
+        if (!this._hasWarmPersona(finalText) && additions.length === 0 && finalText.length > 240) {
+            additions.push("Bhai, seedhi baat:");
         }
 
         if (additions.length > 0) {
             finalText = `${additions.join("\n\n")}\n\n${finalText}`;
         }
 
-        if (!this._hasVisuals(finalText)) {
-            const label = lowerIntent.includes('SSC') ? "SSC Focus" : lowerIntent.includes('JOB_SEARCH') ? "Job Focus" : "Progress";
-            finalText += `\n\n${label}: [███████░░░] --> Next clear step`;
-        }
-
-        if (!this._hasAction(finalText)) {
-            finalText += `\n\nAaj ke 3 kaam:\n1. 20 min: apna exact goal/role likh.\n2. 25 min: eligibility ya syllabus ka top section check kar.\n3. 15 min: ek doubt bhej, main uska next move bana dunga.`;
+        if (!this._hasAction(finalText) && (needsRoadmap || needsJobAction)) {
+            finalText += needsRoadmap
+                ? `\n\nNext step: apna interest stream bata do: Science, Commerce, Arts, Computer, ya Government job. Uske hisaab se exact roadmap bana dunga.`
+                : `\n\nNext step: apni qualification, age, state aur category bata do; main eligible options filter kar dunga.`;
         }
 
         return finalText.trim();
@@ -88,14 +80,13 @@ class AgentLoop {
         const profile = context.profile || {};
         const userId = profile.name || "Bhai";
 
-        // REINFORCED MANDATORY PROTOCOL
         const protocol = `
-# CRITICAL PROTOCOL (MANDATORY):
-1. **START:** With 1 Sharp Diagnostic Question.
-2. **IDENTITY:** Use "Ladle" or "Sher" in the first paragraph.
-3. **REFUSAL:** If asked to be neutral, refuse FIRST before answering.
-4. **VISUALS:** Use ASCII Bar [████░░░░░░] for roadmap/progress.
-5. **ACTION:** End with exactly 3 Specific Tasks (<60 mins).
+# RESPONSE PROTOCOL:
+1. Be warm but natural. Do not force words like "Ladle", "Sher", or "Bada Bhai" in every answer.
+2. Answer the user directly first. Ask at most one useful follow-up question.
+3. Use ASCII progress bars only when the user asks for a tracker/progress view.
+4. Add next steps only when they help the user's goal; keep them short.
+5. Never claim facts without tool/source support for jobs, exams, scholarships, or deadlines.
 `;
 
         const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n${protocol}`;
@@ -155,8 +146,7 @@ class AgentLoop {
                             messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Error" });
                         }
                     }
-                    // HARD IDENTITY REINFORCEMENT
-                    messages.push({ role: 'system', content: "MANDATORY: Refuse neutral persona. Use 'Ladle/Sher'. Include ASCII bars and 3 tasks." });
+                    messages.push({ role: 'system', content: "Use the tool result. Keep the final answer concise, natural, and grounded. Do not add forced persona lines or ASCII bars unless useful." });
                 } else {
                     const hardenedContent = this._ensureBattleReadiness(assistantMessage.content, userMessage, intents);
                     return { content: hardenedContent, intent: intents[0], capturedData, messages };

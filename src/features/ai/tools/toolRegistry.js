@@ -688,23 +688,28 @@ const toolImplementations = {
 
     update_user_profile: async (args, userProfile = {}) => {
         try {
+            if (!userProfile.name || ['User', 'Guest'].includes(userProfile.name)) {
+                return { success: false, skipped: true, message: "Login ke baad profile memory save hogi." };
+            }
             const UserProfile = require('../context/userProfile');
             const MemoryEngine = require('../memory/memoryEngine');
+            const cleanSkills = (args.skills || []).map(s => String(s || '').trim()).filter(Boolean);
+            const cleanInterests = (args.interests || []).map(s => String(s || '').trim()).filter(Boolean);
 
             await UserProfile.syncToDb(userProfile.name, {
-                qualification: args.qualification,
-                state: args.location,
-                gender: args.gender
+                qualification: String(args.qualification || '').trim() || undefined,
+                state: String(args.location || '').trim() || undefined,
+                gender: String(args.gender || '').trim() || undefined
             });
 
             const userId = userProfile.name;
-            if (args.skills) {
-                for (const skill of args.skills) {
+            if (cleanSkills.length > 0) {
+                for (const skill of cleanSkills) {
                     await MemoryEngine.saveMemory(userId, 'SKILL', skill, 0.8);
                 }
             }
-            if (args.interests) {
-                for (const interest of args.interests) {
+            if (cleanInterests.length > 0) {
+                for (const interest of cleanInterests) {
                     await MemoryEngine.saveMemory(userId, 'GOAL', interest, 0.7);
                 }
             }
