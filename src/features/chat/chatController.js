@@ -165,18 +165,25 @@ exports.getChatHistory = async (req, res) => {
     try {
         const p1 = normalize(req.params.p1);
         const p2 = normalize(req.params.p2);
-        const { page = 1, limit = 50 } = req.query;
+        const { page = 1, limit = 50, before } = req.query;
         const roomId = [p1, p2].sort().join('_');
         const possibleRoomIds = [roomId, p1 + '_' + p2, p2 + '_' + p1];
+        const parsedLimit = Math.min(Math.max(parseInt(limit), 1), 100);
+        const parsedPage = Math.max(parseInt(page), 1);
+        const messageQuery = {
+            roomId: { $in: possibleRoomIds },
+            deletedBy: { $nin: [p1, `+91${p1}`, `91${p1}`] }
+        };
+        const beforeDate = before ? new Date(before) : null;
+        if (beforeDate && !Number.isNaN(beforeDate.getTime())) {
+            messageQuery.timestamp = { $lt: beforeDate };
+        }
 
         const [chats, block, partner] = await Promise.all([
-            Message.find({
-                roomId: { $in: possibleRoomIds },
-                deletedBy: { $nin: [p1, `+91${p1}`, `91${p1}`] }
-            })
+            Message.find(messageQuery)
             .sort({ timestamp: -1 })
-            .skip((parseInt(page) - 1) * parseInt(limit))
-            .limit(parseInt(limit)),
+            .skip(beforeDate ? 0 : (parsedPage - 1) * parsedLimit)
+            .limit(parsedLimit),
             Block.findOne({
                 $or: [{ blockerPhone: p1, blockedPhone: p2 }, { blockerPhone: p2, blockedPhone: p1 }]
             }),
@@ -196,7 +203,7 @@ exports.getChatHistory = async (req, res) => {
             isPartnerOnline = await redis.sIsMember('online_users', p2);
         }
 
-        if (parseInt(page) === 1) {
+        if (parsedPage === 1 && !beforeDate) {
             res.json({
                 messages,
                 isBlocked,
