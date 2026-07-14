@@ -1,8 +1,15 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
+const http = require('http');
+const { Server } = require('socket.io');
 const app = require('./src/app');
 const SmartGateway = require('./src/features/ai/quality/smartGateway');
-const { initRedis } = require('./src/config/redis');
+const { initRedis, getRedis } = require('./src/config/redis');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
 
 // 1. DATABASE CONNECTION
 const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/onc_db";
@@ -11,32 +18,29 @@ mongoose.connect(mongoURI)
   .then(async () => {
     console.log('✅ Ultra Secure Modular DB Connection Established');
 
-    // Initialize Redis for Scaling
     await initRedis();
+    const redis = getRedis();
 
-    // Initialize AI Clusters
-    try {
-        await SmartGateway.initialize();
-    } catch (err) {
-        console.error('❌ AI Initialization Error:', err.message);
+    if (redis) {
+        // Setup Redis Pub/Sub for Real-time Scaling
+        const subscriber = redis.duplicate();
+        await subscriber.connect();
+
+        await subscriber.subscribe('feed_updates', (message) => {
+            const update = JSON.parse(message);
+            io.emit('post_update', update); // Broadcast to all connected mobile users
+        });
+        console.log('📡 Real-time Engine: Redis Pub/Sub Active');
     }
+
+    try { await SmartGateway.initialize(); } catch (err) {}
   })
   .catch(err => console.error('❌ DB Connection Error:', err));
 
-// 2. SERVER START
-const PORT = process.env.PORT || 3001;
-const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log('----------------------------------------------');
-    console.log(`🚀 SERVER RUNNING ON PORT: ${PORT}`);
-    console.log(`🔗 ACCESS LOCALLY: http://localhost:${PORT}`);
-    console.log(`🔗 ACCESS VIA IP: http://72.61.170.181:${PORT}`);
-    console.log('----------------------------------------------');
-});
+// Attach io to app to use in controllers
+app.set('io', io);
 
-server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Error: Port ${PORT} is already in use.`);
-    } else {
-        console.error('❌ Server Error:', err);
-    }
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 SERVER RUNNING ON PORT: ${PORT} (Real-time Enabled)`);
 });
