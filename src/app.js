@@ -17,6 +17,7 @@ const jansewaRoutes = require('./features/jansewa/jansewaRoutes');
 const jobRoutes = require('./features/jobs/jobRoutes');
 const settingsRoutes = require('./features/settings/settingsRoutes');
 const aiRoutes = require('./features/ai/aiRoutes');
+const feedRoutes = require('./features/feed/feedRoutes');
 
 const app = express();
 console.log('##############################################');
@@ -101,6 +102,7 @@ app.use('/api/v1/jansewa', jansewaRoutes);
 app.use('/api/v1/jobs', jobRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/feed', feedRoutes);
 
 // Web Admin Pages
 app.get('/admin/config.js', (req, res) => {
