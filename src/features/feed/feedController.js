@@ -3,28 +3,7 @@ const { getRedis } = require('../../config/redis');
 
 const CACHE_KEY = 'jobo:feed:all';
 
-exports.createPost = async (req, res) => {
-  try {
-    const { content, imageUrl } = req.body;
-    const newPost = await FeedPost.create({ user: req.user.id, content, imageUrl });
-
-    // Force refresh cache for everyone when NEW content is added
-    const redis = getRedis();
-    if (redis) {
-        await redis.del(CACHE_KEY);
-        // Optionally broadcast new post event
-        await redis.publish('feed_updates', JSON.stringify({
-            type: 'new_post'
-        }));
-    }
-
-    res.status(201).json({ success: true, data: newPost });
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
-  }
-};
-
-exports.getFeed = async (req, res) => {
+const getFeed = async (req, res) => {
   try {
     const redis = getRedis();
     if (redis) {
@@ -37,7 +16,24 @@ exports.getFeed = async (req, res) => {
   } catch (err) { res.status(400).json({ success: false }); }
 };
 
-exports.likePost = async (req, res) => {
+const createPost = async (req, res) => {
+  try {
+    const { content, imageUrl } = req.body;
+    const newPost = await FeedPost.create({ user: req.user.id, content, imageUrl });
+
+    const redis = getRedis();
+    if (redis) {
+        await redis.del(CACHE_KEY);
+        await redis.publish('feed_updates', JSON.stringify({ type: 'new_post' }));
+    }
+
+    res.status(201).json({ success: true, data: newPost });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+const likePost = async (req, res) => {
     try {
         const post = await FeedPost.findById(req.params.id);
         if (!post) throw new Error('Post not found');
@@ -47,7 +43,6 @@ exports.likePost = async (req, res) => {
 
         const updatedPost = await FeedPost.findByIdAndUpdate(req.params.id, update, { new: true });
 
-        // PUBLISH TO REDIS: All other users will see this instantly
         const redis = getRedis();
         if (redis) {
             await redis.publish('feed_updates', JSON.stringify({
@@ -61,7 +56,7 @@ exports.likePost = async (req, res) => {
     } catch (err) { res.status(400).json({ success: false }); }
 };
 
-exports.addComment = async (req, res) => {
+const addComment = async (req, res) => {
     try {
         const updatedPost = await FeedPost.findByIdAndUpdate(
             req.params.id,
@@ -69,7 +64,6 @@ exports.addComment = async (req, res) => {
             { new: true }
         );
 
-        // PUBLISH TO REDIS
         const redis = getRedis();
         if (redis) {
             await redis.publish('feed_updates', JSON.stringify({
@@ -81,4 +75,11 @@ exports.addComment = async (req, res) => {
 
         res.status(201).json({ success: true });
     } catch (err) { res.status(400).json({ success: false }); }
+};
+
+module.exports = {
+  getFeed,
+  createPost,
+  likePost,
+  addComment
 };
