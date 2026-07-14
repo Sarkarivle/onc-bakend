@@ -42,7 +42,7 @@ const feedPostSchema = new mongoose.Schema({
 feedPostSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'user',
-    select: 'name education domicileState' // Corrected field name
+    select: 'name phone education domicileState' // Added phone here
   });
   next();
 });
