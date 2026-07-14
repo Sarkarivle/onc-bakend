@@ -7,15 +7,19 @@ const analytics = require('../../services/analyticsService');
 
 module.exports = (io) => {
     io.on('connection', (socket) => {
+        console.log('🔌 Socket connection attempt:', socket.id);
         const myPhone = socket.handshake.query.phone ? normalize(socket.handshake.query.phone) : null;
 
         if (myPhone) {
             socket.userPhone = myPhone;
             socket.join(`user_${myPhone}`);
             console.log(`📱 User joined chat room: user_${myPhone}`);
+        } else {
+            console.warn('⚠️ Socket connected without phone in query. ID:', socket.id);
         }
 
         socket.on('send_message', async (data, callback) => {
+            console.log('✉️ Incoming message from', socket.userPhone, 'to', data.receiverPhone);
             try {
                 const { receiverPhone, message, type, localId, imageUrl, audioUrl, replyToId, replyText, replyType } = data;
                 const sPhone = normalize(socket.userPhone);
