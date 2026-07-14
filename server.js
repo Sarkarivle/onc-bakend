@@ -4,6 +4,8 @@ const http = require('http');
 const app = require('./src/app');
 const SmartGateway = require('./src/features/ai/quality/smartGateway');
 const { initRedis, getRedis } = require('./src/config/redis');
+const analytics = require('./src/services/analyticsService');
+const chatSocket = require('./src/features/chat/chatSocket');
 
 let io = null;
 let serverInstance = null;
@@ -14,6 +16,8 @@ try {
       cors: { origin: "*", methods: ["GET", "POST"] }
     });
     app.set('io', io);
+    analytics.init(io);
+    chatSocket(io);
 } catch (e) {
     console.error('⚠️ socket.io not loaded.');
     serverInstance = app;
