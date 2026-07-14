@@ -75,6 +75,17 @@ class TelemetryEngine {
         trace.context = { ...trace.context, ...metadata };
     }
 
+    getTrace(traceId) {
+        const trace = this.traces.get(traceId);
+        if (!trace) return null;
+        return {
+            ...trace,
+            stages: trace.stages.map(stage => ({ ...stage })),
+            metrics: { ...trace.metrics },
+            context: { ...trace.context }
+        };
+    }
+
     endTrace(traceId) {
         const trace = this.traces.get(traceId);
         if (!trace) return null;

@@ -15,8 +15,7 @@ class BackgroundServices {
     static async runAll(data) {
         const { traceId, userName, userMessage, finalContent, plan, execResult, suggestions } = data;
 
-        // Finalize trace and get the full report before cleanup
-        const traceReport = Telemetry.endTrace(traceId);
+        const traceReport = Telemetry.getTrace(traceId);
 
         // 1. MEMORY INTELLIGENCE ENGINE
         this.runMemoryEngine(userName, userMessage, finalContent).catch(e =>

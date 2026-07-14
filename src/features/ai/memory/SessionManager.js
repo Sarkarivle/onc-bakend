@@ -8,9 +8,12 @@ class SessionManager {
     /**
      * Fetches the last N messages for a specific session/user.
      */
-    static async getHistory(sessionId, limit = 10) {
+    static async getHistory(sessionId, limit = 10, userId = null) {
         try {
-            const history = await Chat.find({ sessionId })
+            const criteria = { sessionId };
+            if (userId) criteria.userName = userId;
+
+            const history = await Chat.find(criteria)
                 .sort({ timestamp: -1 })
                 .limit(limit)
                 .lean();

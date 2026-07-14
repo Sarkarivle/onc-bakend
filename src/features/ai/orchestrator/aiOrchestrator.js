@@ -57,7 +57,7 @@ class AIOrchestrator {
 
             const [history, profile] = await Telemetry.trackStage(traceId, 'CONTEXT_LOADING',
                 () => Promise.all([
-                    SessionManager.getHistory(sessionId),
+                    SessionManager.getHistory(sessionId, 10, userName),
                     UserProfile.get(userName, input)
                 ])
             );
@@ -133,7 +133,7 @@ class AIOrchestrator {
             stream.startThinking(`${firstName} bhai, sab check kar loon...`);
 
             const [history, profile] = await Promise.all([
-                SessionManager.getHistory(sessionId),
+                SessionManager.getHistory(sessionId, 10, userName),
                 UserProfile.get(userName, input)
             ]);
 

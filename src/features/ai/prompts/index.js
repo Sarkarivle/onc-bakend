@@ -29,7 +29,16 @@ const MODE_FILE_MAP = {
     'MNEMONIC': 'mnemonicMode',
     'INTERVIEW': 'interviewMode',
     'PIVOT': 'pivotMode',
-    'JD_DECODER': 'jdDecoderMode'
+    'JD_DECODER': 'jdDecoderMode',
+    'GRANTS': 'grantMode',
+    'PART_TIME': 'partTimeMode',
+    'LOCAL_SCOUT': 'localScoutMode',
+    'ACADEMIC_AUDIT': 'auditorMode',
+    'EMAIL_PRO': 'emailProMode',
+    'ENGLISH_PRACTICE': 'englishPracticeMode',
+    'RAILWAY': 'railwayExpertMode',
+    'SCAM_PROTECTOR': 'scamProtectorMode',
+    'UTILITY': 'utilityMode'
 };
 
 const REQUIREMENT_MAP = {
@@ -38,7 +47,10 @@ const REQUIREMENT_MAP = {
     'ROADMAP': ['qualification', 'dob', 'state'],
     'TEACHER': ['professionalDegrees', 'state'],
     'DEFENSE': ['height', 'gender', 'dob'],
-    'SSC': ['qualification', 'state']
+    'SSC': ['qualification', 'state'],
+    'GRANTS': ['qualification', 'state', 'category'],
+    'PART_TIME': ['qualification', 'city'],
+    'LOCAL_SCOUT': ['city', 'state']
 };
 
 const getModePrompt = (intents = [], profile = {}) => {

@@ -10,18 +10,37 @@ const VoiceController = require('./voiceController');
 const router = express.Router();
 const User = require('../auth/userModel');
 const DashboardTool = require('./tools/dashboardTool');
+const { protect, restrictTo } = require('../../middlewares/authMiddleware');
+
+const adminOnly = [protect, restrictTo('admin')];
+
+const getRequestUserName = (req) => req.user?.name || 'User';
+const getRequestedUserName = (req) => {
+    if (req.user?.role === 'admin' || req.user?.role === 'expert') {
+        return req.params.userName || req.user.name;
+    }
+    return req.user?.name;
+};
+
+const buildAiInput = (req) => ({
+    ...req.body,
+    userName: getRequestUserName(req),
+    userId: req.user?._id?.toString(),
+    authRole: req.user?.role,
+    requestId: req.requestId
+});
 
 // --- NEW SHADOW DASHBOARD ROUTES ---
-router.get('/planner-logs', PlannerController.getLogs);
-router.patch('/planner-logs/:id', PlannerController.correctLog);
-router.get('/planner-logs/export', PlannerController.exportData);
+router.get('/planner-logs', adminOnly, PlannerController.getLogs);
+router.patch('/planner-logs/:id', adminOnly, PlannerController.correctLog);
+router.get('/planner-logs/export', adminOnly, PlannerController.exportData);
 
-const { protect } = require('../../middlewares/authMiddleware');
+router.use(protect);
 
 // ... existing code ...
 
 // --- DASHBOARD ROUTE ---
-router.get('/dashboard-stats', protect, async (req, res) => {
+router.get('/dashboard-stats', async (req, res) => {
     try {
         // Use the authenticated user from the protect middleware
         const stats = await DashboardTool.getStats(req.user);
@@ -35,7 +54,9 @@ router.get('/dashboard-stats', protect, async (req, res) => {
 // Legacy route for backward compatibility (optional but recommended to keep for a bit)
 router.get('/dashboard-stats/:userName', async (req, res) => {
     try {
-        const user = await User.findOne({ name: { $regex: new RegExp(`^${req.params.userName}$`, 'i') } }).lean();
+        const targetName = getRequestedUserName(req);
+        if (!targetName) return res.status(403).json({ success: false, message: "Forbidden" });
+        const user = await User.findOne({ name: targetName }).lean();
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
         const stats = await DashboardTool.getStats(user);
         res.json(stats);
@@ -47,15 +68,15 @@ router.get('/dashboard-stats/:userName', async (req, res) => {
 // ... existing feedback and history routes ...
 router.post('/feedback', async (req, res) => {
     try {
-        const { userMessage, aiResponse, rating, userName, userLocation } = req.body;
-        await Feedback.create({ userMessage, aiResponse, rating, userName, userLocation });
+        const { userMessage, aiResponse, rating, userLocation } = req.body;
+        await Feedback.create({ userMessage, aiResponse, rating, userName: getRequestUserName(req), userLocation });
         res.json({ success: true, message: "Feedback saved for learning" });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-router.post('/correct', async (req, res) => {
+router.post('/correct', restrictTo('admin'), async (req, res) => {
     try {
         const { originalQuestion, correctedResponse, badResponse, category } = req.body;
         await Correction.create({ originalQuestion, correctedResponse, badResponse, category });
@@ -67,12 +88,14 @@ router.post('/correct', async (req, res) => {
 
 router.get('/sessions/:userName', async (req, res) => {
     try {
+        const targetName = getRequestedUserName(req);
+        if (!targetName) return res.status(403).json({ success: false, message: "Forbidden" });
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
         const sessions = await Chat.aggregate([
-            { $match: { userName: req.params.userName } },
+            { $match: { userName: targetName } },
             { $sort: { timestamp: 1 } },
             {
                 $group: {
@@ -93,12 +116,14 @@ router.get('/sessions/:userName', async (req, res) => {
 
 router.get('/history/:userName/:sessionId', async (req, res) => {
     try {
+        const targetName = getRequestedUserName(req);
+        if (!targetName) return res.status(403).json({ success: false, message: "Forbidden" });
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
 
         const history = await Chat.find({
-            userName: req.params.userName,
+            userName: targetName,
             sessionId: req.params.sessionId
         })
         .sort({ timestamp: 1 })
@@ -113,7 +138,9 @@ router.get('/history/:userName/:sessionId', async (req, res) => {
 
 router.get('/history/:userName', async (req, res) => {
     try {
-        const history = await Chat.find({ userName: req.params.userName })
+        const targetName = getRequestedUserName(req);
+        if (!targetName) return res.status(403).json({ success: false, message: "Forbidden" });
+        const history = await Chat.find({ userName: targetName })
             .sort({ timestamp: 1 })
             .limit(50);
         res.json({ success: true, history });
@@ -130,7 +157,7 @@ router.post('/ask', async (req, res) => {
         if (!req.body || typeof req.body !== 'object') {
             return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
         }
-        const response = await AIOrchestrator.processRequest({ ...req.body, requestId: req.requestId });
+        const response = await AIOrchestrator.processRequest(buildAiInput(req));
         res.json(response);
     } catch (error) {
         console.error("AI Error:", error.message);
@@ -149,7 +176,7 @@ router.post('/ask-stream', async (req, res) => {
         if (!req.body || typeof req.body !== 'object') {
             return res.status(400).json({ success: false, requestId: req.requestId, message: "Invalid request body" });
         }
-        await AIOrchestrator.processRequestStream({ ...req.body, requestId: req.requestId }, res);
+        await AIOrchestrator.processRequestStream(buildAiInput(req), res);
     } catch (error) {
         console.error("Streaming Route Error:", error);
         res.end();
