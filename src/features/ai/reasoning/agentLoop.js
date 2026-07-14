@@ -105,7 +105,7 @@ class AgentLoop {
         messages.push({ role: 'user', content: userMessage });
 
         let iterations = 0;
-        let capturedData = { jobs: "" };
+        let capturedData = { jobs: "", evidence: [] };
 
         while (iterations < 3) {
             iterations++;
@@ -131,12 +131,24 @@ class AgentLoop {
                         const implementation = toolImplementations[toolCall.function.name];
                         try {
                             const args = JSON.parse(toolCall.function.arguments);
-                            const raw = implementation ? await implementation(args, profile) : { status: "N/A" };
-                            if (toolCall.function.name === 'search_jobs') capturedData.jobs = raw.jobs || "";
+                            const toolResult = implementation ? await implementation(args, profile) : { status: "N/A" };
+                            const raw = this._normalizeToolResult(toolResult);
+                            if (toolCall.function.name === 'search_jobs') capturedData.jobs = raw.jobs || [];
+                            if (Array.isArray(raw.evidence)) {
+                                capturedData.evidence.push(...raw.evidence);
+                            }
+                            if (raw.grounding?.sources) {
+                                capturedData.evidence.push(...raw.grounding.sources);
+                            }
 
                             const toolFeedback = toolCall.function.name === 'search_jobs'
-                                ? { status: "success", found: (raw.jobs || []).length, summary: (raw.jobs || []).slice(0,2).map(j => j.title).join(", ") }
-                                : raw;
+                                ? {
+                                    status: raw.status || "success",
+                                    found: (raw.jobs || []).length,
+                                    summary: (raw.jobs || []).slice(0, 2).map(j => j.title).join(", "),
+                                    verification: raw.grounding || null
+                                }
+                                : this._compactToolFeedback(raw);
 
                             messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolFeedback) });
                         } catch (e) {
@@ -155,6 +167,24 @@ class AgentLoop {
             }
         }
         return { content: "Bhai, main research kar raha hoon, thodi der me try karein.", intent: intents[0] };
+    }
+
+    static _normalizeToolResult(result) {
+        if (typeof result !== 'string') return result || {};
+        try {
+            return JSON.parse(result);
+        } catch (_) {
+            return { content: result };
+        }
+    }
+
+    static _compactToolFeedback(raw = {}) {
+        const feedback = { ...raw };
+        if (Array.isArray(feedback.results)) feedback.results = feedback.results.slice(0, 3);
+        if (Array.isArray(feedback.internships)) feedback.internships = feedback.internships.slice(0, 3);
+        if (Array.isArray(feedback.evidence)) feedback.verification = { sources: feedback.evidence.slice(0, 3) };
+        delete feedback.evidence;
+        return feedback;
     }
 }
 

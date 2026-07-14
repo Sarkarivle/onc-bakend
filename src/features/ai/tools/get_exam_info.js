@@ -12,17 +12,20 @@ class AcademicEngine {
             "ssc cgl": {
                 syllabus: "Tier-1: Maths, Reasoning, English, GS (25 Qs each). Tier-2: Quantitative, English, Stats.",
                 dates: "Notifications usually in April-June. Keep checking ssc.gov.in.",
-                form_help: "Need 10th/12th details and a valid Graduate degree. Photo rules are strict."
+                form_help: "Need 10th/12th details and a valid Graduate degree. Photo rules are strict.",
+                sourceUrl: "https://ssc.gov.in"
             },
             "up police": {
                 syllabus: "General Knowledge, Hindi, Numerical Ability, Mental Aptitude/Reasoning.",
                 dates: "Check uppbpb.gov.in for current recruitment cycles.",
-                form_help: "Age limit is critical for UP Police. Ensure you have domicile documents ready."
+                form_help: "Age limit is critical for UP Police. Ensure you have domicile documents ready.",
+                sourceUrl: "https://uppbpb.gov.in"
             },
             "ssc gd": {
                 syllabus: "Reasoning, GK, Maths, English/Hindi (20 Qs each). CBT format.",
                 dates: "Annual recruitment cycle. Follow SSC calendar.",
-                form_help: "10th pass is enough. Physical fitness (PET/PST) marks are mandatory."
+                form_help: "10th pass is enough. Physical fitness (PET/PST) marks are mandatory.",
+                sourceUrl: "https://ssc.gov.in"
             }
         };
 
@@ -34,14 +37,23 @@ class AcademicEngine {
                 exam: foundExam.toUpperCase(),
                 info_type: info_type,
                 details: examDb[foundExam][info_type],
-                source: "Jobo Academic Database"
+                source: "Jobo Academic Database",
+                evidence: [{
+                    title: `${foundExam.toUpperCase()} official portal`,
+                    source: "Official exam portal",
+                    sourceUrl: examDb[foundExam].sourceUrl,
+                    verified: true,
+                    confidence: 0.9,
+                    note: "Dates and notification details must be checked on official portal."
+                }]
             };
         }
 
         return {
             success: true,
             message: `Bhai, ${exam_name} ki ${info_type} jankari abhi update ho rahi hai. Main live search se check karke batata hoon.`,
-            fallback_needed: true
+            fallback_needed: true,
+            evidence: []
         };
     }
 }

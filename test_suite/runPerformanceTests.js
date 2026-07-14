@@ -4,6 +4,9 @@ const SmartGateway = require('../src/features/ai/quality/smartGateway');
 const VectorService = require('../src/features/ai/knowledge/vectorService');
 const ValidationEngine = require('../src/features/ai/quality/validationEngine');
 const LLMProvider = require('../src/features/ai/generation/core_engine/llmProvider');
+const MasterOrchestrator = require('../src/features/ai/orchestrator/MasterOrchestrator');
+const Grounding = require('../src/features/ai/quality/grounding');
+const EliteFormatter = require('../src/features/ai/quality/eliteFormatter');
 
 async function test(name, fn) {
     const start = Date.now();
@@ -52,6 +55,16 @@ async function main() {
         assert.strictEqual(result.mode, 'JOB_DETAILS');
     });
 
+    await test('master routing exposes student specialist tool categories', async () => {
+        const scholarship = MasterOrchestrator._finalizeIntents(['GENERAL'], 'up scholarship for obc student');
+        const internship = MasterOrchestrator._finalizeIntents(['GENERAL'], 'paid internship work from home');
+        const local = MasterOrchestrator._finalizeIntents(['GENERAL'], 'library near me for ssc preparation');
+
+        assert.ok(scholarship.includes('GRANTS'));
+        assert.ok(internship.includes('PART_TIME'));
+        assert.ok(local.includes('LOCAL_SCOUT'));
+    });
+
     await test('vector service returns cached deterministic vectors', async () => {
         const first = await VectorService.generate('railway vacancy');
         const second = await VectorService.generate('railway vacancy');
@@ -63,6 +76,25 @@ async function main() {
     await test('stream validation kills internal thought leaks', async () => {
         const result = ValidationEngine.validateStreamChunk('<AGENT_THOUGHT>secret</AGENT_THOUGHT>');
         assert.strictEqual(result.status, 'KILL');
+    });
+
+    await test('grounding marks government domains as official', async () => {
+        const evidence = Grounding.fromSearchResult({
+            title: 'SSC official',
+            link: 'https://ssc.gov.in',
+            snippet: 'Official portal'
+        }, 'Search');
+        assert.strictEqual(evidence.verified, true);
+        assert.ok(evidence.confidence >= 0.9);
+    });
+
+    await test('formatter appends verification footer for factual answers', async () => {
+        const formatted = EliteFormatter.format('SSC CGL details mil gaye.', {
+            intent: 'JOB_SEARCH',
+            evidence: [Grounding.fromSearchResult({ title: 'SSC', link: 'https://ssc.gov.in' }, 'Search')]
+        });
+        assert.ok(formatted.includes('Verification Sources'));
+        assert.ok(formatted.includes('ssc.gov.in'));
     });
 
     await test('output validation can run in no-LLM mode', async () => {

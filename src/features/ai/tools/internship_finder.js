@@ -33,6 +33,7 @@ class InternshipFinder {
                 field,
                 location,
                 internships: internships.slice(0, 4),
+                evidence: searchResult.evidence || [],
                 message: `Bhai, tere field (${field}) mein ye kuch achhi internships mili hain.`
             };
         } catch (e) {

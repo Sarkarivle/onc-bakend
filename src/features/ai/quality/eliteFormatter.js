@@ -3,6 +3,8 @@
  * Responsibility: Transforming raw AI text into a high-end visual response.
  * Focus: Cognitive Ease (Visual Calm), Closed-Loop Completion, and Persistent Personalization.
  */
+const Grounding = require('./grounding');
+
 class EliteFormatter {
     static format(text, meta = {}) {
         if (!text) return "";
@@ -17,10 +19,10 @@ class EliteFormatter {
         formatted = this._applyCognitiveEase(formatted);
 
         // 3. Intent-Based Visual Logic
-        if (['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'RESULT_ADMIT_CARD'].includes(intent)) {
+        if (['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'GRANTS', 'RESULT_ADMIT_CARD'].includes(intent)) {
             formatted = this._ensureTables(formatted);
             formatted = this._highlightMatchScores(formatted);
-        } else if (['CAREER_GUIDANCE', 'SKILLS', 'INTERVIEW', 'CAREER_ADVICE'].includes(intent)) {
+        } else if (['CAREER_GUIDANCE', 'SKILLS', 'INTERVIEW', 'CAREER_ADVICE', 'PART_TIME'].includes(intent)) {
             formatted = this._ensureRoadmap(formatted);
         } else if (intent === 'RESUME') {
             formatted = this._ensureChecklist(formatted);
@@ -33,6 +35,7 @@ class EliteFormatter {
 
         // 5. Closed-Loop Completion & EQ closing (Point 43 & 18)
         formatted = this._addPersonalizedClosing(formatted, meta.userProfile, intent);
+        formatted = this._appendVerificationFooter(formatted, meta, intent);
 
         return formatted.trim();
     }
@@ -187,6 +190,20 @@ class EliteFormatter {
             .join('\n')
             .replace(/\n{3,}/g, '\n\n')
             .trim();
+    }
+
+    static _appendVerificationFooter(text, meta = {}, intent = 'GENERAL') {
+        if (!text || /Verification Sources|Official source abhi available/i.test(text)) return text;
+
+        const factualIntents = new Set([
+            'JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'GRANTS',
+            'RESULT_ADMIT_CARD', 'LOCAL_SCOUT', 'PART_TIME', 'ACADEMIC_AUDIT'
+        ]);
+
+        const evidence = Array.isArray(meta.evidence) ? meta.evidence : [];
+        if (evidence.length > 0) return text + Grounding.footer(evidence);
+        if (factualIntents.has(intent)) return text + Grounding.footer([]);
+        return text;
     }
 }
 

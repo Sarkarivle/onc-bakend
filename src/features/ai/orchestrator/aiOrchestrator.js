@@ -76,7 +76,7 @@ class AIOrchestrator {
 
             Telemetry.setContext(traceId, { intent });
 
-            const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
+            const formatted = EliteFormatter.format(content, { intent, userProfile: profile, evidence: capturedData.evidence });
             const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
 
             await SessionManager.saveInteraction(userName, sessionId, userMessage, formatted);
@@ -152,7 +152,7 @@ class AIOrchestrator {
             Telemetry.setContext(traceId, { intent });
 
             // Stream the final content
-            const formatted = EliteFormatter.format(content, { intent, userProfile: profile });
+            const formatted = EliteFormatter.format(content, { intent, userProfile: profile, evidence: capturedData.evidence });
             const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
 
             await stream.pushChunk(formatted);

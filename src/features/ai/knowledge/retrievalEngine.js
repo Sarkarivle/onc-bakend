@@ -283,7 +283,8 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
     }
 
     static _formatJob(j) {
-        return `- **[${j.title}]** | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || "Verified Soon"} | **Match Score: ${j.matchScore}%** | **Competition: ${j.competition}** | **Skill Gaps: ${j.skillGaps}** | Link: ${j.officialLinks?.apply || "In Details"}`;
+        const link = j.officialLinks?.apply || j.officialLinks?.notification || j.applyLink || "In Details";
+        return `- **[${j.title}]** | Org: ${j.organization} | Last Date: ${j.importantDates?.applicationLastDate || "Verified Soon"} | **Match Score: ${j.matchScore}%** | **Competition: ${j.competition}** | **Skill Gaps: ${j.skillGaps}** | Link: ${link}`;
     }
 
     static _logTelemetry(data) {

@@ -31,6 +31,7 @@ const GrammarStyleChecker = require('./grammar_style_checker');
 const ExamCenterLocator = require('./exam_center_locator');
 const CitationBuilder = require('./citation_builder');
 const ComparisonTableTool = require('./comparisonTableTool');
+const Grounding = require('../quality/grounding');
 
 /**
  * JSON Schemas for Tool Calling (Groq/OpenAI format)
@@ -598,6 +599,7 @@ const toolImplementations = {
                     const cleanJob = { ...job };
                     delete cleanJob.fullHtmlContent;
                     delete cleanJob._id;
+                    cleanJob.evidence = Grounding.fromJob(job);
                     verifiedJobs.push(cleanJob);
                 } else {
                     ineligibilityReasons.push({
@@ -609,17 +611,24 @@ const toolImplementations = {
             }
 
             if (verifiedJobs.length === 0) {
-                return JSON.stringify({
+                return {
                     status: "EMPTY_RESULT",
                     message: "Bhai, abhi teri profile ke hisaab se koi active form nahi hai.",
                     explanation: ineligibilityReasons.length > 0
                         ? "Matching jobs were found but you are currently ineligible. Here is why:"
                         : "No jobs found matching the keyword.",
-                    details: ineligibilityReasons.slice(0, 3) // Limit to 3 reasons for brevity
-                });
+                    details: ineligibilityReasons.slice(0, 3),
+                    evidence: []
+                };
             }
 
-            return JSON.stringify({ status: "SUCCESS", jobs: verifiedJobs });
+            const evidence = verifiedJobs.map(job => job.evidence).filter(Boolean);
+            return {
+                status: "SUCCESS",
+                jobs: verifiedJobs,
+                evidence,
+                grounding: Grounding.summarize(evidence)
+            };
         } catch (error) {
             console.error("❌ search_jobs tool error:", error);
             return { success: false, error: error.message };

@@ -4,6 +4,7 @@
  */
 const axios = require('axios');
 const cheerio = require('cheerio');
+const Grounding = require('../quality/grounding');
 
 class WebSearchTool {
     static async search(query) {
@@ -24,7 +25,12 @@ class WebSearchTool {
                     date: r.date || "Live"
                 }));
 
-                if (results.length > 0) return { success: true, results, source: "Google via SearchApi" };
+                if (results.length > 0) return {
+                    success: true,
+                    results,
+                    source: "Google via SearchApi",
+                    evidence: results.map(result => Grounding.fromSearchResult(result, "Google via SearchApi"))
+                };
             } catch (e) {
                 console.warn("⚠️ SearchApi failed, trying fallback...");
             }
@@ -45,7 +51,12 @@ class WebSearchTool {
                     date: r.date || "Recent"
                 }));
 
-                if (results.length > 0) return { success: true, results, source: "Google via SerpApi" };
+                if (results.length > 0) return {
+                    success: true,
+                    results,
+                    source: "Google via SerpApi",
+                    evidence: results.map(result => Grounding.fromSearchResult(result, "Google via SerpApi"))
+                };
             } catch (e) {
                 console.warn("⚠️ SerpApi failed, trying free fallback...");
             }
@@ -72,7 +83,12 @@ class WebSearchTool {
                 }
             });
 
-            if (results.length > 0) return { success: true, results, source: "DuckDuckGo (Free)" };
+            if (results.length > 0) return {
+                success: true,
+                results,
+                source: "DuckDuckGo (Free)",
+                evidence: results.map(result => Grounding.fromSearchResult(result, "DuckDuckGo (Free)"))
+            };
         } catch (error) {
             console.error("❌ WebSearch Scraper Error:", error.message);
         }
@@ -80,7 +96,8 @@ class WebSearchTool {
         return {
             success: false,
             error: "Bhai, internet par iska turant jawab nahi mila. Main thode alag query se try kar raha hoon.",
-            code: "EMPTY_RESULT"
+            code: "EMPTY_RESULT",
+            evidence: []
         };
     }
 }

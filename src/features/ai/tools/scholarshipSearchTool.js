@@ -14,6 +14,11 @@ class ScholarshipSearchTool {
                 success: true,
                 message: "Bhai, ye rahi kuch active scholarships tere liye.",
                 results: results,
+                evidence: results.evidence || [],
+                grounding: {
+                    official_portal: "https://scholarships.gov.in",
+                    note: "Scholarship eligibility and dates change. Final check official portal par karo."
+                },
                 strategic_advice: "Bhai, official NSP portal (National Scholarship Portal) par bhi ek baar check kar lena."
             };
         } catch (error) {
