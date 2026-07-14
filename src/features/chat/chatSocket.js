@@ -27,9 +27,9 @@ module.exports = (io) => {
                     const pending = await Message.find({ receiverPhone: myPhone, isDelivered: false });
                     if (pending.length > 0) {
                         await Message.updateMany({ _id: { $in: pending.map(m => m._id) } }, { $set: { isDelivered: true } });
-                        // Notify senders
-                        pending.forEach(m => {
-                            io.to(`user_${m.senderPhone}`).emit('message_delivered', { messageId: m._id, localId: m.localId });
+                    // Notify senders
+                    pending.forEach(m => {
+                            io.to(`user_${m.senderPhone}`).emit('message_delivered', { messageId: m._id.toString(), localId: m.localId });
                         });
                     }
                 } catch (err) {
@@ -48,7 +48,13 @@ module.exports = (io) => {
                 io.emit('user_status_change', { phone: normalizedPhone, isOnline: true });
 
                 // Mark pending messages as delivered
-                await Message.updateMany({ receiverPhone: normalizedPhone, isDelivered: false }, { $set: { isDelivered: true } });
+                const pending = await Message.find({ receiverPhone: normalizedPhone, isDelivered: false });
+                if (pending.length > 0) {
+                    await Message.updateMany({ _id: { $in: pending.map(m => m._id) } }, { $set: { isDelivered: true } });
+                    pending.forEach(m => {
+                        io.to(`user_${m.senderPhone}`).emit('message_delivered', { messageId: m._id.toString(), localId: m.localId });
+                    });
+                }
             }
         });
 
@@ -106,6 +112,9 @@ module.exports = (io) => {
                 // Broadcast to both users
                 io.to(`user_${sPhone}`).emit('receive_message', newMsg);
                 io.to(`user_${rPhone}`).emit('receive_message', newMsg);
+                if (isReceiverOnline) {
+                    io.to(`user_${sPhone}`).emit('message_delivered', { messageId: newMsg._id.toString(), localId });
+                }
 
                 // Update conversation summary
                 updateConversationSummary(newMsg);
@@ -139,7 +148,7 @@ module.exports = (io) => {
             try {
                 await Message.updateOne({ _id: messageId }, { $set: { isOpened: true, isDelivered: true } });
                 if (senderPhone) {
-                    io.to(`user_${normalize(senderPhone)}`).emit('message_opened', { messageId });
+                    io.to(`user_${normalize(senderPhone)}`).emit('message_opened', { messageId: messageId.toString() });
                 }
             } catch (e) {}
         });
