@@ -120,7 +120,13 @@ const importJob = async (req, res) => {
     try {
         const textToEmbed = VectorService.createJobText(jobObject);
         const vector = await VectorService.generate(textToEmbed);
-        if (vector) jobObject.searchVector = vector;
+        if (vector) {
+            const providerInfo = VectorService.getProviderInfo();
+            jobObject.searchVector = vector;
+            jobObject.searchVectorProvider = `${providerInfo.provider}:${providerInfo.model}`;
+            jobObject.searchVectorGeneratedAt = new Date();
+            jobObject.searchVectorTextHash = VectorService.textHash(textToEmbed);
+        }
     } catch (vErr) { console.error("Vector Error:", vErr.message); }
 
     const newJob = await Job.create(jobObject);

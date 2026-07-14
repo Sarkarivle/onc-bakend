@@ -38,6 +38,9 @@ const jobSchema = new mongoose.Schema({
 
   // Semantic Search (Vector)
   searchVector: { type: [Number], index: false }, // Store embeddings here
+  searchVectorProvider: { type: String, default: 'local_hash' },
+  searchVectorGeneratedAt: { type: Date },
+  searchVectorTextHash: { type: String },
 
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }

@@ -6,6 +6,7 @@ const Job = require('../../jobs/jobModel');
 const SearchReranker = require('./searchReranker');
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const EligibilityEngine = require('../../eligibility/EligibilityEngine');
+const VectorService = require('./vectorService');
 
 class RetrievalEngine {
     /**
@@ -28,8 +29,8 @@ class RetrievalEngine {
                 ? this._basicExpansion(userQuery)
                 : await this._expandQuery(userQuery);
 
-            // 2. OPTIMIZED SEARCH
-            let candidates = await this._standardSearch(expansion, profile);
+            // 2. OPTIMIZED HYBRID SEARCH
+            let candidates = await this._standardSearch(expansion, profile, userQuery);
 
             // FALLBACK: If no specific jobs found, fetch the most recent active jobs
             if (candidates.length === 0) {
@@ -169,7 +170,7 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
     /**
      * Core Search Logic: Text Index (if available) + Regex Fallback
      */
-    static async _standardSearch(expansion, profile) {
+    static async _standardSearch(expansion, profile, rawQuery = '') {
         const keywords = (expansion.keywords || []).map(k => String(k || "").trim()).filter(Boolean);
         const escapedKeywords = keywords.map(k => this._escapeRegex(k)).filter(Boolean);
         const searchRegex = escapedKeywords.length > 0 ? new RegExp(escapedKeywords.join('|'), 'i') : null;
@@ -234,19 +235,105 @@ Output JSON: { "keywords": ["word1", "word2"], "filters": { "location": "string"
             .select({ score: { $meta: 'textScore' } })
             .limit(25).lean();
 
-            if (textResults.length > 0) return textResults;
+            if (textResults.length > 0) {
+                const semanticResults = await this._semanticFallbackSearch(rawQuery || keywords.join(' '), profile, criteria);
+                return this._mergeAndScoreCandidates(textResults, semanticResults);
+            }
         } catch (e) {
             // Text index may not exist in old deployments. Keep the legacy fallback below.
         }
 
-        if (!searchRegex) return [];
+        const regexResults = searchRegex
+            ? await Job.find(criteria).sort({ createdAt: -1 }).limit(25).lean()
+            : [];
+        const semanticResults = await this._semanticFallbackSearch(rawQuery || keywords.join(' '), profile, criteria);
 
-        // Legacy fallback, now escaped/capped so user input cannot create unsafe regex.
-        return await Job.find(criteria).sort({ createdAt: -1 }).limit(25).lean();
+        return this._mergeAndScoreCandidates(regexResults, semanticResults);
+    }
+
+    static async _semanticFallbackSearch(query, profile, criteria = {}) {
+        const semanticQuery = String(query || '').trim();
+        if (!semanticQuery) return [];
+
+        try {
+            const broadCriteria = this._buildBroadSemanticCriteria(criteria);
+            const candidates = await Job.find(broadCriteria).sort({ createdAt: -1 }).limit(80).lean();
+            if (candidates.length === 0) return [];
+
+            const queryVector = await VectorService.generate(semanticQuery);
+            const scored = [];
+
+            for (const job of candidates) {
+                const storedVector = Array.isArray(job.searchVector) && job.searchVector.length === queryVector.length ? job.searchVector : null;
+                const jobVector = storedVector || await VectorService.generate(VectorService.createJobText(job));
+                const semanticScore = VectorService.cosineSimilarity(queryVector, jobVector);
+                const lexicalScore = this._lexicalOverlapScore(semanticQuery, VectorService.createJobText(job));
+                const profileBoost = this._profileSemanticBoost(job, profile);
+                const score = Math.max(Number(job.score || 0), semanticScore * 0.75 + lexicalScore * 0.2 + profileBoost);
+
+                if (score >= 0.18 || lexicalScore > 0) {
+                    scored.push({
+                        ...job,
+                        score,
+                        semanticScore,
+                        lexicalScore,
+                        retrievalSource: storedVector ? 'stored_vector' : 'semantic_fallback'
+                    });
+                }
+            }
+
+            return scored.sort((a, b) => b.score - a.score).slice(0, 25);
+        } catch (error) {
+            console.error("❌ Semantic fallback error:", error.message);
+            return [];
+        }
+    }
+
+    static _buildBroadSemanticCriteria(criteria = {}) {
+        const broad = { isActive: true };
+        if (criteria.$and) {
+            const filters = criteria.$and.filter(item => !item.$or);
+            if (filters.length > 0) broad.$and = filters;
+        }
+        if (criteria.title && !criteria.title.$regex) broad.title = criteria.title;
+        if (criteria['eligibility.education']) broad['eligibility.education'] = criteria['eligibility.education'];
+        return broad;
+    }
+
+    static _mergeAndScoreCandidates(primary = [], semantic = []) {
+        const map = new Map();
+        for (const job of [...primary, ...semantic]) {
+            const key = String(job._id || `${job.title}-${job.organization}`);
+            const existing = map.get(key);
+            if (!existing || Number(job.score || 0) > Number(existing.score || 0)) {
+                map.set(key, job);
+            }
+        }
+        return Array.from(map.values())
+            .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+            .slice(0, 25);
+    }
+
+    static _lexicalOverlapScore(query, text) {
+        const qTokens = new Set(this._extractKeywords(query));
+        const tTokens = new Set(this._extractKeywords(text));
+        if (qTokens.size === 0 || tTokens.size === 0) return 0;
+        let overlap = 0;
+        for (const token of qTokens) if (tTokens.has(token)) overlap++;
+        return overlap / Math.max(qTokens.size, 1);
+    }
+
+    static _profileSemanticBoost(job, profile = {}) {
+        let boost = 0;
+        const education = String(job.eligibility?.education || '').toLowerCase();
+        const qualification = String(profile.qualification || profile.education || '').toLowerCase();
+        if (qualification && education && education.includes(qualification.replace(/\s*pass/i, '').trim())) boost += 0.08;
+        if (profile.state && String(job.fullData?.content || job.fullHtmlContent || '').toLowerCase().includes(String(profile.state).toLowerCase())) boost += 0.04;
+        return boost;
     }
 
     static _extractKeywords(query) {
-        const stopWords = new Set(['mujhe', 'batao', 'please', 'bhai', 'yaar', 'ke', 'ki', 'ka', 'hai', 'h', 'mein', 'me', 'aur', 'latest']);
+        const stopWords = new Set(['mujhe', 'batao', 'please', 'bhai', 'yaar', 'ke', 'ki', 'ka', 'hai', 'h', 'mein', 'me', 'aur', 'latest', 'for', 'the', 'and', 'with']);
         const tokens = String(query || "")
             .toLowerCase()
             .split(/[^a-z0-9]+/i)

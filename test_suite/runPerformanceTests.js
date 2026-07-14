@@ -7,6 +7,7 @@ const LLMProvider = require('../src/features/ai/generation/core_engine/llmProvid
 const MasterOrchestrator = require('../src/features/ai/orchestrator/MasterOrchestrator');
 const Grounding = require('../src/features/ai/quality/grounding');
 const EliteFormatter = require('../src/features/ai/quality/eliteFormatter');
+const SourceService = require('../src/features/sources/sourceService');
 
 async function test(name, fn) {
     const start = Date.now();
@@ -73,6 +74,14 @@ async function main() {
         assert.strictEqual(first.length, VectorService.VECTOR_SIZE);
     });
 
+    await test('semantic scorer connects Hinglish job queries to job text', async () => {
+        const score = await VectorService.scoreTextPair(
+            'sarkari naukri railway bharti',
+            'Railway Group D government recruitment vacancy for 10th pass students'
+        );
+        assert.ok(score > 0.1, `expected semantic score > 0.1, got ${score}`);
+    });
+
     await test('stream validation kills internal thought leaks', async () => {
         const result = ValidationEngine.validateStreamChunk('<AGENT_THOUGHT>secret</AGENT_THOUGHT>');
         assert.strictEqual(result.status, 'KILL');
@@ -95,6 +104,13 @@ async function main() {
         });
         assert.ok(formatted.includes('Verification Sources'));
         assert.ok(formatted.includes('ssc.gov.in'));
+    });
+
+    await test('source freshness extractor hashes visible official content', async () => {
+        const extracted = SourceService.extract('<html><head><title>SSC Notice</title></head><body><script>x</script><h1>Recruitment</h1><p>Last date 31 July</p></body></html>');
+        assert.strictEqual(extracted.title, 'SSC Notice');
+        assert.ok(extracted.text.includes('Last date 31 July'));
+        assert.strictEqual(SourceService.hash(extracted.text).length, 64);
     });
 
     await test('output validation can run in no-LLM mode', async () => {

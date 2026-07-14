@@ -4,6 +4,8 @@
  * network downloads or native model dependencies.
  */
 const logger = require('../utils/logger');
+const axios = require('axios');
+const { createHash } = require('crypto');
 
 class VectorService {
     static cache = new Map();
@@ -15,7 +17,7 @@ class VectorService {
      * Maintained for compatibility with callers that warm up embedding services.
      */
     static async init() {
-        logger.debug("VectorService uses deterministic local vectors; no model warmup required.");
+        logger.debug(`VectorService provider: ${this._providerName()}. Local fallback always available.`);
     }
 
     /**
@@ -30,7 +32,7 @@ class VectorService {
             return cached.vector;
         }
 
-        const vector = this._hashText(normalizedText);
+        const vector = await this._generateWithProvider(normalizedText) || this._hashText(normalizedText);
         this._setCache(normalizedText, vector);
         return vector;
     }
@@ -44,7 +46,109 @@ class VectorService {
     }
 
     static createJobText(job) {
-        return `Job: ${job.title}. Org: ${job.organization}. Cat: ${job.category}. Qual: ${job.eligibility?.education}.`;
+        return [
+            `Job: ${job.title}`,
+            `Org: ${job.organization}`,
+            `Category: ${job.category}`,
+            `Qualification: ${job.eligibility?.education}`,
+            `Age: ${job.eligibility?.ageLimit || `${job.eligibility?.minAge || ''} ${job.eligibility?.maxAge || ''}`}`,
+            `Salary: ${job.salary}`,
+            `Vacancy: ${job.totalVacancy}`,
+            `Content: ${job.aiCoreSummary?.text || job.fullData?.content || ''}`
+        ].filter(Boolean).join('. ');
+    }
+
+    static cosineSimilarity(vecA, vecB) {
+        if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) return 0;
+        let dot = 0, mA = 0, mB = 0;
+        for (let i = 0; i < vecA.length; i++) {
+            dot += vecA[i] * vecB[i];
+            mA += vecA[i] * vecA[i];
+            mB += vecB[i] * vecB[i];
+        }
+        if (mA === 0 || mB === 0) return 0;
+        return dot / (Math.sqrt(mA) * Math.sqrt(mB));
+    }
+
+    static async scoreTextPair(query, text) {
+        const [queryVector, textVector] = await Promise.all([
+            this.generate(query),
+            this.generate(text)
+        ]);
+        return this.cosineSimilarity(queryVector, textVector);
+    }
+
+    static _providerName() {
+        if (process.env.EMBEDDING_PROVIDER) return process.env.EMBEDDING_PROVIDER.toLowerCase();
+        if (process.env.OPENAI_API_KEY && process.env.EMBEDDING_MODEL) return 'openai';
+        if (process.env.GEMINI_API_KEY && process.env.EMBEDDING_MODEL) return 'gemini';
+        return 'local_hash';
+    }
+
+    static getProviderInfo() {
+        return {
+            provider: this._providerName(),
+            model: process.env.EMBEDDING_MODEL || (this._providerName() === 'openai' ? 'text-embedding-3-small' : this._providerName() === 'gemini' ? 'gemini-embedding-001' : 'local_hash_v2'),
+            dimensions: this.VECTOR_SIZE
+        };
+    }
+
+    static textHash(text) {
+        return createHash('sha256').update(String(text || '')).digest('hex');
+    }
+
+    static async _generateWithProvider(text) {
+        const provider = this._providerName();
+        if (provider === 'openai') return await this._openAiEmbedding(text);
+        if (provider === 'gemini') return await this._geminiEmbedding(text);
+        return null;
+    }
+
+    static async _openAiEmbedding(text) {
+        const apiKey = process.env.OPENAI_API_KEY;
+        const model = process.env.EMBEDDING_MODEL || 'text-embedding-3-small';
+        if (!apiKey || process.env.EMBEDDING_PROVIDER === 'local_hash') return null;
+
+        try {
+            const response = await axios.post('https://api.openai.com/v1/embeddings', {
+                model,
+                input: text
+            }, {
+                timeout: Number(process.env.EMBEDDING_TIMEOUT_MS || 8000),
+                headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+            });
+            const vector = response.data?.data?.[0]?.embedding;
+            return this._normalizeExternalVector(vector);
+        } catch (error) {
+            logger.warn(`Embedding provider fallback: ${error.message}`);
+            return null;
+        }
+    }
+
+    static async _geminiEmbedding(text) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        const model = process.env.EMBEDDING_MODEL || 'gemini-embedding-001';
+        if (!apiKey || process.env.EMBEDDING_PROVIDER === 'local_hash') return null;
+
+        try {
+            const response = await axios.post(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+                { content: { parts: [{ text }] } },
+                { timeout: Number(process.env.EMBEDDING_TIMEOUT_MS || 8000) }
+            );
+            const vector = response.data?.embedding?.values;
+            return this._normalizeExternalVector(vector);
+        } catch (error) {
+            logger.warn(`Embedding provider fallback: ${error.message}`);
+            return null;
+        }
+    }
+
+    static _normalizeExternalVector(vector) {
+        if (!Array.isArray(vector) || vector.length === 0) return null;
+        const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + Number(value || 0) ** 2, 0));
+        if (magnitude === 0) return null;
+        return vector.map(value => Number(value || 0) / magnitude);
     }
 
     static _hashText(text) {
@@ -73,6 +177,12 @@ class VectorService {
             .replace(/\bgovt\b/g, "government")
             .replace(/\bsarkari\b/g, "government")
             .replace(/\bnaukri\b/g, "job")
+            .replace(/\bbharti\b/g, "recruitment")
+            .replace(/\byojna\b/g, "scheme")
+            .replace(/\byojana\b/g, "scheme")
+            .replace(/\bchatravriti\b/g, "scholarship")
+            .replace(/\bvidyarthi\b/g, "student")
+            .replace(/\btaiyari\b/g, "preparation")
             .split(/[^a-z0-9]+/i)
             .map(token => token.trim())
             .filter(token => token.length > 1)
@@ -95,6 +205,16 @@ class VectorService {
         const joined = tokens.join(' ');
         const groups = [
             { match: ['job', 'jobs', 'vacancy', 'vacancies', 'bharti', 'recruitment'], alias: 'government_job_search' },
+            { match: ['sarkari', 'government', 'naukri'], alias: 'government_job_search' },
+            { match: ['ssc', 'cgl', 'chsl', 'mts', 'gd'], alias: 'ssc_exam_jobs' },
+            { match: ['railway', 'rrb', 'alp'], alias: 'railway_jobs' },
+            { match: ['police', 'constable', 'daroga'], alias: 'police_jobs' },
+            { match: ['bank', 'banking', 'ibps', 'sbi', 'clerk', 'po'], alias: 'banking_jobs' },
+            { match: ['teacher', 'teaching', 'ctet', 'tet'], alias: 'teaching_jobs' },
+            { match: ['upsc', 'ias', 'civil'], alias: 'upsc_jobs' },
+            { match: ['10th', 'tenth', 'highschool'], alias: 'class_10_eligible' },
+            { match: ['12th', 'inter', 'intermediate'], alias: 'class_12_eligible' },
+            { match: ['graduate', 'degree'], alias: 'graduate_eligible' },
             { match: ['result', 'admit', 'answer', 'key'], alias: 'exam_status_document' },
             { match: ['scholarship', 'scheme', 'yojna'], alias: 'student_financial_support' },
             { match: ['career', 'course', 'skill', 'resume', 'interview'], alias: 'career_guidance' },

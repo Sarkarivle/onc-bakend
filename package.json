@@ -18,7 +18,10 @@
     "test:sovereign": "node src/features/ai/quality/sovereignAuditor.js",
     "test:battle": "node src/features/ai/test_suite/battle_lab/battleSimulator.js",
     "test:release": "npm run test:all && npm run test:brain",
-    "test:release-live": "npm run test:all && npm run test:brain && npm run test:live-ai"
+    "test:release-live": "npm run test:all && npm run test:brain && npm run test:live-ai",
+    "vectors:jobs:dry-run": "node src/scripts/generateVectorsForExistingJobs.js --dry-run",
+    "vectors:jobs": "node src/scripts/generateVectorsForExistingJobs.js",
+    "sources:refresh": "node src/scripts/refreshOfficialSources.js"
   },
   "dependencies": {
     "axios": "^1.18.1",

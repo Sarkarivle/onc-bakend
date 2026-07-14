@@ -3,6 +3,7 @@
  * Responsibility: Multi-Factor Neural Reranking.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');
+const VectorService = require('./vectorService');
 
 class SearchReranker {
     /**
@@ -12,8 +13,13 @@ class SearchReranker {
         if (!results || results.length === 0) return [];
 
         // 1. Pre-score by Freshness (Static boost)
-        const candidates = results.map(job => {
+        const candidates = await Promise.all(results.map(async (job) => {
             let score = job.score || 0;
+            if (!job.semanticScore) {
+                const semanticScore = await VectorService.scoreTextPair(query, VectorService.createJobText(job));
+                score = Math.max(score, semanticScore);
+                job.semanticScore = semanticScore;
+            }
             const createdAt = new Date(job.createdAt || Date.now());
             const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
 
@@ -22,7 +28,7 @@ class SearchReranker {
             score += freshnessBoost * 0.2;
 
             return { ...job, baseScore: score };
-        });
+        }));
 
         // 2. Neural Precision Reranking (Top 10 only for latency)
         const topCandidates = candidates.sort((a, b) => b.baseScore - a.baseScore).slice(0, 10);

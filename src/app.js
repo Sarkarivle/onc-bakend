@@ -19,6 +19,7 @@ const settingsRoutes = require('./features/settings/settingsRoutes');
 const aiRoutes = require('./features/ai/aiRoutes');
 const feedRoutes = require('./features/feed/feedRoutes');
 const chatRoutes = require('./features/chat/chatRoutes');
+const sourceRoutes = require('./features/sources/sourceRoutes');
 
 const app = express();
 console.log('##############################################');
@@ -105,6 +106,7 @@ app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/feed', feedRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/sources', sourceRoutes);
 
 // Web Admin Pages
 app.get('/admin/config.js', (req, res) => {
