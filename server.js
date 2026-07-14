@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const app = require('./src/app');
 const SmartGateway = require('./src/features/ai/quality/smartGateway');
+const { initRedis } = require('./src/config/redis');
 
 // 1. DATABASE CONNECTION
 const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/onc_db";
@@ -9,6 +10,9 @@ const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/onc_db";
 mongoose.connect(mongoURI)
   .then(async () => {
     console.log('✅ Ultra Secure Modular DB Connection Established');
+
+    // Initialize Redis for Scaling
+    await initRedis();
 
     // Initialize AI Clusters
     try {
