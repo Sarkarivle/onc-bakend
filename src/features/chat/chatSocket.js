@@ -1,7 +1,7 @@
 const Message = require('./models/messageModel');
 const Conversation = require('./models/conversationModel');
 const Block = require('./models/blockModel');
-const { updateConversationSummary, resetUnreadCount } = require('../../utils/chatUtils');
+const { updateConversationSummary, resetUnreadCount, queueStatusUpdate } = require('../../utils/chatUtils');
 const { normalize } = require('../../utils/phoneUtils');
 const analytics = require('../../services/analyticsService');
 const { getRedis } = require('../../config/redis');
@@ -22,6 +22,16 @@ module.exports = (io) => {
                     await redis.sAdd('online_users', myPhone);
                     // Notify others
                     io.emit('user_status_change', { phone: myPhone, isOnline: true });
+
+                    // Auto-deliver pending messages
+                    const pending = await Message.find({ receiverPhone: myPhone, isDelivered: false });
+                    if (pending.length > 0) {
+                        await Message.updateMany({ _id: { $in: pending.map(m => m._id) } }, { $set: { isDelivered: true } });
+                        // Notify senders
+                        pending.forEach(m => {
+                            io.to(`user_${m.senderPhone}`).emit('message_delivered', { messageId: m._id, localId: m.localId });
+                        });
+                    }
                 } catch (err) {
                     console.error('❌ Redis Online Error:', err);
                 }
@@ -30,11 +40,15 @@ module.exports = (io) => {
 
         socket.on('set_online', async (phone) => {
             const normalizedPhone = normalize(phone);
+            if (!normalizedPhone) return;
             socket.userPhone = normalizedPhone;
             socket.join(`user_${normalizedPhone}`);
             if (redis) {
                 await redis.sAdd('online_users', normalizedPhone);
                 io.emit('user_status_change', { phone: normalizedPhone, isOnline: true });
+
+                // Mark pending messages as delivered
+                await Message.updateMany({ receiverPhone: normalizedPhone, isDelivered: false }, { $set: { isDelivered: true } });
             }
         });
 
@@ -46,13 +60,11 @@ module.exports = (io) => {
                 const rPhone = normalize(receiverPhone);
 
                 if (!sPhone || !rPhone) {
-                    console.error('❌ Invalid phones for message:', { sPhone, rPhone });
                     if (callback) callback({ success: false, error: 'Invalid sender or receiver' });
                     return;
                 }
 
                 const roomId = [sPhone, rPhone].sort().join('_');
-                console.log(`✉️ Message: ${sPhone} -> ${rPhone} [${type || 'text'}]`);
 
                 // Check for blocks
                 const block = await Block.findOne({
@@ -63,9 +75,14 @@ module.exports = (io) => {
                 });
 
                 if (block) {
-                    console.log(`🚫 Message blocked: ${sPhone} <-> ${rPhone}`);
                     if (callback) callback({ success: false, error: 'Blocked' });
                     return;
+                }
+
+                // Check if receiver is online to set initial isDelivered status
+                let isReceiverOnline = false;
+                if (redis) {
+                    isReceiverOnline = await redis.sIsMember('online_users', rPhone);
                 }
 
                 const newMsg = new Message({
@@ -80,16 +97,17 @@ module.exports = (io) => {
                     replyToId,
                     replyText,
                     replyType,
+                    isDelivered: isReceiverOnline,
                     timestamp: new Date()
                 });
 
                 await newMsg.save();
 
-                // Broadcast to both users' private rooms
+                // Broadcast to both users
                 io.to(`user_${sPhone}`).emit('receive_message', newMsg);
                 io.to(`user_${rPhone}`).emit('receive_message', newMsg);
 
-                // Update conversation summary and stats
+                // Update conversation summary
                 updateConversationSummary(newMsg);
                 analytics.trackMessage();
 
@@ -98,6 +116,32 @@ module.exports = (io) => {
                 console.error("❌ Socket Send Error:", e);
                 if (callback) callback({ success: false, error: e.message });
             }
+        });
+
+        socket.on('mark_delivered', async (data) => {
+            const { messageId, localId, senderPhone } = data;
+            if (!messageId && !localId) return;
+
+            try {
+                const query = messageId ? { _id: messageId } : { localId: localId, senderPhone: normalize(senderPhone) };
+                await Message.updateOne(query, { $set: { isDelivered: true } });
+
+                if (senderPhone) {
+                    io.to(`user_${normalize(senderPhone)}`).emit('message_delivered', { messageId, localId });
+                }
+            } catch (e) {}
+        });
+
+        socket.on('mark_opened', async (data) => {
+            const { messageId, senderPhone } = data;
+            if (!messageId) return;
+
+            try {
+                await Message.updateOne({ _id: messageId }, { $set: { isOpened: true, isDelivered: true } });
+                if (senderPhone) {
+                    io.to(`user_${normalize(senderPhone)}`).emit('message_opened', { messageId });
+                }
+            } catch (e) {}
         });
 
         socket.on('typing', (data) => {
@@ -140,7 +184,6 @@ module.exports = (io) => {
                 if (redis) {
                     try {
                         await redis.sRem('online_users', socket.userPhone);
-                        // Optional: Small delay before marking offline to handle quick reconnections
                         io.emit('user_status_change', { phone: socket.userPhone, isOnline: false });
                     } catch (err) {
                         console.error('❌ Redis Offline Error:', err);

@@ -148,7 +148,7 @@ exports.getChatHistory = async (req, res) => {
             User.findOne(phoneQuery(p2), 'isDeactivated accountStatus')
         ]);
 
-        const messages = chats.reverse();
+        const messages = chats; // Remove .reverse() for Flutter ListView(reverse: true)
         const isBlocked = !!block;
         const blockerPhone = block ? block.blockerPhone : null;
         const isPartnerDeactivated = partner ? (partner.isDeactivated || partner.accountStatus === 'Deactivated') : false;
