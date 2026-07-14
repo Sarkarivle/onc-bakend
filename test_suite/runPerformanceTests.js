@@ -5,6 +5,7 @@ const VectorService = require('../src/features/ai/knowledge/vectorService');
 const ValidationEngine = require('../src/features/ai/quality/validationEngine');
 const LLMProvider = require('../src/features/ai/generation/core_engine/llmProvider');
 const MasterOrchestrator = require('../src/features/ai/orchestrator/MasterOrchestrator');
+const AgentLoop = require('../src/features/ai/reasoning/agentLoop');
 const Grounding = require('../src/features/ai/quality/grounding');
 const EliteFormatter = require('../src/features/ai/quality/eliteFormatter');
 const SourceService = require('../src/features/sources/sourceService');
@@ -64,6 +65,26 @@ async function main() {
         assert.ok(scholarship.includes('GRANTS'));
         assert.ok(internship.includes('PART_TIME'));
         assert.ok(local.includes('LOCAL_SCOUT'));
+    });
+
+    await test('agent loop uses deeper output contract for student planning queries', async () => {
+        const depth = AgentLoop._responseDepth('12th ke baad kya karu full roadmap batao', ['ROADMAP']);
+        const contract = AgentLoop._buildOutputContract(depth, ['ROADMAP'], { qualification: '12th Pass' });
+
+        assert.strictEqual(depth, 'deep');
+        assert.ok(AgentLoop._maxTokensForDepth(depth) >= 2500);
+        assert.ok(contract.includes('30/60/90-day roadmap'));
+        assert.ok(contract.includes('Do not force exactly 3 tasks'));
+    });
+
+    await test('formatter does not force roadmap numbers or generic closing', async () => {
+        const answer = '1. Science path dekho.\\n\\n2. Commerce path dekho.';
+        const formatted = EliteFormatter.format(answer, { intent: 'CAREER_GUIDANCE', userProfile: { name: 'Test' } });
+
+        assert.ok(formatted.includes('1. Science path'));
+        assert.ok(!formatted.includes('🚀 Step:'));
+        assert.ok(!formatted.includes('Aur kuch?'));
+        assert.ok(!formatted.includes('tera bhai yahi hai'));
     });
 
     await test('vector service returns cached deterministic vectors', async () => {

@@ -87,7 +87,7 @@ class EliteFormatter {
      * Career Advice ko ek "Step-by-Step Roadmap" jaisa dikhana.
      */
     static _ensureRoadmap(text) {
-        return text.replace(/^\d+\.\s+/gm, '🚀 Step: ');
+        return text;
     }
 
     /**
@@ -158,22 +158,20 @@ class EliteFormatter {
     }
 
     /**
-     * Point 43: Closed-Loop Completion. Always ensures a next step.
+     * Point 43: Closed-Loop Completion. Adds a closing only when the answer has not
+     * already given the user an actionable next move.
      */
     static _addPersonalizedClosing(text, profile, intent) {
-        const userName = profile?.name?.split(' ')[0] || "Bhai";
-        let closing = "";
+        const cleanText = String(text || '');
+        const hasAction = /\b(next step|agla step|action item|aaj ka task|roadmap|apply|documents?|practice|start with|pehla step)\b/i.test(cleanText);
+        const hasQuestion = /\?\s*$/m.test(cleanText.trim());
+        const isFactual = ['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'GRANTS', 'RESULT_ADMIT_CARD', 'LOCAL_SCOUT', 'PART_TIME'].includes(intent);
 
-        // Only add if not already present
-        if (text.includes('Next Step') || text.includes('Agle Din')) return text;
+        if (hasAction || hasQuestion || cleanText.length < 180) return text;
 
-        if (['JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS'].includes(intent)) {
-            closing = `\n\n💡 **Bhai Ki Tip:** ${userName}, in jobs ke liye Eligibility check kar lena. Agar kisi tool ki help chahiye toh bata!`;
-        } else if (['CAREER_ADVICE', 'CAREER_GUIDANCE'].includes(intent)) {
-            closing = `\n\n🎯 **Action Item:** ${userName}, ye roadmap follow kar. Koi bhi doubt ho toh tera bhai yahi hai.`;
-        } else {
-            closing = `\n\n🤔 **Aur kuch?** ${userName} bhai, kisi aur cheez me help karun?`;
-        }
+        const closing = isFactual
+            ? `\n\nNext step: official link/status verify karke hi form ya payment proceed karna.`
+            : `\n\nNext step: apni current situation ka ek detail bata do, main isko aur exact bana dunga.`;
 
         return text + closing;
     }

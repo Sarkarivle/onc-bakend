@@ -25,6 +25,67 @@ class AgentLoop {
         return /\bpaper airplane|airplane|aeroplane|origami\b/i.test(userMessage || "");
     }
 
+    static _profileCompleteness(profile = {}) {
+        const fields = [
+            profile.name,
+            profile.qualification,
+            profile.location,
+            Array.isArray(profile.skills) ? profile.skills.filter(Boolean).join(',') : profile.skills,
+            Array.isArray(profile.interests) ? profile.interests.filter(Boolean).join(',') : profile.interests
+        ];
+        const known = fields.filter(value => String(value || '').trim()).length;
+        return Math.round((known / fields.length) * 100);
+    }
+
+    static _responseDepth(userMessage, intents = []) {
+        const q = String(userMessage || '').trim();
+        const words = q.split(/\s+/).filter(Boolean).length;
+        const upper = (intents || []).map(i => String(i).toUpperCase());
+        const deepIntents = new Set([
+            'ROADMAP', 'CAREER_GUIDANCE', 'CAREER_ADVICE', 'ACADEMIC_AUDIT',
+            'JOB_SEARCH', 'SSC', 'POLICE', 'BANKING', 'RAILWAY', 'UPSC',
+            'TEACHER', 'GRANTS', 'PART_TIME', 'INTERVIEW', 'SYLLABUS', 'PYQ',
+            'CONCEPT', 'ENGLISH_PRACTICE'
+        ]);
+
+        if (words <= 2 && upper.includes('GREETING')) return 'tiny';
+        if (upper.some(intent => deepIntents.has(intent))) return 'deep';
+        if (words >= 8 || /kaise|kya karu|roadmap|plan|compare|detail|full|samjhao|batao/i.test(q)) return 'deep';
+        return 'standard';
+    }
+
+    static _maxTokensForDepth(depth) {
+        if (depth === 'deep') return Number(process.env.LLM_DEEP_MAX_TOKENS || 2600);
+        if (depth === 'tiny') return Number(process.env.LLM_TINY_MAX_TOKENS || 500);
+        return Number(process.env.LLM_STANDARD_MAX_TOKENS || 1700);
+    }
+
+    static _buildOutputContract(depth, intents = [], profile = {}) {
+        const upper = (intents || []).map(i => String(i).toUpperCase());
+        const completion = this._profileCompleteness(profile);
+
+        if (depth === 'tiny') {
+            return `Keep this response short and natural. Do not add roadmap, tasks, tables, or follow-up unless the user asks.`;
+        }
+
+        const factual = upper.some(i => ['JOB_SEARCH', 'SSC', 'POLICE', 'BANKING', 'RAILWAY', 'UPSC', 'TEACHER', 'GRANTS', 'PART_TIME', 'LOCAL_SCOUT'].includes(i));
+        const planning = upper.some(i => ['ROADMAP', 'CAREER_GUIDANCE', 'CAREER_ADVICE', 'ACADEMIC_AUDIT', 'SYLLABUS', 'PYQ'].includes(i));
+        const learning = upper.some(i => ['CONCEPT', 'MATH', 'ENGLISH_PRACTICE'].includes(i));
+
+        return `
+# ADAPTIVE OUTPUT CONTRACT
+- Depth: ${depth}. Give a complete answer for the user's actual query, not a generic template.
+- User profile completeness: ${completion}%. Use known profile fields; if a critical field is missing, ask only one question after giving useful general guidance.
+- Start with the direct answer in 1-2 lines.
+- Then add the sections that fit the query:
+  ${planning ? '- For career/study planning: Diagnosis, best paths, recommended path, 30/60/90-day roadmap, mistakes to avoid, next step.' : ''}
+  ${factual ? '- For jobs/exams/scholarships: eligibility, dates/status, official-source caveat, documents, application path, risk/verification notes.' : ''}
+  ${learning ? '- For learning: simple explanation, example, practice task, common mistake, memory trick if useful.' : ''}
+- Do not force exactly 3 tasks. Do not force "Bhai", "Ladle", "Sher", ASCII bars, or motivational filler.
+- Use concise Hinglish for clarity, but allow enough detail to fully solve the query.
+`.trim();
+    }
+
     static _ensureBattleReadiness(text, userMessage, intents = []) {
         let finalText = (text || "").trim();
         const additions = [];
@@ -79,14 +140,17 @@ class AgentLoop {
     static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
         const profile = context.profile || {};
         const userId = profile.name || "Bhai";
+        const depth = this._responseDepth(userMessage, intents);
+        const maxTokens = this._maxTokensForDepth(depth);
 
         const protocol = `
 # RESPONSE PROTOCOL:
 1. Be warm but natural. Do not force words like "Ladle", "Sher", or "Bada Bhai" in every answer.
 2. Answer the user directly first. Ask at most one useful follow-up question.
 3. Use ASCII progress bars only when the user asks for a tracker/progress view.
-4. Add next steps only when they help the user's goal; keep them short.
+4. Add next steps only when they help the user's goal.
 5. Never claim facts without tool/source support for jobs, exams, scholarships, or deadlines.
+${this._buildOutputContract(depth, intents, profile)}
 `;
 
         const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n${protocol}`;
@@ -108,7 +172,8 @@ class AgentLoop {
                 const response = await axios.post(await LLMProvider.getBaseUrl(), {
                     model, messages: sanitized,
                     tools: selectedTools.length > 0 ? selectedTools : undefined,
-                    temperature: 0.1, max_tokens: 1500
+                    temperature: depth === 'deep' ? 0.35 : 0.2,
+                    max_tokens: maxTokens
                 }, { headers: LLMProvider.getHeaders(), timeout: 60000 });
 
                 const assistantMessage = response.data.choices[0].message;
@@ -146,7 +211,10 @@ class AgentLoop {
                             messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Error" });
                         }
                     }
-                    messages.push({ role: 'system', content: "Use the tool result. Keep the final answer concise, natural, and grounded. Do not add forced persona lines or ASCII bars unless useful." });
+                    messages.push({
+                        role: 'system',
+                        content: `Use the tool result to produce the final answer. Keep it natural and grounded, but do not under-answer. Follow the adaptive output contract for depth=${depth}.`
+                    });
                 } else {
                     const hardenedContent = this._ensureBattleReadiness(assistantMessage.content, userMessage, intents);
                     return { content: hardenedContent, intent: intents[0], capturedData, messages };
