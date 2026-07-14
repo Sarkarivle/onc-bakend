@@ -86,6 +86,86 @@ class AgentLoop {
 `.trim();
     }
 
+    static _stripUnsupportedSchemaFields(value) {
+        if (Array.isArray(value)) return value.map(item => this._stripUnsupportedSchemaFields(item));
+        if (!value || typeof value !== 'object') return value;
+
+        const output = {};
+        for (const [key, child] of Object.entries(value)) {
+            if (key === 'default') continue;
+            if (key === 'required' && Array.isArray(child) && child.length === 0) continue;
+            output[key] = this._stripUnsupportedSchemaFields(child);
+        }
+        return output;
+    }
+
+    static _sanitizeToolsForProvider(tools = []) {
+        return (tools || [])
+            .filter(tool => tool?.type === 'function' && tool.function?.name)
+            .map(tool => {
+                const sanitized = this._stripUnsupportedSchemaFields(tool);
+                if (!sanitized.function.parameters) {
+                    sanitized.function.parameters = { type: 'object', properties: {} };
+                }
+                return sanitized;
+            });
+    }
+
+    static _isProviderRequestError(error) {
+        return [400, 422].includes(error?.response?.status);
+    }
+
+    static _logProviderError(error, stage = 'AgentLoop') {
+        const status = error?.response?.status;
+        const body = error?.response?.data;
+        console.error(`🛑 ${stage} Error:`, error.message);
+        if (status) console.error(`🛑 ${stage} Status:`, status);
+        if (body) {
+            const printable = typeof body === 'string' ? body : JSON.stringify(body);
+            console.error(`🛑 ${stage} Body:`, printable.substring(0, 1200));
+        }
+    }
+
+    static _localFallback(userMessage, intents = [], profile = {}) {
+        const upper = (intents || []).map(i => String(i).toUpperCase());
+        const q = String(userMessage || '').toLowerCase();
+
+        if (upper.some(i => ['ROADMAP', 'CAREER_GUIDANCE', 'CAREER_ADVICE'].includes(i)) || /12th|career|kya karu|baad/.test(q)) {
+            return [
+                "Abhi exact roadmap ke liye mujhe tumhara stream/interest chahiye, par general direction ye hai:",
+                "",
+                "**Best options after 12th:**",
+                "1. Degree path: BA/BCom/BSc/BCA/BBA, agar graduation + stable career chahiye.",
+                "2. Skill path: computer, design, sales, digital marketing, coding, data entry, agar jaldi earning chahiye.",
+                "3. Government exam path: SSC, Railway, Police, Banking, agar sarkari naukri target hai.",
+                "4. Professional path: JEE/NEET/CLAT/NDA/CA jaise entrance, sirf tab jab interest aur eligibility match ho.",
+                "",
+                "**30-day plan:** apna stream, budget, city, aur interest final karo; 3 career options shortlist karo.",
+                "",
+                "**60-day plan:** ek option ke syllabus/course/fees/eligibility compare karo aur basic skill/test prep start karo.",
+                "",
+                "**90-day plan:** application, exam prep, ya portfolio/project me se ek track lock karo.",
+                "",
+                "Next step: tumhara 12th stream kya hai: Science, Commerce, Arts, ya kuch aur?"
+            ].join('\n');
+        }
+
+        if (upper.some(i => ['JOB_SEARCH', 'SSC', 'POLICE', 'BANKING', 'RAILWAY', 'TEACHER'].includes(i)) || /job|naukri|sarkari|bharti|vacancy/.test(q)) {
+            return [
+                "Live job list abhi model-provider issue ki wajah se fetch nahi ho paayi, par tumhara next step clear hai.",
+                "",
+                "**Sarkari job check karne ke liye:**",
+                "1. Qualification, age, state, category ready rakho.",
+                "2. SSC, Railway, Police, Banking aur state vacancies ko official portals par verify karo.",
+                "3. Apply/fee/date final karne se pehle official notification hi check karo.",
+                "",
+                "Next step: apni qualification, age, state aur category bata do; main eligible job categories filter kar dunga."
+            ].join('\n');
+        }
+
+        return "Main abhi model-provider issue face kar raha hoon, par tum apna sawaal thoda detail me bhejo; main practical answer dunga.";
+    }
+
     static _ensureBattleReadiness(text, userMessage, intents = []) {
         let finalText = (text || "").trim();
         const additions = [];
@@ -158,6 +238,7 @@ ${this._buildOutputContract(depth, intents, profile)}
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...this._getSafeHistory(history));
         messages.push({ role: 'user', content: userMessage });
+        const providerTools = this._sanitizeToolsForProvider(selectedTools);
 
         let iterations = 0;
         let capturedData = { jobs: "", evidence: [] };
@@ -169,12 +250,40 @@ ${this._buildOutputContract(depth, intents, profile)}
 
             try {
                 const turnStart = Date.now();
-                const response = await axios.post(await LLMProvider.getBaseUrl(), {
+                let payload = {
                     model, messages: sanitized,
-                    tools: selectedTools.length > 0 ? selectedTools : undefined,
                     temperature: depth === 'deep' ? 0.35 : 0.2,
                     max_tokens: maxTokens
-                }, { headers: LLMProvider.getHeaders(), timeout: 60000 });
+                };
+                if (providerTools.length > 0) payload.tools = providerTools;
+
+                let response;
+                try {
+                    response = await axios.post(await LLMProvider.getBaseUrl(), payload, {
+                        headers: LLMProvider.getHeaders(),
+                        timeout: 60000
+                    });
+                } catch (error) {
+                    if (payload.tools && this._isProviderRequestError(error)) {
+                        this._logProviderError(error, 'AgentLoop Tool Request');
+                        messages.push({
+                            role: 'system',
+                            content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
+                        });
+                        const fallbackMessages = LLMProvider.sanitizeMessages(messages);
+                        response = await axios.post(await LLMProvider.getBaseUrl(), {
+                            model,
+                            messages: fallbackMessages,
+                            temperature: depth === 'deep' ? 0.35 : 0.2,
+                            max_tokens: maxTokens
+                        }, {
+                            headers: LLMProvider.getHeaders(),
+                            timeout: 60000
+                        });
+                    } else {
+                        throw error;
+                    }
+                }
 
                 const assistantMessage = response.data.choices[0].message;
                 if (!assistantMessage.content) assistantMessage.content = "...";
@@ -220,8 +329,12 @@ ${this._buildOutputContract(depth, intents, profile)}
                     return { content: hardenedContent, intent: intents[0], capturedData, messages };
                 }
             } catch (err) {
-                console.error("🛑 AgentLoop Error:", err.message);
-                return { content: "Bhai, server busy hai. Phir puchen.", intent: intents[0], capturedData: { jobs: "" } };
+                this._logProviderError(err);
+                return {
+                    content: this._localFallback(userMessage, intents, profile),
+                    intent: intents[0],
+                    capturedData: { jobs: "", evidence: [] }
+                };
             }
         }
         return { content: "Bhai, main research kar raha hoon, thodi der me try karein.", intent: intents[0] };

@@ -11,6 +11,7 @@ const EliteFormatter = require('../src/features/ai/quality/eliteFormatter');
 const SourceService = require('../src/features/sources/sourceService');
 const getArchitectMode = require('../src/features/ai/prompts/modes/architectMode');
 const getMemoryPersonalization = require('../src/features/ai/prompts/components/memory_personalization');
+const { getToolsByCategory } = require('../src/features/ai/tools/toolRegistry');
 
 async function test(name, fn) {
     const start = Date.now();
@@ -106,6 +107,26 @@ async function main() {
 
         assert.ok(!formatted.includes('Verification'));
         assert.ok(!formatted.includes('Official source abhi available nahi'));
+    });
+
+    await test('agent loop sanitizes provider tool schemas', async () => {
+        const tools = AgentLoop._sanitizeToolsForProvider(getToolsByCategory(['JOB_SEARCH', 'ROADMAP']));
+        const serialized = JSON.stringify(tools);
+
+        assert.ok(tools.length > 0);
+        assert.ok(!serialized.includes('"default"'));
+        assert.ok(!serialized.includes('"required":[]'));
+        assert.ok(tools.every(tool => tool.type === 'function' && tool.function?.parameters?.type === 'object'));
+    });
+
+    await test('agent loop local fallback avoids server busy for student queries', async () => {
+        const career = AgentLoop._localFallback('12th ke bad kya kare', ['ROADMAP'], {});
+        const jobs = AgentLoop._localFallback('koi new sarkari job aayi h kya', ['JOB_SEARCH'], {});
+
+        assert.ok(career.includes('Best options after 12th'));
+        assert.ok(jobs.includes('Sarkari job check'));
+        assert.ok(!career.toLowerCase().includes('server busy'));
+        assert.ok(!jobs.toLowerCase().includes('server busy'));
     });
 
     await test('vector service returns cached deterministic vectors', async () => {
