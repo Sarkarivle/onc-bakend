@@ -1,25 +1,17 @@
 const FeedPost = require('./feedModel');
 const { getRedis } = require('../../config/redis');
 
-// Fail-safe Local Memory Cache
-let localCache = null;
-let localCacheTime = null;
 const CACHE_KEY = 'jobo:feed:all';
-const CACHE_TTL = 300; // 5 Minutes in seconds
+const CACHE_TTL = 300; // 5 Minutes
 
 exports.createPost = async (req, res) => {
   try {
     const { content, imageUrl } = req.body;
-    const newPost = await FeedPost.create({
-      user: req.user.id,
-      content,
-      imageUrl
-    });
+    const newPost = await FeedPost.create({ user: req.user.id, content, imageUrl });
 
-    // Invalidate Cache
+    // Force refresh cache for everyone when NEW content is added
     const redis = getRedis();
     if (redis) await redis.del(CACHE_KEY);
-    localCache = null;
 
     res.status(201).json({ success: true, data: newPost });
   } catch (err) {
@@ -30,35 +22,15 @@ exports.createPost = async (req, res) => {
 exports.getFeed = async (req, res) => {
   try {
     const redis = getRedis();
-
-    // 1. Try REDIS (Global Cache)
     if (redis) {
-      const cachedData = await redis.get(CACHE_KEY);
-      if (cachedData) {
-        return res.status(200).json({
-          success: true,
-          from: 'redis',
-          data: JSON.parse(cachedData)
-        });
-      }
+      const cached = await redis.get(CACHE_KEY);
+      if (cached) return res.json({ success: true, from: 'redis', data: JSON.parse(cached) });
     }
 
-    // 2. Try Local Memory (Fall-back)
-    if (localCache && (Date.now() - localCacheTime < CACHE_TTL * 1000)) {
-       return res.status(200).json({ success: true, from: 'memory', data: localCache });
-    }
+    const posts = await FeedPost.find().sort('-createdAt').limit(50);
+    if (redis) await redis.set(CACHE_KEY, JSON.stringify(posts), { EX: CACHE_TTL });
 
-    // 3. Database fetch (If no cache)
-    const posts = await FeedPost.find().sort('-createdAt').limit(100);
-
-    // 4. Update both caches
-    if (redis) {
-        await redis.set(CACHE_KEY, JSON.stringify(posts), { EX: CACHE_TTL });
-    }
-    localCache = posts;
-    localCacheTime = Date.now();
-
-    res.status(200).json({ success: true, from: 'db', data: posts });
+    res.json({ success: true, from: 'db', data: posts });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -66,24 +38,22 @@ exports.getFeed = async (req, res) => {
 
 exports.likePost = async (req, res) => {
     try {
+        // ATOMIC UPDATE: We don't fetch-then-save, we let MongoDB handle it
         const post = await FeedPost.findById(req.params.id);
         if (!post) throw new Error('Post not found');
 
         const index = post.likes.indexOf(req.user.id);
-        if (index === -1) {
-            post.likes.push(req.user.id);
-        } else {
-            post.likes.splice(index, 1);
-        }
+        const update = index === -1
+            ? { $addToSet: { likes: req.user.id } }
+            : { $pull: { likes: req.user.id } };
 
-        await post.save();
+        await FeedPost.updateOne({ _id: req.params.id }, update);
 
-        // Invalidate Cache after interaction
-        const redis = getRedis();
-        if (redis) await redis.del(CACHE_KEY);
-        localCache = null;
+        // WE DO NOT DELETE CACHE HERE.
+        // This is how 10M user apps scale. Reading slightly stale counts is okay
+        // as long as the user sees their own local update instantly.
 
-        res.json({ success: true, likes: post.likes.length, isLiked: index === -1 });
+        res.json({ success: true });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -91,24 +61,11 @@ exports.likePost = async (req, res) => {
 
 exports.addComment = async (req, res) => {
     try {
-        const { text } = req.body;
-        const post = await FeedPost.findById(req.params.id);
-        if (!post) throw new Error('Post not found');
-
-        post.comments.push({
-            user: req.user.id,
-            text,
-            createdAt: Date.now()
-        });
-
-        await post.save();
-
-        // Invalidate Cache
-        const redis = getRedis();
-        if (redis) await redis.del(CACHE_KEY);
-        localCache = null;
-
-        res.status(201).json({ success: true, data: post.comments });
+        await FeedPost.updateOne(
+            { _id: req.params.id },
+            { $push: { comments: { user: req.user.id, text: req.body.text } } }
+        );
+        res.status(201).json({ success: true });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
