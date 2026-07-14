@@ -10,7 +10,10 @@ const getFeed = async (req, res) => {
       const cached = await redis.get(CACHE_KEY);
       if (cached) return res.json({ success: true, from: 'redis', data: JSON.parse(cached) });
     }
-    const posts = await FeedPost.find().sort('-createdAt').limit(50);
+    const posts = await FeedPost.find()
+      .populate('comments.user', 'name education')
+      .sort('-createdAt')
+      .limit(50);
     if (redis) await redis.set(CACHE_KEY, JSON.stringify(posts), { EX: 300 });
     res.json({ success: true, data: posts });
   } catch (err) { res.status(400).json({ success: false }); }
@@ -45,6 +48,7 @@ const likePost = async (req, res) => {
 
         const redis = getRedis();
         if (redis) {
+            await redis.del(CACHE_KEY);
             await redis.publish('feed_updates', JSON.stringify({
                 postId: updatedPost._id,
                 likes: updatedPost.likes.length,
@@ -62,13 +66,16 @@ const addComment = async (req, res) => {
             req.params.id,
             { $push: { comments: { user: req.user.id, text: req.body.text } } },
             { new: true }
-        );
+        ).populate('comments.user', 'name education');
 
         const redis = getRedis();
         if (redis) {
+            await redis.del(CACHE_KEY);
+            const newComment = updatedPost.comments[updatedPost.comments.length - 1];
             await redis.publish('feed_updates', JSON.stringify({
                 postId: updatedPost._id,
                 commentsCount: updatedPost.comments.length,
+                newComment: newComment,
                 type: 'comment'
             }));
         }
