@@ -192,6 +192,7 @@ class EliteFormatter {
 
     static _appendVerificationFooter(text, meta = {}, intent = 'GENERAL') {
         if (!text || /Verification Sources|Official source abhi available/i.test(text)) return text;
+        if (/server\s+(busy|error)|connection error|phir puch|try again|try karein|jawab nahi mila/i.test(text)) return text;
 
         const factualIntents = new Set([
             'JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'GRANTS',

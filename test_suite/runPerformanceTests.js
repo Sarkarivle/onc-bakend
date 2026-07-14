@@ -9,6 +9,8 @@ const AgentLoop = require('../src/features/ai/reasoning/agentLoop');
 const Grounding = require('../src/features/ai/quality/grounding');
 const EliteFormatter = require('../src/features/ai/quality/eliteFormatter');
 const SourceService = require('../src/features/sources/sourceService');
+const getArchitectMode = require('../src/features/ai/prompts/modes/architectMode');
+const getMemoryPersonalization = require('../src/features/ai/prompts/components/memory_personalization');
 
 async function test(name, fn) {
     const start = Date.now();
@@ -85,6 +87,25 @@ async function main() {
         assert.ok(!formatted.includes('🚀 Step:'));
         assert.ok(!formatted.includes('Aur kuch?'));
         assert.ok(!formatted.includes('tera bhai yahi hai'));
+    });
+
+    await test('roadmap prompts forbid fake memory and forced bhai template', async () => {
+        const prompt = `${getArchitectMode()}\n${getMemoryPersonalization()}`;
+
+        assert.ok(prompt.includes('Never invent'));
+        assert.ok(prompt.includes('do not add a memory/progress-check section'));
+        assert.ok(!prompt.includes('pichle baar tune kaha tha'));
+        assert.ok(!prompt.includes('Bhai Ka Action Plan'));
+    });
+
+    await test('formatter does not append verification footer to server fallback', async () => {
+        const formatted = EliteFormatter.format('Bhai, server busy hai. Phir puchen.', {
+            intent: 'JOB_SEARCH',
+            evidence: []
+        });
+
+        assert.ok(!formatted.includes('Verification'));
+        assert.ok(!formatted.includes('Official source abhi available nahi'));
     });
 
     await test('vector service returns cached deterministic vectors', async () => {
