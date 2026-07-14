@@ -204,12 +204,13 @@ module.exports = (io) => {
                 await systemMsg.save();
 
                 // Notify both about block state update
-                io.to(`user_${b1}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
-                io.to(`user_${b2}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: true });
+                const blockInfo = { blockerPhone: b1, blockedPhone: b2, isBlocked: true };
+                io.to(`user_${b1}`).emit('moderation_state_updated', blockInfo);
+                io.to(`user_${b2}`).emit('moderation_state_updated', blockInfo);
 
                 io.to(`user_${b1}`).emit('receive_message', systemMsg);
 
-                // Clone for receiver
+                // Clone for receiver with different message
                 const receiverMsg = systemMsg.toObject();
                 receiverMsg.message = 'This contact has blocked you';
                 io.to(`user_${b2}`).emit('receive_message', receiverMsg);
@@ -239,9 +240,9 @@ module.exports = (io) => {
                 });
                 await systemMsg.save();
 
-                // Notify both
-                io.to(`user_${b1}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
-                io.to(`user_${b2}`).emit('moderation_state_updated', { blockerPhone: b1, blockedPhone: b2, isBlocked: false });
+                const unblockInfo = { blockerPhone: b1, blockedPhone: b2, isBlocked: false };
+                io.to(`user_${b1}`).emit('moderation_state_updated', unblockInfo);
+                io.to(`user_${b2}`).emit('moderation_state_updated', unblockInfo);
 
                 io.to(`user_${b1}`).emit('receive_message', systemMsg);
 
