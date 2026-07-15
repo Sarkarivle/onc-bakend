@@ -183,10 +183,6 @@ class AgentLoop {
             additions.push("Isko abhi side me rakhte hain; career/study goal par focus karte hain.");
         }
 
-        if (!this._hasWarmPersona(finalText) && additions.length === 0 && finalText.length > 240) {
-            additions.push("Bhai, seedhi baat:");
-        }
-
         if (additions.length > 0) {
             finalText = `${additions.join("\n\n")}\n\n${finalText}`;
         }

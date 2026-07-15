@@ -70,6 +70,24 @@ async function main() {
         assert.ok(local.includes('LOCAL_SCOUT'));
     });
 
+    await test('12th after query routes to roadmap without internship/job tools', async () => {
+        const intents = MasterOrchestrator._finalizeIntents(['PART_TIME'], '12th ke bad kya kare');
+        const tools = MasterOrchestrator._selectTools('12th ke bad kya kare', intents);
+
+        assert.strictEqual(intents[0], 'ROADMAP');
+        assert.ok(!intents.includes('PART_TIME'));
+        assert.ok(!intents.includes('JOB_SEARCH'));
+        assert.deepStrictEqual(tools, []);
+    });
+
+    await test('live sarkari job query keeps job search tools', async () => {
+        const intents = MasterOrchestrator._finalizeIntents(['GENERAL'], 'koi new sarkari job aayi h kya');
+        const tools = MasterOrchestrator._selectTools('koi new sarkari job aayi h kya', intents);
+
+        assert.ok(intents.includes('JOB_SEARCH'));
+        assert.ok(tools.some(tool => tool.function?.name === 'search_jobs'));
+    });
+
     await test('agent loop uses deeper output contract for student planning queries', async () => {
         const depth = AgentLoop._responseDepth('12th ke baad kya karu full roadmap batao', ['ROADMAP']);
         const contract = AgentLoop._buildOutputContract(depth, ['ROADMAP'], { qualification: '12th Pass' });

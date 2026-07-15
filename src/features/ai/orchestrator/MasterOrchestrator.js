@@ -24,6 +24,10 @@ class MasterOrchestrator {
 
         const prompt = `Select 1-3 categories from:
 ['JOB_SEARCH','MATH','WELLNESS','ROADMAP','SSC','POLICE','BANKING','UPSC','GENERAL','UTILITY','DRAFTING','INTERVIEW','CONCEPT','SYLLABUS','LOCAL_SCOUT','GRANTS','PART_TIME','ACADEMIC_AUDIT','EMAIL_PRO','ENGLISH_PRACTICE','PYQ','SCAM_PROTECTOR','RAILWAY','TEACHER'].
+Rules:
+- "12th ke baad kya kare", "after 12th", career options, or life planning => ROADMAP.
+- Do not choose PART_TIME unless the user explicitly asks internship, part-time, freelance, or earning.
+- Do not choose JOB_SEARCH unless the user asks live jobs, vacancy, bharti, form, apply, salary, date, eligibility, or sarkari naukri.
 Query: "${userQuery}"
 Output ONLY JSON: {"intents": ["CAT1"], "mood": "NEUTRAL"}`;
 
@@ -58,6 +62,8 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "NEUTRAL"}`;
         if (/syllabus|exam pattern|previous year|pyq|mock test|practice question/.test(q)) add('SYLLABUS');
         if (/pyq|previous year/.test(q)) add('PYQ');
         if (/roadmap|study plan|master plan|kaise taiyari kare|time table|timetable/.test(q)) add('ROADMAP');
+        if (/\b(10th|12th|intermediate|graduation|college)\b.*\b(baad|bad|after|kya karu|kya kare|career|options?)\b/.test(q)) add('ROADMAP');
+        if (/\b(baad|bad|after|kya karu|kya kare|career|options?)\b.*\b(10th|12th|intermediate|graduation|college)\b/.test(q)) add('ROADMAP');
         if (/concept|explain|samjhao|notes|flashcard|revision/.test(q)) add('CONCEPT');
 
         if (/scholarship|grant|fee waiver|financial aid|yojna|scheme/.test(q)) add('GRANTS');
@@ -73,15 +79,36 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "NEUTRAL"}`;
         if (/emi|percentage|calculate|math|marks|interest/.test(q)) add('MATH');
         if (/scam|fake job|fraud|safe link|cyber safety/.test(q)) add('SCAM_PROTECTOR');
 
+        if (!/internship|part time|part-time|freelance|work from home|earning|paise|income/.test(q)) intents.delete('PART_TIME');
+        if (intents.has('ROADMAP') && !/job|jobs|vacancy|vacancies|sarkari|naukri|bharti|recruitment|apply link|form date|latest form|salary|eligibility/.test(q)) {
+            intents.delete('JOB_SEARCH');
+        }
+
         if (intents.has('GENERAL') && intents.size > 1) intents.delete('GENERAL');
         if (intents.size === 0) intents.add('GENERAL');
 
-        return Array.from(intents).slice(0, 4);
+        const ordered = Array.from(intents);
+        if (ordered.includes('ROADMAP')) {
+            return ['ROADMAP', ...ordered.filter(intent => intent !== 'ROADMAP')].slice(0, 4);
+        }
+        return ordered.slice(0, 4);
+    }
+
+    static _selectTools(userMessage, intents = []) {
+        const q = String(userMessage || '').toLowerCase();
+        const upper = (intents || []).map(i => String(i).toUpperCase());
+        const liveToolQuery = /latest|new|nayi|aayi|aaya|job|jobs|vacancy|sarkari|naukri|bharti|recruitment|apply|form|deadline|last date|scholarship|grant|internship|part time|near me|nearby|local|library|coaching|cyber cafe/.test(q);
+
+        if (upper.includes('GREETING') || upper.includes('GENERAL')) return [];
+        if (upper.includes('ROADMAP') && !liveToolQuery) return [];
+        if (upper.includes('CAREER_ADVICE') && !liveToolQuery) return [];
+
+        return getToolsByCategory(intents);
     }
 
     static async processUserQuery(userMessage, chatHistory, context) {
         const { intents, mood } = context.image_url ? { intents: ['UTILITY'], mood: 'NEUTRAL' } : await this.classifyIntent(userMessage);
-        const selectedTools = getToolsByCategory(intents);
+        const selectedTools = this._selectTools(userMessage, intents);
 
         const basePersona = getPersona(context.profile?.name, intents.includes('GREETING'), mood, intents);
         const capabilities = getModePrompt(intents, context.profile);
