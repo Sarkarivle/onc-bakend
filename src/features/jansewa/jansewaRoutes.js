@@ -18,7 +18,26 @@ const handle = (fnName) => (req, res, next) => {
 };
 
 router.get('/', handle('getAllKendras'));
+
+router.post('/razorpay/confirm',
+    authMiddleware.protect,
+    handle('confirmRazorpayPayment')
+);
+
+// Public/User registration
+router.post('/register',
+    authMiddleware.protect,
+    handle('registerPartner')
+);
+
 router.get('/:id', handle('getKendra'));
+
+// Admin operations
+router.patch('/:id/status',
+    authMiddleware.protect,
+    authMiddleware.restrictTo('admin'),
+    handle('updatePartnerStatus')
+);
 
 router.post('/',
     authMiddleware.protect,

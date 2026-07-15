@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONC Admin | Manage Jansewa Kendras</title>
+    <title>ONC Admin | Marketplace Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style> body { font-family: 'Inter', sans-serif; } </style>
@@ -24,7 +24,7 @@
                     <span>🧠 AI Planner Logs</span>
                 </a>
                 <a href="/admin/jansewa" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl">
-                    <span>🏢 Jansewa Kendras</span>
+                    <span>🏢 Marketplace</span>
                 </a>
                 <a href="/admin/jobs" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
                     <span>💼 Manage Jobs</span>
@@ -49,9 +49,9 @@
         <!-- Main Content -->
         <div class="flex-1 min-h-screen">
             <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center">
-                <h1 class="text-xl font-bold text-gray-800">Jansewa Kendras</h1>
+                <h1 class="text-xl font-bold text-gray-800">Marketplace Partners</h1>
                 <button onclick="toggleModal(true)" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl font-bold hover:bg-indigo-900 transition">
-                    + Add New Kendra
+                    + Add Partner
                 </button>
             </header>
 
@@ -60,9 +60,9 @@
                     <table class="w-full text-left">
                         <thead class="bg-gray-50 text-gray-400 text-xs uppercase">
                             <tr>
-                                <th class="p-4">Kendra Name</th>
+                                <th class="p-4">Name & Category</th>
                                 <th class="p-4">Location</th>
-                                <th class="p-4">Price</th>
+                                <th class="p-4">Phone</th>
                                 <th class="p-4">Status</th>
                                 <th class="p-4">Actions</th>
                             </tr>
@@ -79,19 +79,23 @@
     <!-- Add Modal -->
     <div id="modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 w-full max-w-md">
-            <h2 class="text-2xl font-bold mb-6 text-[#1A237E]">Add New Kendra</h2>
+            <h2 class="text-2xl font-bold mb-6 text-[#1A237E]">Add New Partner</h2>
             <form id="addForm" class="space-y-4">
-                <input type="text" id="name" placeholder="Kendra Name" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                <input type="text" id="name" placeholder="Business Name" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                <input type="text" id="phone" placeholder="Phone Number" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
                 <input type="text" id="location" placeholder="Location" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
-                <input type="number" id="price" placeholder="Starting Price (₹)" required class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
-                <select id="iconType" class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
-                    <option value="store">Store Front</option>
-                    <option value="computer">Computer Center</option>
-                    <option value="devices">Digital Devices</option>
+                <select id="category" class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 outline-none">
+                    <option value="Jansewa Kendra">Jansewa Kendra</option>
+                    <option value="Student Rooms">Student Rooms</option>
+                    <option value="Tiffin Service">Tiffin Service</option>
+                    <option value="Book Store">Book Store</option>
+                    <option value="Coaching">Coaching</option>
+                    <option value="Home Tutors">Home Tutors</option>
+                    <option value="Stationary">Stationary</option>
                 </select>
                 <div class="flex space-x-3 pt-4">
                     <button type="button" onclick="toggleModal(false)" class="flex-1 py-3 rounded-xl font-bold text-gray-500 bg-gray-100">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 rounded-xl font-bold text-white bg-[#1A237E]">Save Kendra</button>
+                    <button type="submit" class="flex-1 py-3 rounded-xl font-bold text-white bg-[#1A237E]">Save Partner</button>
                 </div>
             </form>
         </div>
@@ -99,18 +103,50 @@
 
     <script>
         async function fetchKendras() {
-            const res = await fetch('/api/v1/jansewa');
+            const token = localStorage.getItem('admin_token');
+            const res = await fetch('/api/v1/jansewa?status=all', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
             const result = await res.json();
             const list = document.getElementById('kendraList');
             list.innerHTML = result.data.map(k => `
                 <tr>
-                    <td class="p-4 font-semibold">${k.name}</td>
+                    <td class="p-4">
+                        <div class="font-bold text-gray-800">${k.name}</div>
+                        <div class="text-xs text-indigo-500 font-semibold uppercase">${k.category}</div>
+                    </td>
                     <td class="p-4 text-gray-500">${k.location}</td>
-                    <td class="p-4 font-bold text-green-600">₹${k.startingPrice}</td>
-                    <td class="p-4"><span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">${k.isVerified ? 'Verified' : 'Pending'}</span></td>
-                    <td class="p-4"><button class="text-red-500 font-bold text-sm">Delete</button></td>
+                    <td class="p-4 text-gray-600 font-medium">${k.phone || 'N/A'}</td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-black uppercase ${
+                            k.status === 'approved' ? 'bg-green-50 text-green-600' :
+                            k.status === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-yellow-50 text-yellow-600'
+                        }">${k.status}</span>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex space-x-2">
+                            ${k.status === 'pending' ? `
+                                <button onclick="updateStatus('${k._id}', 'approved')" class="text-green-600 font-bold text-xs border border-green-200 px-2 py-1 rounded hover:bg-green-50">Approve</button>
+                                <button onclick="updateStatus('${k._id}', 'rejected')" class="text-red-600 font-bold text-xs border border-red-200 px-2 py-1 rounded hover:bg-red-50">Reject</button>
+                            ` : ''}
+                            <button onclick="deleteKendra('${k._id}')" class="text-gray-400 hover:text-red-500 font-bold text-xs">Delete</button>
+                        </div>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        async function updateStatus(id, status) {
+            const token = localStorage.getItem('admin_token');
+            const res = await fetch(`/api/v1/jansewa/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ status })
+            });
+            if (res.ok) fetchKendras();
         }
 
         document.getElementById('addForm').addEventListener('submit', async (e) => {
@@ -118,9 +154,10 @@
             const token = localStorage.getItem('admin_token');
             const data = {
                 name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
                 location: document.getElementById('location').value,
-                startingPrice: document.getElementById('price').value,
-                iconType: document.getElementById('iconType').value,
+                category: document.getElementById('category').value,
+                status: 'approved',
                 isVerified: true
             };
 
@@ -137,8 +174,6 @@
                 toggleModal(false);
                 fetchKendras();
                 document.getElementById('addForm').reset();
-            } else {
-                alert('Failed to add Kendra. Make sure you are logged in as admin.');
             }
         });
 

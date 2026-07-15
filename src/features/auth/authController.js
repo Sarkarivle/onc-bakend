@@ -11,6 +11,18 @@ const signToken = id => {
   });
 };
 
+const refreshPremiumStatus = async (user) => {
+  if (!user) return user;
+  if (user.premiumSource !== 'razorpay' || !user.premiumUntil) return user;
+  const isActive = user.premiumUntil > new Date();
+  if (user.isPremium !== isActive) {
+    user.isPremium = isActive;
+    if (!isActive) user.premiumSource = 'none';
+    await user.save({ validateBeforeSave: false });
+  }
+  return user;
+};
+
 /**
  * Send OTP via MSG91 Widget API
  */
@@ -164,6 +176,8 @@ const login = async (req, res) => {
             });
         }
 
+        await refreshPremiumStatus(user);
+
         const token = signToken(user._id);
         return res.status(200).json({
             status: 'success',
@@ -192,6 +206,8 @@ const login = async (req, res) => {
       }
     }
 
+    await refreshPremiumStatus(user);
+
     const token = signToken(user._id);
     res.status(200).json({
       status: 'success',
@@ -208,7 +224,7 @@ const login = async (req, res) => {
 
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await refreshPremiumStatus(await User.findById(req.user.id));
     res.status(200).json({
       status: 'success',
       data: { user }

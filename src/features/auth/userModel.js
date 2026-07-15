@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   role: { type: String, enum: ['user', 'admin', 'expert'], default: 'user' },
   isVerified: { type: Boolean, default: false },
+  isPremium: { type: Boolean, default: false },
+  premiumUntil: { type: Date },
+  premiumSource: { type: String, default: 'none' },
+  lastPremiumPaymentId: { type: String },
 
   // Personalization Fields
   gender: { type: String, enum: ['Male', 'Female', 'Other'] },

@@ -14,7 +14,7 @@ class AgentLoop {
 
     static _hasAction(text) {
         const value = text || "";
-        return /Aaj ke 3 kaam:|Next step:|Agla step:/i.test(value) || /\bTask\s*3\b/i.test(value);
+        return /Aaj ke 3 kaam:|Next\s*step\s*:|^#+\s*Next\s*Step\b|Agla step:|Ek question:/im.test(value) || /\bTask\s*3\b/i.test(value);
     }
 
     static _isNeutralOverride(userMessage) {
@@ -60,9 +60,14 @@ class AgentLoop {
         return Number(process.env.LLM_STANDARD_MAX_TOKENS || 1700);
     }
 
-    static _buildOutputContract(depth, intents = [], profile = {}) {
+    static _isEarningQuery(userMessage) {
+        return /\b(earning|income|paise|paisa|part[ -]?time|internship|freelance|work from home|job chahiye|kamai)\b/i.test(userMessage || "");
+    }
+
+    static _buildOutputContract(depth, intents = [], profile = {}, userMessage = '') {
         const upper = (intents || []).map(i => String(i).toUpperCase());
         const completion = this._profileCompleteness(profile);
+        const earningQuery = this._isEarningQuery(userMessage);
 
         if (depth === 'tiny') {
             return `Keep this response short and natural. Do not add roadmap, tasks, tables, or follow-up unless the user asks.`;
@@ -81,6 +86,7 @@ class AgentLoop {
   ${planning ? '- For career/study planning: Diagnosis, best paths, recommended path, 30/60/90-day roadmap, mistakes to avoid, next step.' : ''}
   ${factual ? '- For jobs/exams/scholarships: eligibility, dates/status, official-source caveat, documents, application path, risk/verification notes.' : ''}
   ${learning ? '- For learning: simple explanation, example, practice task, common mistake, memory trick if useful.' : ''}
+- For 12th/career roadmap, do ${earningQuery ? 'include earning/part-time options because the user asked for earning.' : 'not include earning, local earning, internship, freelance, or part-time options unless the user asks for earning/jobs.'}
 - Do not force exactly 3 tasks. Do not force "Bhai", "Ladle", "Sher", ASCII bars, or motivational filler.
 - Use concise Hinglish for clarity, but allow enough detail to fully solve the query.
 `.trim();
@@ -166,6 +172,41 @@ class AgentLoop {
         return "Main abhi model-provider issue face kar raha hoon, par tum apna sawaal thoda detail me bhejo; main practical answer dunga.";
     }
 
+    static _removeIrrelevantEarningOptions(text, userMessage) {
+        if (this._isEarningQuery(userMessage)) return text;
+        return String(text || '')
+            .split('\n')
+            .filter(line => !/\b(Local Earning|Part-time Jobs?|part-time|freelanc|immediate financial support|earning option)\b/i.test(line))
+            .join('\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+
+    static _dedupeNextSteps(text) {
+        const lines = String(text || '').split('\n');
+        let seenNextStep = false;
+        const output = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const isNextStep = /(^#+\s*)?Next\s*Step\s*:?\s*$/i.test(line.trim()) || /^Next\s*step\s*:/i.test(line.trim());
+            if (isNextStep) {
+                if (seenNextStep) {
+                    while (i + 1 < lines.length && lines[i + 1].trim() && !/^#+\s|\*\*|^\d+\.|^- /.test(lines[i + 1].trim())) i++;
+                    continue;
+                }
+                seenNextStep = true;
+            }
+            output.push(line);
+        }
+
+        return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    static _polishFinalText(text, userMessage) {
+        return this._dedupeNextSteps(this._removeIrrelevantEarningOptions(text, userMessage));
+    }
+
     static _ensureBattleReadiness(text, userMessage, intents = []) {
         let finalText = (text || "").trim();
         const additions = [];
@@ -193,7 +234,7 @@ class AgentLoop {
                 : `\n\nNext step: apni qualification, age, state aur category bata do; main eligible options filter kar dunga.`;
         }
 
-        return finalText.trim();
+        return this._polishFinalText(finalText, userMessage);
     }
 
     static _normalize(entry) {
@@ -226,7 +267,7 @@ class AgentLoop {
 3. Use ASCII progress bars only when the user asks for a tracker/progress view.
 4. Add next steps only when they help the user's goal.
 5. Never claim facts without tool/source support for jobs, exams, scholarships, or deadlines.
-${this._buildOutputContract(depth, intents, profile)}
+${this._buildOutputContract(depth, intents, profile, userMessage)}
 `;
 
         const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n${protocol}`;

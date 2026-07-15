@@ -90,12 +90,13 @@ async function main() {
 
     await test('agent loop uses deeper output contract for student planning queries', async () => {
         const depth = AgentLoop._responseDepth('12th ke baad kya karu full roadmap batao', ['ROADMAP']);
-        const contract = AgentLoop._buildOutputContract(depth, ['ROADMAP'], { qualification: '12th Pass' });
+        const contract = AgentLoop._buildOutputContract(depth, ['ROADMAP'], { qualification: '12th Pass' }, '12th ke baad kya karu full roadmap batao');
 
         assert.strictEqual(depth, 'deep');
         assert.ok(AgentLoop._maxTokensForDepth(depth) >= 2500);
         assert.ok(contract.includes('30/60/90-day roadmap'));
         assert.ok(contract.includes('Do not force exactly 3 tasks'));
+        assert.ok(contract.includes('not include earning'));
     });
 
     await test('formatter does not force roadmap numbers or generic closing', async () => {
@@ -113,8 +114,27 @@ async function main() {
 
         assert.ok(prompt.includes('Never invent'));
         assert.ok(prompt.includes('do not add a memory/progress-check section'));
+        assert.ok(prompt.includes('No Unasked Earning Track'));
         assert.ok(!prompt.includes('pichle baar tune kaha tha'));
         assert.ok(!prompt.includes('Bhai Ka Action Plan'));
+    });
+
+    await test('agent loop removes duplicate next step and unasked earning option', async () => {
+        const raw = [
+            '### Next Step',
+            'Aapka stream kya hai?',
+            '',
+            '5. **Local Earning/Part-time Jobs** - Fit for immediate financial support.',
+            '',
+            'Next step: apna interest stream bata do.'
+        ].join('\n');
+        const polished = AgentLoop._polishFinalText(raw, '12th ke bad kya kare');
+
+        assert.ok(polished.includes('### Next Step'));
+        assert.ok(polished.includes('Aapka stream kya hai?'));
+        assert.ok(!polished.includes('Local Earning'));
+        assert.ok(!polished.includes('Part-time'));
+        assert.strictEqual((polished.match(/Next\s*step/gi) || []).length, 1);
     });
 
     await test('formatter does not append verification footer to server fallback', async () => {

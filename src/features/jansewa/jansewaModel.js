@@ -2,7 +2,19 @@ const mongoose = require('mongoose');
 
 const jansewaSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  phone: { type: String, required: true },
   location: { type: String, required: true },
+  category: {
+    type: String,
+    required: true,
+    enum: ['Jansewa Kendra', 'Student Rooms', 'Tiffin Service', 'Book Store', 'Coaching', 'Home Tutors', 'Stationary'],
+    default: 'Jansewa Kendra'
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
   rating: { type: Number, default: 4.5 },
   formsFilled: { type: Number, default: 0 },
   isVerified: { type: Boolean, default: false },
