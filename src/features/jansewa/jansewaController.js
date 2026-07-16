@@ -132,14 +132,16 @@ const registerPartner = async (req, res) => {
 const updatePartnerStatus = async (req, res) => {
   try {
     const status = normalizeStatus(req.body.status);
-    const update = { status, isVerified: status === 'approved' };
-    if (req.body.category) update.category = normalizeCategory(req.body.category);
+    const partner = await Jansewa.findById(req.params.id);
+    if (!partner) {
+      return res.status(404).json({ status: 'fail', message: 'Partner not found' });
+    }
 
-    const partner = await Jansewa.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true, runValidators: true }
-    );
+    partner.status = status;
+    partner.isVerified = status === 'approved';
+    partner.category = normalizeCategory(req.body.category || partner.category);
+    await partner.save();
+
     res.status(200).json({ status: 'success', data: partner });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: err.message });

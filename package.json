@@ -21,7 +21,8 @@
     "test:release-live": "npm run test:all && npm run test:brain && npm run test:live-ai",
     "vectors:jobs:dry-run": "node src/scripts/generateVectorsForExistingJobs.js --dry-run",
     "vectors:jobs": "node src/scripts/generateVectorsForExistingJobs.js",
-    "sources:refresh": "node src/scripts/refreshOfficialSources.js"
+    "sources:refresh": "node src/scripts/refreshOfficialSources.js",
+    "jansewa:repair": "node src/scripts/repairJansewaPartners.js"
   },
   "dependencies": {
     "axios": "^1.18.1",
