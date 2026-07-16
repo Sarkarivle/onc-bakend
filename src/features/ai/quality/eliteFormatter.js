@@ -46,41 +46,52 @@ class EliteFormatter {
     static _applyCognitiveEase(text) {
         if (!text) return text;
 
-        // Ensure double newlines between paragraphs
+        // Ensure double newlines between blocks, but keep table rows / consecutive list items
+        // adjacent (single newline) within their own block — GFM tables require the header,
+        // separator, and data rows to be on consecutive lines with no blank line between them.
         let lines = text.split('\n').map(l => l.trim());
-        let result = [];
+        let blocks = [];
         let currentPara = [];
+        let currentPassthrough = [];
+
+        const flushPara = () => {
+            if (currentPara.length > 0) {
+                blocks.push(currentPara.join(' '));
+                currentPara = [];
+            }
+        };
+        const flushPassthrough = () => {
+            if (currentPassthrough.length > 0) {
+                blocks.push(currentPassthrough.join('\n'));
+                currentPassthrough = [];
+            }
+        };
+        const isPassthroughLine = (line) =>
+            line.startsWith('#') || line.startsWith('-') || line.startsWith('*') || line.startsWith('|') || /^\d+\./.test(line);
 
         for (let line of lines) {
             if (line === "") {
-                if (currentPara.length > 0) {
-                    result.push(currentPara.join(' '));
-                    currentPara = [];
-                }
+                flushPara();
+                flushPassthrough();
                 continue;
             }
 
-            // If the line is a heading or list item, flush current paragraph
-            if (line.startsWith('#') || line.startsWith('-') || line.startsWith('*') || /^\d+\./.test(line)) {
-                if (currentPara.length > 0) {
-                    result.push(currentPara.join(' '));
-                    currentPara = [];
-                }
-                result.push(line);
+            if (isPassthroughLine(line)) {
+                flushPara();
+                currentPassthrough.push(line);
             } else {
+                flushPassthrough();
                 currentPara.push(line);
                 // Force break if paragraph exceeds ~3 sentences
-                if (line.endsWith('.') || line.endsWith('!') || line.endsWith('?')) {
-                    if (currentPara.length >= 3) {
-                        result.push(currentPara.join(' '));
-                        currentPara = [];
-                    }
+                if ((line.endsWith('.') || line.endsWith('!') || line.endsWith('?')) && currentPara.length >= 3) {
+                    flushPara();
                 }
             }
         }
-        if (currentPara.length > 0) result.push(currentPara.join(' '));
+        flushPara();
+        flushPassthrough();
 
-        return result.join('\n\n');
+        return blocks.join('\n\n');
     }
 
     /**
@@ -98,11 +109,11 @@ class EliteFormatter {
     }
 
     /**
-     * Converts raw text or messy tables into a clean Elite Card format.
+     * Highlights key fields in job listings. Does NOT touch '|' table syntax —
+     * the client renders real GFM tables now, so stripping pipes here would break them.
      */
     static _ensureTables(text) {
-        let cleaned = text.replace(/^[|]| [|] |[|]$/gm, '').replace(/^[-\s|]+$/gm, '');
-        return cleaned
+        return text
             .replace(/(Vacancy|Post|seat):/gi, '📋 **Vacancy**:')
             .replace(/(Last Date|अंतिम तिथि):/gi, '📅 **Last Date**:')
             .replace(/(Fees?|paisa):/gi, '💰 **Fees**:')
@@ -150,11 +161,16 @@ class EliteFormatter {
 
     static _removeStuttering(text) {
         if (!text) return text;
-        let cleaned = text.replace(/(.)\1{4,}/g, '$1'); // Character stutter
-        cleaned = cleaned.replace(/\b(\w{3,})\s+\1\b/gi, '$1'); // Word stutter
-        cleaned = cleaned.replace(/(.{4,10}?)\1{2,}/gi, '$1'); // Pattern loops
-        cleaned = cleaned.replace(/([\u{1F300}-\u{1F9FF}!.?])\1+/gu, '$1');
-        return cleaned;
+        // Table rows are legitimately repetitive (e.g. "| --- | --- | --- |") — the pattern-loop
+        // check below would otherwise collapse a valid separator row down to a single cell.
+        return text.split('\n').map(line => {
+            if (line.trim().startsWith('|')) return line;
+            let cleaned = line.replace(/(.)\1{4,}/g, '$1'); // Character stutter
+            cleaned = cleaned.replace(/\b(\w{3,})\s+\1\b/gi, '$1'); // Word stutter
+            cleaned = cleaned.replace(/(.{4,10}?)\1{2,}/gi, '$1'); // Pattern loops
+            cleaned = cleaned.replace(/([\u{1F300}-\u{1F9FF}!.?])\1+/gu, '$1');
+            return cleaned;
+        }).join('\n');
     }
 
     /**
