@@ -157,13 +157,37 @@ ${depth === 'deep' ? `- Then add only the sections that fit the query:
     static _extractMalformedToolCall(errorBody) {
         const failedGeneration = errorBody?.error?.failed_generation || '';
         if (!failedGeneration) return null;
-        const match = failedGeneration.match(/<function=([a-zA-Z_][a-zA-Z0-9_]*)>?\s*(\{[\s\S]*\})\s*<\/function>/);
-        if (!match) return null;
-        try {
-            return { name: match[1], args: JSON.parse(match[2]) };
-        } catch (e) {
-            return null;
+
+        // Format A (older models): "<function=name{...}</function>" — malformed XML-ish syntax.
+        const xmlMatch = failedGeneration.match(/<function=([a-zA-Z_][a-zA-Z0-9_]*)>?\s*(\{[\s\S]*\})\s*<\/function>/);
+        if (xmlMatch) {
+            try {
+                return { name: xmlMatch[1], args: this._stripNullArgs(JSON.parse(xmlMatch[2])) };
+            } catch (e) { /* fall through to format B */ }
         }
+
+        // Format B (gpt-oss models): a plain '{"name": "...", "arguments": {...}}' JSON object
+        // that Groq rejected only because optional fields were sent as null instead of omitted.
+        try {
+            const parsed = JSON.parse(failedGeneration.trim());
+            const name = parsed?.name || parsed?.function?.name;
+            const args = parsed?.arguments || parsed?.function?.arguments;
+            if (name && args && typeof args === 'object') {
+                return { name, args: this._stripNullArgs(args) };
+            }
+        } catch (e) { /* not JSON either — give up */ }
+
+        return null;
+    }
+
+    /** Drop null/undefined-valued keys so a tool implementation sees "not provided" the same
+     * way whether the model omitted a field or explicitly sent it as null. */
+    static _stripNullArgs(args) {
+        const cleaned = {};
+        for (const [key, value] of Object.entries(args || {})) {
+            if (value !== null && value !== undefined) cleaned[key] = value;
+        }
+        return cleaned;
     }
 
     static _logProviderError(error, stage = 'AgentLoop') {

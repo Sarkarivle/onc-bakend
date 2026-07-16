@@ -47,9 +47,9 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     job_keyword: { type: "string", description: "Job title like 'SSC CGL'" },
-                    gender: { type: "string", enum: ["Male", "Female", "Other"], description: "Only include if known from profile/history." },
-                    max_education: { type: "string", description: "Only include if known from profile/history." },
-                    location_pref: { type: "string", description: "Only include if known from profile/history." }
+                    gender: { type: ["string", "null"], enum: ["Male", "Female", "Other", null], description: "Only include if known from profile/history, otherwise null." },
+                    max_education: { type: ["string", "null"], description: "Only include if known from profile/history, otherwise null." },
+                    location_pref: { type: ["string", "null"], description: "Only include if known from profile/history, otherwise null." }
                 },
                 required: ["job_keyword"]
             }
