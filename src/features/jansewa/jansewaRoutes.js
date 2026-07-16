@@ -24,11 +24,8 @@ router.post('/razorpay/confirm',
     handle('confirmRazorpayPayment')
 );
 
-// Public/User registration
-router.post('/register',
-    authMiddleware.protect,
-    handle('registerPartner')
-);
+// Public partner application. Admin approval remains protected below.
+router.post('/register', handle('registerPartner'));
 
 router.get('/:id', handle('getKendra'));
 
