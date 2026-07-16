@@ -12,12 +12,19 @@ class VectorService {
     static CACHE_TTL_MS = Number(process.env.EMBEDDING_CACHE_TTL_MS || 10 * 60 * 1000);
     static CACHE_MAX = Number(process.env.EMBEDDING_CACHE_MAX || 500);
     static VECTOR_SIZE = Number(process.env.EMBEDDING_VECTOR_SIZE || 384);
+    static _localPipelinePromise = null;
+    static _localPipelineFailed = false;
 
     /**
      * Maintained for compatibility with callers that warm up embedding services.
+     * Also eagerly warms the local MiniLM model so the first real request doesn't pay
+     * the one-time model-load cost.
      */
     static async init() {
-        logger.debug(`VectorService provider: ${this._providerName()}. Local fallback always available.`);
+        logger.debug(`VectorService provider: ${this._providerName()}. Local hash fallback always available.`);
+        if (this._providerName() === 'local_minilm') {
+            this._getLocalPipeline().catch(() => {});
+        }
     }
 
     /**
@@ -82,13 +89,27 @@ class VectorService {
         if (process.env.EMBEDDING_PROVIDER) return process.env.EMBEDDING_PROVIDER.toLowerCase();
         if (process.env.OPENAI_API_KEY && process.env.EMBEDDING_MODEL) return 'openai';
         if (process.env.GEMINI_API_KEY && process.env.EMBEDDING_MODEL) return 'gemini';
+        // Default stays local_hash: verified empirically that all-MiniLM-L6-v2 (and its
+        // multilingual variant) score romanized Hindi/Hinglish pairs poorly — worse than this
+        // hash approach's hardcoded Hinglish synonym table. Set EMBEDDING_PROVIDER=local_minilm
+        // to opt into the real local sentence-transformer (better for English-heavy content, or
+        // once a custom-trained embedding model is swapped in via EMBEDDING_MODEL).
+        // NOTE: switching providers changes vector dimensionality/space — re-run
+        // `npm run vectors:jobs` to re-embed stored job documents after switching.
         return 'local_hash';
     }
 
     static getProviderInfo() {
+        const provider = this._providerName();
+        const modelNames = {
+            openai: 'text-embedding-3-small',
+            gemini: 'gemini-embedding-001',
+            local_minilm: 'Xenova/all-MiniLM-L6-v2',
+            local_hash: 'local_hash_v2'
+        };
         return {
-            provider: this._providerName(),
-            model: process.env.EMBEDDING_MODEL || (this._providerName() === 'openai' ? 'text-embedding-3-small' : this._providerName() === 'gemini' ? 'gemini-embedding-001' : 'local_hash_v2'),
+            provider,
+            model: process.env.EMBEDDING_MODEL || modelNames[provider] || 'local_hash_v2',
             dimensions: this.VECTOR_SIZE
         };
     }
@@ -101,7 +122,44 @@ class VectorService {
         const provider = this._providerName();
         if (provider === 'openai') return await this._openAiEmbedding(text);
         if (provider === 'gemini') return await this._geminiEmbedding(text);
+        if (provider === 'local_minilm') return await this._localMiniLmEmbedding(text);
         return null;
+    }
+
+    /**
+     * Runs a real sentence-transformer (all-MiniLM-L6-v2, 384 dims) fully locally via
+     * @xenova/transformers (ONNX runtime, CPU). No external API call, no per-request cost.
+     * The ONNX weights are downloaded once on first use and cached on disk; if that download
+     * fails (e.g. no internet on first boot), we fall back to the hash-based vector below
+     * instead of failing the request.
+     */
+    static async _getLocalPipeline() {
+        if (this._localPipelineFailed) return null;
+        if (!this._localPipelinePromise) {
+            this._localPipelinePromise = (async () => {
+                const { pipeline, env } = await import('@xenova/transformers');
+                env.allowLocalModels = false;
+                return pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+            })().catch(error => {
+                logger.warn(`Local MiniLM embedding model failed to load, falling back to hash vectors: ${error.message}`);
+                this._localPipelineFailed = true;
+                this._localPipelinePromise = null;
+                return null;
+            });
+        }
+        return this._localPipelinePromise;
+    }
+
+    static async _localMiniLmEmbedding(text) {
+        try {
+            const extractor = await this._getLocalPipeline();
+            if (!extractor) return null;
+            const output = await extractor(text, { pooling: 'mean', normalize: true });
+            return Array.from(output.data);
+        } catch (error) {
+            logger.warn(`Local MiniLM embedding error, falling back to hash vector: ${error.message}`);
+            return null;
+        }
     }
 
     static async _openAiEmbedding(text) {

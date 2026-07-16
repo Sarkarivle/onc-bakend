@@ -1,5 +1,5 @@
 /**
- * MasterOrchestrator v31.0 - (IMMUNE SYSTEM UPGRADE)
+ * MasterOrchestrator
  * Responsibility: Resilient Intent Mapping and Persona Protection.
  */
 const LLMProvider = require('../generation/core_engine/llmProvider');

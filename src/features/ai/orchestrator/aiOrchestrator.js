@@ -1,5 +1,5 @@
 /**
- * AIOrchestrator Module (Architectural Version 14.0 - Advanced Observer Pipeline)
+ * AIOrchestrator Module
  * Follows the Cognitive Architecture strictly with modern LLM Planner observability.
  */
 const Chat = require('../../chat/chatModel');
@@ -27,7 +27,7 @@ class AIOrchestrator {
                 originalPlan: plan,
                 userName: meta.userName,
                 sessionId: meta.sessionId,
-                modelUsed: process.env.AI_LOGIC_MODEL || "qwen2.5:1.5b",
+                modelUsed: LLMProvider.getModel('logic'),
                 latency: meta.latency
             });
         } catch (e) { console.error("❌ Shadow Log Error:", e.message); }

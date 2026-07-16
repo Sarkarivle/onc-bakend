@@ -1,5 +1,5 @@
 /**
- * Modular Prompt Library (v5.0 - Truly Dynamic Gemini Architecture)
+ * Modular Prompt Library
  * Responsibility: Intent-based Mode Loading and Capability Activation.
  */
 

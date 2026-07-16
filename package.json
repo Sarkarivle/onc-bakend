@@ -25,6 +25,8 @@
     "jansewa:repair": "node src/scripts/repairJansewaPartners.js"
   },
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.2.1",
+    "@xenova/transformers": "^2.17.2",
     "axios": "^1.18.1",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.0.0-rc.12",
@@ -42,7 +44,6 @@
     "nodemon": "^3.0.1",
     "redis": "^4.6.10",
     "socket.io": "^4.7.2",
-    "@socket.io/redis-adapter": "^8.2.1",
     "validator": "^13.11.0",
     "xss-clean": "^0.1.4"
   },

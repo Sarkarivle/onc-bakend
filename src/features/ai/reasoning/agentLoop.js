@@ -122,6 +122,27 @@ class AgentLoop {
     }
 
     /**
+     * One retry for transient failures only (network drop, timeout, 5xx) — a single blip
+     * should not immediately drop the user to canned fallback text. 4xx errors (bad request,
+     * rejected tool call) are not retried here since resending the same payload won't help.
+     */
+    static async _postWithRetry(url, payload, headers, timeout, retries = 1) {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                return await axios.post(url, payload, { headers, timeout });
+            } catch (error) {
+                const status = error?.response?.status;
+                const isTransient = !status || status >= 500 || ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code);
+                if (isTransient && attempt < retries) {
+                    await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+                    continue;
+                }
+                throw error;
+            }
+        }
+    }
+
+    /**
      * Groq/Llama sometimes emits malformed tool-call syntax (e.g. missing '>' in
      * <function=name{...}</function>), which the provider rejects with 400 tool_use_failed
      * before ever executing the tool. Recover the intended call from failed_generation
@@ -343,10 +364,7 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                 } else {
                     let response;
                     try {
-                        response = await axios.post(await LLMProvider.getBaseUrl(), payload, {
-                            headers: LLMProvider.getHeaders(),
-                            timeout: 60000
-                        });
+                        response = await this._postWithRetry(await LLMProvider.getBaseUrl(), payload, LLMProvider.getHeaders(), 60000);
                     } catch (error) {
                         if (payload.tools && this._isProviderRequestError(error)) {
                             this._logProviderError(error, 'AgentLoop Tool Request');

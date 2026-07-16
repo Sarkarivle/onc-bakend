@@ -1,5 +1,5 @@
 /**
- * TelemetryEngine Module (Architectural Version 13.0)
+ * TelemetryEngine Module
  * Responsibility: Enterprise-grade observability, tracing, and bottleneck analysis.
  */
 const { randomUUID } = require('crypto');

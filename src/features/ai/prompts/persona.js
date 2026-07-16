@@ -1,6 +1,6 @@
 /**
- * Sovereign Persona v26.0 - (ULTIMATE DYNAMIC GEMINI)
- * Optimizes rules based on user intent while PRESERVING all 65 Sovereign Points.
+ * Persona assembler — builds the final system prompt from components/, varying the
+ * strategy block by whether the query is planning-heavy, technical, or general/search.
  */
 const C = require('./components');
 

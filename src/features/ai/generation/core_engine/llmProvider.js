@@ -139,23 +139,19 @@ class LLMProvider {
         const envModel = process.env.LLM_MODEL;
         if (envModel) return envModel;
 
-        const provider = this.settingsCache.provider;
-
-        // Use small model for Logic/Planner tasks to avoid Rate Limits (429)
+        // Use small/fast model for Logic/Planner tasks to avoid Rate Limits (429)
         if (type === 'logic') {
-            return provider === 'groq' ? "llama-3.1-8b-instant" : (constants.AI_LOGIC_MODEL || "llama-3.1-8b-instant");
+            return constants.AI_LOGIC_MODEL || "openai/gpt-oss-20b";
         }
 
         // AUTO-DETECT VISION NEED
         const hasImage = messages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === 'image_url'));
-        if (hasImage && provider === 'groq') {
-            // Groq Active Vision Models: llama-3.2-11b-vision-preview or llama-3.2-90b-vision-preview
-            return constants.AI_VISION_MODEL || "llama-3.2-11b-vision-preview";
+        if (hasImage) {
+            return constants.AI_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
         }
 
         // Use large model for high-quality Personality/Chat
-        if (provider === 'groq') return "llama-3.3-70b-versatile";
-        return constants.AI_PERSONALITY_MODEL || "llama-3.3-70b-versatile";
+        return constants.AI_PERSONALITY_MODEL || "openai/gpt-oss-120b";
     }
 
     static getHeaders() {

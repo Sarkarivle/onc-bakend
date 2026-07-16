@@ -1,5 +1,5 @@
 /**
- * StreamingEngine Module (Architectural Version 10.0 - Validated Stream)
+ * StreamingEngine Module — SSE streaming with chunk validation
  */
 const ValidationEngine = require('../quality/validationEngine');
 

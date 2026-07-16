@@ -1,5 +1,5 @@
 /**
- * BackgroundServices Module (Architectural Version 2.0)
+ * BackgroundServices Module
  * Responsibility: Executing non-blocking tasks (Memory, Learning, Observability)
  * asynchronously after the response is delivered to the user.
  */

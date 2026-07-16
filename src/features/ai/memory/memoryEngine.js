@@ -1,6 +1,6 @@
 /**
- * MemoryEngine Module (Architectural Version 12.0 - Gemini Pro Standard)
- * Responsibility: Managing Deep Memory, Cross-Session Intelligence, and Dashboard Sync.
+ * MemoryEngine Module
+ * Responsibility: Managing long-term user facts, extraction, and search.
  */
 const Fact = require('./factModel');
 const State = require('./stateModel');
