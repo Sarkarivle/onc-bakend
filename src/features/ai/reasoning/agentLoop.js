@@ -254,11 +254,19 @@ class AgentLoop {
         return sliced;
     }
 
-    static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"]) {
+    static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"], onToken = null) {
         const profile = context.profile || {};
         const userId = profile.name || "Bhai";
         const depth = this._responseDepth(userMessage, intents);
         const maxTokens = this._maxTokensForDepth(depth);
+
+        let memoryBlock = '';
+        if (userId && !['User', 'Guest'].includes(userId)) {
+            const memories = await MemoryEngine.searchMemory(userId, userMessage, 5);
+            if (memories.length > 0) {
+                memoryBlock = `\n\n# RELEVANT MEMORIES\n${memories.map(m => `- [${m.category}] ${m.fact}`).join('\n')}`;
+            }
+        }
 
         const protocol = `
 # RESPONSE PROTOCOL:
@@ -270,11 +278,21 @@ class AgentLoop {
 ${this._buildOutputContract(depth, intents, profile, userMessage)}
 `;
 
-        const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n${protocol}`;
+        const systemPrompt = `${dynamicSystemPrompt}\n\n# CONTEXT: User=${userId}\n${protocol}${memoryBlock}`;
 
         let messages = [{ role: 'system', content: systemPrompt }];
         messages.push(...this._getSafeHistory(history));
-        messages.push({ role: 'user', content: userMessage });
+        if (context.image_url) {
+            messages.push({
+                role: 'user',
+                content: [
+                    { type: 'text', text: userMessage },
+                    { type: 'image_url', image_url: { url: context.image_url } }
+                ]
+            });
+        } else {
+            messages.push({ role: 'user', content: userMessage });
+        }
         const providerTools = this._sanitizeToolsForProvider(selectedTools);
 
         let iterations = 0;
@@ -292,40 +310,51 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                     temperature: depth === 'deep' ? 0.35 : 0.2,
                     max_tokens: maxTokens
                 };
-                if (providerTools.length > 0) payload.tools = providerTools;
+                const allowToolsThisTurn = providerTools.length > 0 && !context.image_url && (!onToken || iterations === 1);
+                if (allowToolsThisTurn) payload.tools = providerTools;
 
-                let response;
-                try {
-                    response = await axios.post(await LLMProvider.getBaseUrl(), payload, {
-                        headers: LLMProvider.getHeaders(),
-                        timeout: 60000
+                let assistantMessage;
+
+                if (!payload.tools && onToken) {
+                    // Final content-only turn: stream tokens live to the caller.
+                    const fullResponse = await LLMProvider.chatStream(sanitized, onToken, {
+                        temperature: payload.temperature,
+                        max_tokens: payload.max_tokens
                     });
-                } catch (error) {
-                    if (payload.tools && this._isProviderRequestError(error)) {
-                        this._logProviderError(error, 'AgentLoop Tool Request');
-                        messages.push({
-                            role: 'system',
-                            content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
-                        });
-                        const fallbackMessages = LLMProvider.sanitizeMessages(messages);
-                        response = await axios.post(await LLMProvider.getBaseUrl(), {
-                            model,
-                            messages: fallbackMessages,
-                            temperature: depth === 'deep' ? 0.35 : 0.2,
-                            max_tokens: maxTokens
-                        }, {
+                    assistantMessage = { role: 'assistant', content: fullResponse || "..." };
+                } else {
+                    let response;
+                    try {
+                        response = await axios.post(await LLMProvider.getBaseUrl(), payload, {
                             headers: LLMProvider.getHeaders(),
                             timeout: 60000
                         });
-                    } else {
-                        throw error;
+                    } catch (error) {
+                        if (payload.tools && this._isProviderRequestError(error)) {
+                            this._logProviderError(error, 'AgentLoop Tool Request');
+                            messages.push({
+                                role: 'system',
+                                content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
+                            });
+                            const fallbackMessages = LLMProvider.sanitizeMessages(messages);
+                            response = await axios.post(await LLMProvider.getBaseUrl(), {
+                                model,
+                                messages: fallbackMessages,
+                                temperature: depth === 'deep' ? 0.35 : 0.2,
+                                max_tokens: maxTokens
+                            }, {
+                                headers: LLMProvider.getHeaders(),
+                                timeout: 60000
+                            });
+                        } else {
+                            throw error;
+                        }
                     }
+
+                    assistantMessage = response.data.choices[0].message;
+                    if (!assistantMessage.content) assistantMessage.content = "...";
+                    LLMProvider._logAIEvent('TURN_' + iterations, { model }, assistantMessage, Date.now() - turnStart, response.data.usage);
                 }
-
-                const assistantMessage = response.data.choices[0].message;
-                if (!assistantMessage.content) assistantMessage.content = "...";
-
-                LLMProvider._logAIEvent('TURN_' + iterations, { model }, assistantMessage, Date.now() - turnStart, response.data.usage);
 
                 if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
                     messages.push(assistantMessage);
@@ -344,12 +373,14 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                             }
 
                             const toolFeedback = toolCall.function.name === 'search_jobs'
-                                ? {
-                                    status: raw.status || "success",
-                                    found: (raw.jobs || []).length,
-                                    summary: (raw.jobs || []).slice(0, 2).map(j => j.title).join(", "),
-                                    verification: raw.grounding || null
-                                }
+                                ? (raw.status === 'EMPTY_RESULT'
+                                    ? { status: raw.status, message: raw.message, explanation: raw.explanation, details: raw.details }
+                                    : {
+                                        status: raw.status || "success",
+                                        found: (raw.jobs || []).length,
+                                        jobs_context: this._formatJobsForContext(raw.jobs || [], depth === 'deep' ? 10 : 6),
+                                        verification: raw.grounding || null
+                                    })
                                 : this._compactToolFeedback(raw);
 
                             messages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: JSON.stringify(toolFeedback) });
@@ -375,6 +406,18 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
             }
         }
         return { content: "Bhai, main research kar raha hoon, thodi der me try karein.", intent: intents[0] };
+    }
+
+    static _formatJobsForContext(jobs = [], limit = 8) {
+        return jobs.slice(0, limit).map(j => {
+            const title = String(j.title || 'Untitled').slice(0, 80);
+            const org = String(j.organization || 'N/A').slice(0, 80);
+            const link = j.officialLinks?.apply || j.officialLinks?.notification || j.applyLink || 'link not stored';
+            const lastDate = j.importantDates?.applicationLastDate || j.lastDate || 'check official notice';
+            const salary = j.salary || 'not disclosed';
+            const elig = j.eligibility?.status === 'ELIGIBLE' ? 'Eligible' : (j.eligibility?.reason || 'check eligibility');
+            return `- ${title} | ${org} | Last date: ${lastDate} | Salary: ${salary} | Eligibility: ${elig} | Link: ${link}`;
+        }).join('\n');
     }
 
     static _normalizeToolResult(result) {

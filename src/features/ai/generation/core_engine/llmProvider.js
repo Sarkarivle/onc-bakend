@@ -345,7 +345,7 @@ class LLMProvider {
         }
     }
 
-    static async chatStream(messages, onChunk) {
+    static async chatStream(messages, onChunk, optionsOverride = {}) {
         const startTime = Date.now();
         this.callStats.stream++;
         this.callStats.total++;
@@ -362,14 +362,14 @@ class LLMProvider {
                     model: model,
                     messages: messages,
                     stream: true,
-                    options: { temperature: 0.7 }
+                    options: { temperature: optionsOverride.temperature || 0.7 }
                 };
             } else {
                 payload = {
                     model: model,
                     messages: sanitizedMessages,
-                    max_tokens: Number(process.env.LLM_MAX_TOKENS || 1500),
-                    temperature: 0.2,
+                    max_tokens: optionsOverride.max_tokens || Number(process.env.LLM_MAX_TOKENS || 1500),
+                    temperature: optionsOverride.temperature ?? 0.2,
                     top_p: 0.9,
                     frequency_penalty: 0.3,
                     stream: true,
@@ -417,7 +417,7 @@ class LLMProvider {
                                 fullResponse += content;
                                 onChunk(content);
                             }
-                            if (json.done) resolve();
+                            if (json.done) resolve(fullResponse);
                         } catch (e) {}
                     }
                 });
@@ -444,7 +444,7 @@ class LLMProvider {
 
                     const duration = Date.now() - startTime;
                     this._logAIEvent('STREAM_GEN', payload, fullResponse, duration, usage, fullUrl);
-                    resolve();
+                    resolve(fullResponse);
                 });
             });
         } catch (error) {

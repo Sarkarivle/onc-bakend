@@ -153,12 +153,19 @@ class AIOrchestrator {
             ]);
 
             // --- AGENTIC LOOP (SUPERVISOR-WORKER) ---
+            let streamedLive = false;
+            const onToken = (token) => {
+                streamedLive = true;
+                stream.pushChunk(token);
+            };
+
             const agentResult = await Telemetry.trackStage(traceId, 'AGENTIC_LOOP',
                 () => MasterOrchestrator.processUserQuery(userMessage, history, {
                     profile,
                     sessionId,
                     userId: userName,
-                    image_url: image_url // Using the destructured variable
+                    image_url: image_url, // Using the destructured variable
+                    onToken
                 })
             );
 
@@ -166,11 +173,11 @@ class AIOrchestrator {
 
             Telemetry.setContext(traceId, { intent });
 
-            // Stream the final content
+            // Final, corrected/formatted answer replaces the raw streamed text on the client.
             const formatted = EliteFormatter.format(content, { intent, userProfile: profile, evidence: capturedData.evidence });
             const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
 
-            await stream.pushChunk(formatted);
+            if (!streamedLive) await stream.pushChunk(formatted);
             const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions, finalAnswer: formatted })}`;
             await stream.pushChunk(metadataStr);
             await stream.finishStream();

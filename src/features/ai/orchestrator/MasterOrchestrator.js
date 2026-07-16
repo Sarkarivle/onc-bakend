@@ -5,14 +5,14 @@
 const LLMProvider = require('../generation/core_engine/llmProvider');
 const { getToolsByCategory } = require('../tools/toolRegistry');
 const AgentLoop = require('../reasoning/agentLoop');
-const { getPersona, getFormatting, getModePrompt } = require('../prompts');
+const { getPersona, getModePrompt } = require('../prompts');
 
 class MasterOrchestrator {
     static ALLOWED_INTENTS = [
         'JOB_SEARCH', 'MATH', 'WELLNESS', 'ROADMAP', 'SSC', 'POLICE', 'BANKING', 'UPSC',
         'GENERAL', 'UTILITY', 'DRAFTING', 'INTERVIEW', 'CONCEPT', 'SYLLABUS', 'LOCAL_SCOUT',
         'GRANTS', 'PART_TIME', 'ACADEMIC_AUDIT', 'EMAIL_PRO', 'ENGLISH_PRACTICE', 'PYQ',
-        'SCAM_PROTECTOR', 'RAILWAY', 'TEACHER'
+        'SCAM_PROTECTOR', 'RAILWAY', 'TEACHER', 'CODING'
     ];
 
     static async classifyIntent(userQuery) {
@@ -23,7 +23,7 @@ class MasterOrchestrator {
         }
 
         const prompt = `Select 1-3 categories from:
-['JOB_SEARCH','MATH','WELLNESS','ROADMAP','SSC','POLICE','BANKING','UPSC','GENERAL','UTILITY','DRAFTING','INTERVIEW','CONCEPT','SYLLABUS','LOCAL_SCOUT','GRANTS','PART_TIME','ACADEMIC_AUDIT','EMAIL_PRO','ENGLISH_PRACTICE','PYQ','SCAM_PROTECTOR','RAILWAY','TEACHER'].
+['JOB_SEARCH','MATH','WELLNESS','ROADMAP','SSC','POLICE','BANKING','UPSC','GENERAL','UTILITY','DRAFTING','INTERVIEW','CONCEPT','SYLLABUS','LOCAL_SCOUT','GRANTS','PART_TIME','ACADEMIC_AUDIT','EMAIL_PRO','ENGLISH_PRACTICE','PYQ','SCAM_PROTECTOR','RAILWAY','TEACHER','CODING'].
 Rules:
 - "12th ke baad kya kare", "after 12th", career options, or life planning => ROADMAP.
 - Do not choose PART_TIME unless the user explicitly asks internship, part-time, freelance, or earning.
@@ -78,6 +78,7 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "NEUTRAL"}`;
         if (/stress|anxiety|motivation|depression|exam fear|financial stress/.test(q)) add('WELLNESS');
         if (/emi|percentage|calculate|math|marks|interest/.test(q)) add('MATH');
         if (/scam|fake job|fraud|safe link|cyber safety/.test(q)) add('SCAM_PROTECTOR');
+        if (/coding|programming|code likhna|python|javascript|java\b|html|css|c\+\+|dsa\b|developer ban/.test(q)) add('CODING');
 
         if (!/internship|part time|part-time|freelance|work from home|earning|paise|income/.test(q)) intents.delete('PART_TIME');
         if (intents.has('ROADMAP') && !/job|jobs|vacancy|vacancies|sarkari|naukri|bharti|recruitment|apply link|form date|latest form|salary|eligibility/.test(q)) {
@@ -112,10 +113,9 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "NEUTRAL"}`;
 
         const basePersona = getPersona(context.profile?.name, intents.includes('GREETING'), mood, intents);
         const capabilities = getModePrompt(intents, context.profile);
-        const format = getFormatting();
 
-        const finalPrompt = `${capabilities}\n\n${basePersona}\n\n${format}`;
-        return await AgentLoop.run(userMessage, chatHistory, context, finalPrompt, selectedTools, intents);
+        const finalPrompt = `${capabilities}\n\n${basePersona}`;
+        return await AgentLoop.run(userMessage, chatHistory, context, finalPrompt, selectedTools, intents, context.onToken || null);
     }
 }
 

@@ -4,7 +4,6 @@
  */
 
 const getPersona = require('./persona');
-const getFormatting = require('./formatting');
 
 // Mapping Intents to their full expert mode files
 const MODE_FILE_MAP = {
@@ -38,7 +37,8 @@ const MODE_FILE_MAP = {
     'ENGLISH_PRACTICE': 'englishPracticeMode',
     'RAILWAY': 'railwayExpertMode',
     'SCAM_PROTECTOR': 'scamProtectorMode',
-    'UTILITY': 'utilityMode'
+    'UTILITY': 'utilityMode',
+    'CODING': 'codingBasicsMode'
 };
 
 const REQUIREMENT_MAP = {
@@ -104,4 +104,4 @@ ${gapInstruction}
 `.trim();
 };
 
-module.exports = { getPersona, getFormatting, getModePrompt };
+module.exports = { getPersona, getModePrompt };
