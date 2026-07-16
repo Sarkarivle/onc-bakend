@@ -63,14 +63,21 @@ mongoose.connect(mongoURI)
   })
   .catch(err => console.error('❌ DB Connection Error:', err));
 
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT || 3001);
+const HOST = process.env.HOST || '0.0.0.0';
+const activeServer = io ? serverInstance : app;
 
-if (io) {
-    serverInstance.listen(PORT, "0.0.0.0", () => {
-        console.log(`🚀 SERVER RUNNING ON PORT: ${PORT} (Real-time Enabled)`);
-    });
-} else {
-    app.listen(PORT, "0.0.0.0", () => {
-        console.log(`🚀 SERVER RUNNING ON PORT: ${PORT} (Normal Mode)`);
-    });
-}
+const server = activeServer.listen(PORT, HOST, () => {
+    console.log(`🚀 SERVER RUNNING ON ${HOST}:${PORT} (${io ? 'Real-time Enabled' : 'Normal Mode'})`);
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Backend port busy: ${HOST}:${PORT}`);
+        console.error('   Fix: stop the duplicate PM2/process using this port, or set a different PORT in PM2/.env.');
+        process.exit(1);
+    }
+
+    console.error('❌ Server startup error:', err);
+    process.exit(1);
+});
