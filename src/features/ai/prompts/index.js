@@ -53,7 +53,7 @@ const REQUIREMENT_MAP = {
     'LOCAL_SCOUT': ['city', 'state']
 };
 
-const getModePrompt = (intents = [], profile = {}) => {
+const getModePrompt = (intents = [], profile = {}, depth = 'standard') => {
     if (!intents || intents.length === 0 || (intents.length === 1 && intents[0] === 'GENERAL')) {
         return `# MODE: CONVERSATIONAL\nBe a warm, practical student assistant. Keep it natural.`;
     }
@@ -65,7 +65,10 @@ const getModePrompt = (intents = [], profile = {}) => {
             if (fileName) {
                 try {
                     const modeFn = require(`./modes/${fileName}`);
-                    return modeFn();
+                    // Depth-aware mode files (architectMode, adviceMode, auditorMode) use this
+                    // to skip their fixed multi-section template for narrow/standard queries.
+                    // Other mode files keep a `()` signature and simply ignore the extra arg.
+                    return modeFn(depth);
                 } catch (e) {
                     return `- **${intent}**: Specialist expert mode active.`;
                 }

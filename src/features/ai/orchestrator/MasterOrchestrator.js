@@ -110,12 +110,17 @@ Output ONLY JSON: {"intents": ["CAT1"], "mood": "NEUTRAL"}`;
     static async processUserQuery(userMessage, chatHistory, context) {
         const { intents, mood } = context.image_url ? { intents: ['UTILITY'], mood: 'NEUTRAL' } : await this.classifyIntent(userMessage);
         const selectedTools = this._selectTools(userMessage, intents);
+        // Computed once here so persona assembly, mode prompts, and the output contract
+        // in AgentLoop.run all agree on the same depth — a narrow query shouldn't get the
+        // full planning template from one part of the prompt and a "keep it short" note
+        // from another.
+        const depth = AgentLoop._responseDepth(userMessage, intents);
 
-        const basePersona = getPersona(context.profile?.name, intents.includes('GREETING'), mood, intents);
-        const capabilities = getModePrompt(intents, context.profile);
+        const basePersona = getPersona(context.profile?.name, intents.includes('GREETING'), mood, intents, depth);
+        const capabilities = getModePrompt(intents, context.profile, depth);
 
         const finalPrompt = `${capabilities}\n\n${basePersona}`;
-        return await AgentLoop.run(userMessage, chatHistory, context, finalPrompt, selectedTools, intents, context.onToken || null);
+        return await AgentLoop.run(userMessage, chatHistory, context, finalPrompt, selectedTools, intents, context.onToken || null, depth);
     }
 }
 

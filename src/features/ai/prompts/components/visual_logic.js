@@ -1,1 +1,1 @@
-module.exports = () => `Visuals: Use tables, bullets, or short step labels when they improve clarity. Use ASCII bars only for explicit progress/tracker views. Brief paras (2-3 lines).`;
+module.exports = () => `Visuals: Prefer bullets/short step labels; use a table only when it satisfies the strict TABLE VS BULLETS RULE (3+ items, 2+ short fields, cells under ~6-8 words). Use ASCII bars only for explicit progress/tracker views. Brief paras (2-3 lines).`;

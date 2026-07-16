@@ -41,17 +41,18 @@ class AgentLoop {
         const q = String(userMessage || '').trim();
         const words = q.split(/\s+/).filter(Boolean).length;
         const upper = (intents || []).map(i => String(i).toUpperCase());
-        const deepIntents = new Set([
-            'ROADMAP', 'CAREER_GUIDANCE', 'CAREER_ADVICE', 'ACADEMIC_AUDIT',
-            'JOB_SEARCH', 'SSC', 'POLICE', 'BANKING', 'RAILWAY', 'UPSC',
-            'TEACHER', 'GRANTS', 'PART_TIME', 'INTERVIEW', 'SYLLABUS', 'PYQ',
-            'CONCEPT', 'ENGLISH_PRACTICE'
-        ]);
 
         if (words <= 2 && upper.includes('GREETING')) return 'tiny';
-        if (upper.some(intent => deepIntents.has(intent))) return 'deep';
-        if (words >= 8 || /kaise|kya karu|roadmap|plan|compare|detail|full|samjhao|batao/i.test(q)) return 'deep';
-        return 'standard';
+
+        // Depth now tracks the QUERY'S actual breadth, not just which domain intent it hit —
+        // "SSC CGL last date kya hai" (JOB_SEARCH) should NOT get the same 2600-token,
+        // 11-component treatment as "12th ke baad poora roadmap batao" (also intent-tagged
+        // but genuinely broad). Intent membership alone used to force 'deep' for 17 intents,
+        // leaving 'standard' almost unreachable.
+        const isBroadQuery = words >= 14 ||
+            /roadmap|poora plan|pura plan|puri jankari|sab kuch batao|detail(?:ed)? mein|vistar se|complete guide|step by step sab|kya kya karu|life mein kya karu|career mein kya karu|guide karo/i.test(q);
+
+        return isBroadQuery ? 'deep' : 'standard';
     }
 
     static _maxTokensForDepth(depth) {
@@ -77,18 +78,23 @@ class AgentLoop {
         const planning = upper.some(i => ['ROADMAP', 'CAREER_GUIDANCE', 'CAREER_ADVICE', 'ACADEMIC_AUDIT', 'SYLLABUS', 'PYQ'].includes(i));
         const learning = upper.some(i => ['CONCEPT', 'MATH', 'ENGLISH_PRACTICE'].includes(i));
 
+        const scopeRule = depth === 'deep'
+            ? `- The user asked a broad/open-ended question. A fuller structured answer (multiple options, a short roadmap, key risks) is appropriate — but still only include sections that serve THIS question, not a fixed checklist.`
+            : `- The user asked a narrow/specific question. Answer ONLY that question directly. Do NOT add a roadmap, 30/60/90-day plan, risk table, task list, or mnemonic unless the user explicitly asked for one. One or two short paragraphs or a tight bullet list is enough.`;
+
         return `
 # ADAPTIVE OUTPUT CONTRACT
 - Depth: ${depth}. Give a complete answer for the user's actual query, not a generic template.
+${scopeRule}
 - User profile completeness: ${completion}%. Use known profile fields; if a critical field is missing, ask only one question after giving useful general guidance.
 - Start with the direct answer in 1-2 lines.
-- Then add the sections that fit the query:
-  ${planning ? '- For career/study planning: Diagnosis, best paths, recommended path, 30/60/90-day roadmap, mistakes to avoid, next step.' : ''}
-  ${factual ? '- For jobs/exams/scholarships: eligibility, dates/status, official-source caveat, documents, application path, risk/verification notes.' : ''}
-  ${learning ? '- For learning: simple explanation, example, practice task, common mistake, memory trick if useful.' : ''}
+${depth === 'deep' ? `- Then add only the sections that fit the query:
+  ${planning ? '- For career/study planning: best paths, recommended path, a short milestone breakdown, mistakes to avoid, next step — only if the user asked for a plan/roadmap.' : ''}
+  ${factual ? '- For jobs/exams/scholarships: eligibility, dates/status, official-source caveat, documents, application path, risk/verification notes — only the fields relevant to what was asked.' : ''}
+  ${learning ? '- For learning: simple explanation, example, practice task, common mistake, memory trick if useful.' : ''}` : '- Do not add unrequested sections. Answer the specific question and stop.'}
 - For 12th/career roadmap, do ${earningQuery ? 'include earning/part-time options because the user asked for earning.' : 'not include earning, local earning, internship, freelance, or part-time options unless the user asks for earning/jobs.'}
 - Do not force exactly 3 tasks. Do not force "Bhai", "Ladle", "Sher", ASCII bars, or motivational filler.
-- Use concise Hinglish for clarity, but allow enough detail to fully solve the query.
+- Use concise Hinglish for clarity, but do not pad the answer with content the user did not ask for.
 `.trim();
     }
 
@@ -293,10 +299,10 @@ class AgentLoop {
         return sliced;
     }
 
-    static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"], onToken = null) {
+    static async run(userMessage, history = [], context = {}, dynamicSystemPrompt, selectedTools = [], intents = ["GENERAL"], onToken = null, precomputedDepth = null) {
         const profile = context.profile || {};
         const userId = profile.name || "Bhai";
-        const depth = this._responseDepth(userMessage, intents);
+        const depth = precomputedDepth || this._responseDepth(userMessage, intents);
         const maxTokens = this._maxTokensForDepth(depth);
 
         let memoryBlock = '';

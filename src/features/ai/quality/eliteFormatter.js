@@ -20,6 +20,10 @@ class EliteFormatter {
         // pressure even with correct prompt instructions, so we defend against it here too.
         formatted = this._repairCollapsedTables(formatted);
 
+        // 1c. Even a well-formed table can have cells too long for a mobile column (prose
+        // crammed into a cell) — demote those specific tables to a bulleted list instead.
+        formatted = this._demoteVerboseTables(formatted);
+
         // 2. Cognitive Ease: Visual Calm Standard (Point 42)
         formatted = this._applyCognitiveEase(formatted);
 
@@ -107,6 +111,69 @@ class EliteFormatter {
     }
 
     /**
+     * Defense-in-depth: even with prompt guidance, the model sometimes renders a table whose
+     * cells are long prose fragments (e.g. "12th ke baad 1-yr Foundation course with NCERT and
+     * basic computer"). On mobile this squeezes columns unreadably thin. If any data cell
+     * exceeds the word threshold, convert the whole table into a bulleted list — one bullet
+     * per row, using the header as bold field labels. Runs on already row-per-line tables
+     * (post `_repairCollapsedTables`); does not touch that function or its output otherwise.
+     */
+    static _demoteVerboseTables(text, maxWordsPerCell = 8) {
+        if (!text || !text.includes('|')) return text;
+
+        return text.split(/\n{2,}/).map(block => {
+            const pipeLines = block.split('\n').filter(l => l.trim().startsWith('|'));
+            if (pipeLines.length < 2) return block; // not a well-formed table block
+
+            const parsed = this._parseGfmTable(block.split('\n'));
+            if (!parsed) return block;
+
+            const { header, rows } = parsed;
+            const tooVerbose = rows.some(row =>
+                row.some(cell => cell.split(/\s+/).filter(Boolean).length > maxWordsPerCell)
+            );
+            if (!tooVerbose) return block;
+
+            return this._tableToBullets(header, rows);
+        }).join('\n\n');
+    }
+
+    /**
+     * Parses a well-formed (row-per-line) GFM table block into { header, rows }.
+     * Returns null if the block isn't a clean header+separator+data table.
+     */
+    static _parseGfmTable(lines) {
+        const pipeLineIdx = lines
+            .map((l, i) => (l.trim().startsWith('|') ? i : -1))
+            .filter(i => i !== -1);
+        if (pipeLineIdx.length < 2) return null;
+
+        const splitRow = (line) => line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+
+        const headerLine = lines[pipeLineIdx[0]];
+        const sepLine = lines[pipeLineIdx[1]];
+        if (!/^\s*\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(sepLine)) return null;
+
+        const header = splitRow(headerLine);
+        const rows = pipeLineIdx.slice(2).map(i => splitRow(lines[i])).filter(r => r.length === header.length);
+        if (rows.length === 0) return null;
+
+        return { header, rows };
+    }
+
+    /**
+     * Converts a parsed table into a bulleted list: one top-level bullet per row (labelled by
+     * the first column), with remaining fields as "**Header:** value" sub-bullets.
+     */
+    static _tableToBullets(header, rows) {
+        return rows.map(row => {
+            const title = row[0];
+            const fields = header.slice(1).map((h, i) => `  - **${h}:** ${row[i + 1]}`).join('\n');
+            return `- **${title}**\n${fields}`;
+        }).join('\n\n');
+    }
+
+    /**
      * Ensures paragraphs are short and white space is used as a 'Visual Calm' (Point 42).
      */
     static _applyCognitiveEase(text) {
@@ -115,7 +182,9 @@ class EliteFormatter {
         // Ensure double newlines between blocks, but keep table rows / consecutive list items
         // adjacent (single newline) within their own block — GFM tables require the header,
         // separator, and data rows to be on consecutive lines with no blank line between them.
-        let lines = text.split('\n').map(l => l.trim());
+        // Trim trailing whitespace only — leading indentation is preserved so nested sub-bullets
+        // (e.g. "  - **Field:** value" under a parent bullet) don't collapse to flat top-level items.
+        let lines = text.split('\n').map(l => l.replace(/\s+$/, ''));
         let blocks = [];
         let currentPara = [];
         let currentPassthrough = [];
@@ -132,11 +201,13 @@ class EliteFormatter {
                 currentPassthrough = [];
             }
         };
-        const isPassthroughLine = (line) =>
-            line.startsWith('#') || line.startsWith('-') || line.startsWith('*') || line.startsWith('|') || /^\d+\./.test(line);
+        const isPassthroughLine = (line) => {
+            const trimmed = line.trimStart();
+            return trimmed.startsWith('#') || trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('|') || /^\d+\./.test(trimmed);
+        };
 
         for (let line of lines) {
-            if (line === "") {
+            if (line.trim() === "") {
                 flushPara();
                 flushPassthrough();
                 continue;
@@ -147,9 +218,10 @@ class EliteFormatter {
                 currentPassthrough.push(line);
             } else {
                 flushPassthrough();
-                currentPara.push(line);
+                const trimmedLine = line.trim();
+                currentPara.push(trimmedLine);
                 // Force break if paragraph exceeds ~3 sentences
-                if ((line.endsWith('.') || line.endsWith('!') || line.endsWith('?')) && currentPara.length >= 3) {
+                if ((trimmedLine.endsWith('.') || trimmedLine.endsWith('!') || trimmedLine.endsWith('?')) && currentPara.length >= 3) {
                     flushPara();
                 }
             }
