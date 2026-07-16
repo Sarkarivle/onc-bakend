@@ -15,6 +15,11 @@ class EliteFormatter {
         formatted = this._removeStuttering(formatted);
         formatted = this._stripFluff(formatted);
 
+        // 1b. Repair tables the model wrote as one run-on line instead of one row per line
+        // (e.g. "| A | B | |-|-| C | D | | E | F |") — this happens under streaming/token
+        // pressure even with correct prompt instructions, so we defend against it here too.
+        formatted = this._repairCollapsedTables(formatted);
+
         // 2. Cognitive Ease: Visual Calm Standard (Point 42)
         formatted = this._applyCognitiveEase(formatted);
 
@@ -38,6 +43,67 @@ class EliteFormatter {
         formatted = this._appendVerificationFooter(formatted, meta, intent);
 
         return formatted.trim();
+    }
+
+    /**
+     * Detects a table the model wrote as a single run-on line (header, "|-|-|-|" separator,
+     * and all data rows concatenated with no real newlines — row boundaries show up as an
+     * artifact "| |" where one row's closing pipe touches the next row's opening pipe) and
+     * rebuilds it into a proper one-row-per-line GFM table using the header's column count.
+     */
+    static _repairCollapsedTables(text) {
+        if (!text || !text.includes('|')) return text;
+
+        return text.split(/\n{2,}/).map(block => {
+            const pipeLines = block.split('\n').filter(l => l.trim().startsWith('|'));
+            // Already row-per-line (a normal, well-formed table) — leave it untouched.
+            if (pipeLines.length >= 2) return block;
+            if (!block.includes('|')) return block;
+            return this._rebuildCollapsedTable(block);
+        }).join('\n\n');
+    }
+
+    static _rebuildCollapsedTable(block) {
+        const firstPipe = block.indexOf('|');
+        if (firstPipe === -1) return block;
+
+        const before = block.slice(0, firstPipe).trim();
+        const tableText = block.slice(firstPipe);
+
+        const rawCells = tableText.split('|').map(c => c.trim());
+        const cells = rawCells.filter((c, i) => !(i === 0 && c === ''));
+
+        // Locate the separator run (consecutive dash-only cells, e.g. "-", "---", ":--", "--:").
+        let sepStart = -1, sepLen = 0;
+        for (let i = 0; i < cells.length; i++) {
+            if (/^:?-{1,}:?$/.test(cells[i])) {
+                let j = i;
+                while (j < cells.length && /^:?-{1,}:?$/.test(cells[j])) j++;
+                sepStart = i;
+                sepLen = j - i;
+                break;
+            }
+        }
+        if (sepStart < 1) return block; // no real separator run found — not a table, leave alone
+
+        const headerCells = cells.slice(0, sepStart).filter(c => c !== '');
+        const columns = headerCells.length;
+        if (columns < 2) return block;
+
+        const dataCells = cells.slice(sepStart + sepLen).filter(c => c !== '');
+        if (dataCells.length === 0) return block;
+
+        const rows = [];
+        for (let i = 0; i + columns <= dataCells.length; i += columns) {
+            rows.push(dataCells.slice(i, i + columns));
+        }
+        if (rows.length === 0) return block;
+
+        const headerRow = `| ${headerCells.join(' | ')} |`;
+        const sepRow = `| ${headerCells.map(() => '---').join(' | ')} |`;
+        const dataRows = rows.map(r => `| ${r.join(' | ')} |`).join('\n');
+
+        return [before, `${headerRow}\n${sepRow}\n${dataRows}`].filter(Boolean).join('\n\n');
     }
 
     /**
