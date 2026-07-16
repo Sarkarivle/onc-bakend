@@ -47,17 +47,11 @@ const toolDefinitions = [
                 type: "object",
                 properties: {
                     job_keyword: { type: "string", description: "Job title like 'SSC CGL'" },
-                    user_filters: {
-                        type: "object",
-                        properties: {
-                            gender: { type: "string", enum: ["Male", "Female", "Other"] },
-                            max_education: { type: "string" },
-                            location_pref: { type: "string" }
-                        },
-                        required: ["gender", "max_education"]
-                    }
+                    gender: { type: "string", enum: ["Male", "Female", "Other"], description: "Only include if known from profile/history." },
+                    max_education: { type: "string", description: "Only include if known from profile/history." },
+                    location_pref: { type: "string", description: "Only include if known from profile/history." }
                 },
-                required: ["job_keyword", "user_filters"]
+                required: ["job_keyword"]
             }
         }
     },
@@ -582,10 +576,10 @@ const toolImplementations = {
         try {
             const profile = {
                 ...userProfile,
-                gender: args.user_filters?.gender || userProfile?.gender,
-                qualification: args.user_filters?.max_education || userProfile?.qualification,
-                education: args.user_filters?.max_education || userProfile?.education || userProfile?.qualification,
-                location: args.user_filters?.location_pref || userProfile?.location
+                gender: args.gender || args.user_filters?.gender || userProfile?.gender,
+                qualification: args.max_education || args.user_filters?.max_education || userProfile?.qualification,
+                education: args.max_education || args.user_filters?.max_education || userProfile?.education || userProfile?.qualification,
+                location: args.location_pref || args.user_filters?.location_pref || userProfile?.location
             };
 
             const result = await RetrievalEngine.searchJobs(args.job_keyword, profile);

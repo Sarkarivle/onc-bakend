@@ -121,6 +121,24 @@ class AgentLoop {
         return [400, 422].includes(error?.response?.status);
     }
 
+    /**
+     * Groq/Llama sometimes emits malformed tool-call syntax (e.g. missing '>' in
+     * <function=name{...}</function>), which the provider rejects with 400 tool_use_failed
+     * before ever executing the tool. Recover the intended call from failed_generation
+     * so grounding still works instead of silently answering without data.
+     */
+    static _extractMalformedToolCall(errorBody) {
+        const failedGeneration = errorBody?.error?.failed_generation || '';
+        if (!failedGeneration) return null;
+        const match = failedGeneration.match(/<function=([a-zA-Z_][a-zA-Z0-9_]*)>?\s*(\{[\s\S]*\})\s*<\/function>/);
+        if (!match) return null;
+        try {
+            return { name: match[1], args: JSON.parse(match[2]) };
+        } catch (e) {
+            return null;
+        }
+    }
+
     static _logProviderError(error, stage = 'AgentLoop') {
         const status = error?.response?.status;
         const body = error?.response?.data;
@@ -332,10 +350,45 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                     } catch (error) {
                         if (payload.tools && this._isProviderRequestError(error)) {
                             this._logProviderError(error, 'AgentLoop Tool Request');
-                            messages.push({
-                                role: 'system',
-                                content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
-                            });
+
+                            const recovered = this._extractMalformedToolCall(error.response?.data);
+                            if (recovered && toolImplementations[recovered.name]) {
+                                try {
+                                    const toolResult = await toolImplementations[recovered.name](recovered.args, profile);
+                                    const raw = this._normalizeToolResult(toolResult);
+                                    if (recovered.name === 'search_jobs') capturedData.jobs = raw.jobs || [];
+                                    if (Array.isArray(raw.evidence)) capturedData.evidence.push(...raw.evidence);
+                                    if (raw.grounding?.sources) capturedData.evidence.push(...raw.grounding.sources);
+
+                                    const toolFeedback = recovered.name === 'search_jobs'
+                                        ? (raw.status === 'EMPTY_RESULT'
+                                            ? { status: raw.status, message: raw.message, explanation: raw.explanation, details: raw.details }
+                                            : {
+                                                status: raw.status || "success",
+                                                found: (raw.jobs || []).length,
+                                                jobs_context: this._formatJobsForContext(raw.jobs || [], depth === 'deep' ? 10 : 6),
+                                                verification: raw.grounding || null
+                                            })
+                                        : this._compactToolFeedback(raw);
+
+                                    messages.push({
+                                        role: 'system',
+                                        content: `Tool "${recovered.name}" ran successfully (result: ${JSON.stringify(toolFeedback)}). Use this real data to produce the final grounded answer. Do not call any tool again this turn.`
+                                    });
+                                } catch (recoveryError) {
+                                    this._logProviderError(recoveryError, 'AgentLoop Tool Recovery');
+                                    messages.push({
+                                        role: 'system',
+                                        content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
+                                    });
+                                }
+                            } else {
+                                messages.push({
+                                    role: 'system',
+                                    content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
+                                });
+                            }
+
                             const fallbackMessages = LLMProvider.sanitizeMessages(messages);
                             response = await axios.post(await LLMProvider.getBaseUrl(), {
                                 model,
