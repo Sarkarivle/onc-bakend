@@ -55,6 +55,32 @@ const calculatePremiumUntil = (currentPremiumUntil, premiumDays) => {
   return new Date(base.getTime() + premiumDays * 24 * 60 * 60 * 1000);
 };
 
+const VALID_CATEGORIES = [
+  'Jansewa Kendra',
+  'Student Rooms',
+  'Tiffin Service',
+  'Book Store',
+  'Coaching',
+  'Home Tutors',
+  'Stationary'
+];
+
+const normalizeCategory = (category) => {
+  if (!category) return 'Jansewa Kendra';
+  const value = String(category).trim().replace(/\s+/g, ' ');
+  return VALID_CATEGORIES.find(item => item.toLowerCase() === value.toLowerCase()) || value;
+};
+
+const normalizeStatus = (status, fallback = 'pending') => {
+  const value = String(status || fallback).trim().toLowerCase();
+  return ['pending', 'approved', 'rejected'].includes(value) ? value : fallback;
+};
+
+const exactTextRegex = (value) => {
+  const escaped = String(value).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^\\s*${escaped}\\s*$`, 'i');
+};
+
 const getAllKendras = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -62,9 +88,12 @@ const getAllKendras = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.category) filter.category = req.query.category;
-    if (req.query.status && req.query.status !== 'all') filter.status = req.query.status;
-    else if (!req.query.status && (!req.user || req.user.role !== 'admin')) filter.status = 'approved';
+    if (req.query.category) {
+      const category = normalizeCategory(req.query.category);
+      filter.category = exactTextRegex(category);
+    }
+    if (req.query.status && req.query.status !== 'all') filter.status = exactTextRegex(normalizeStatus(req.query.status));
+    else if (!req.query.status && (!req.user || req.user.role !== 'admin')) filter.status = exactTextRegex('approved');
 
     const total = await Jansewa.countDocuments(filter);
     const kendras = await Jansewa.find(filter)
@@ -89,6 +118,7 @@ const registerPartner = async (req, res) => {
   try {
     const data = {
       ...req.body,
+      category: normalizeCategory(req.body.category),
       owner: req.user?._id,
       status: 'pending' // Force pending for new registrations
     };
@@ -101,9 +131,13 @@ const registerPartner = async (req, res) => {
 
 const updatePartnerStatus = async (req, res) => {
   try {
+    const status = normalizeStatus(req.body.status);
+    const update = { status, isVerified: status === 'approved' };
+    if (req.body.category) update.category = normalizeCategory(req.body.category);
+
     const partner = await Jansewa.findByIdAndUpdate(
       req.params.id,
-      { status: req.body.status, isVerified: req.body.status === 'approved' },
+      update,
       { new: true, runValidators: true }
     );
     res.status(200).json({ status: 'success', data: partner });
@@ -114,7 +148,13 @@ const updatePartnerStatus = async (req, res) => {
 
 const createKendra = async (req, res) => {
   try {
-    const newKendra = await Jansewa.create(req.body);
+    const status = normalizeStatus(req.body.status, 'approved');
+    const newKendra = await Jansewa.create({
+      ...req.body,
+      category: normalizeCategory(req.body.category),
+      status,
+      isVerified: status === 'approved'
+    });
     res.status(201).json({ status: 'success', data: newKendra });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: err.message });
