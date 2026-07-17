@@ -14,7 +14,16 @@ class AgentLoop {
 
     static _hasAction(text) {
         const value = text || "";
-        return /Aaj ke 3 kaam:|Next\s*step\s*:|^#+\s*Next\s*Step\b|Agla step:|Ek question:/im.test(value) || /\bTask\s*3\b/i.test(value);
+        if (/Aaj ke 3 kaam:|Next\s*step\s*:|^#+\s*Next\s*Step\b|Agla step:|Ek question:/im.test(value)) return true;
+        if (/\bTask\s*3\b/i.test(value)) return true;
+        // The model asking its own clarifying question ("Bhai, teri qualification kya hai?
+        // Taaki main...") already gives the user forward momentum — appending a second,
+        // hardcoded "Next step:" line on top of that produces the exact duplicate-CTA the
+        // user is asking to end. Check the tail of the response, not just the very last
+        // character, since the question is often followed by a short explanatory sentence.
+        const tail = value.trim().slice(-220);
+        if (tail.includes('?')) return true;
+        return false;
     }
 
     static _isNeutralOverride(userMessage) {

@@ -83,7 +83,7 @@ class AIOrchestrator {
             Telemetry.setContext(traceId, { intent });
 
             const formatted = EliteFormatter.format(content, { intent, userProfile: profile, evidence: capturedData.evidence });
-            const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
+            const suggestions = SuggestionEngine.generate({ intent }, { jobs: capturedData.jobs });
 
             await SessionManager.saveInteraction(userName, sessionId, userMessage, formatted);
 
@@ -175,7 +175,7 @@ class AIOrchestrator {
 
             // Final, corrected/formatted answer replaces the raw streamed text on the client.
             const formatted = EliteFormatter.format(content, { intent, userProfile: profile, evidence: capturedData.evidence });
-            const suggestions = SuggestionEngine.generate({ intent }, { topic: 'CAREER', jobs: capturedData.jobs });
+            const suggestions = SuggestionEngine.generate({ intent }, { jobs: capturedData.jobs });
 
             if (!streamedLive) await stream.pushChunk(formatted);
             const metadataStr = `\n\n[METADATA]${JSON.stringify({ suggestions, finalAnswer: formatted })}`;

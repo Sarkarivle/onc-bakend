@@ -3,8 +3,6 @@
  * Responsibility: Transforming raw AI text into a high-end visual response.
  * Focus: Cognitive Ease (Visual Calm), Closed-Loop Completion, and Persistent Personalization.
  */
-const Grounding = require('./grounding');
-
 class EliteFormatter {
     static format(text, meta = {}) {
         if (!text) return "";
@@ -42,9 +40,8 @@ class EliteFormatter {
         formatted = this._highlightDatesAndLinks(formatted);
         formatted = this._removeConflictingQualificationClaims(formatted, meta.userProfile);
 
-        // 5. Closed-Loop Completion & EQ closing (Point 43 & 18)
+        // 5. Closed-Loop Completion (Point 43)
         formatted = this._addPersonalizedClosing(formatted, meta.userProfile, intent);
-        formatted = this._appendVerificationFooter(formatted, meta, intent);
 
         return formatted.trim();
     }
@@ -342,39 +339,6 @@ class EliteFormatter {
             .join('\n')
             .replace(/\n{3,}/g, '\n\n')
             .trim();
-    }
-
-    /**
-     * Detects confident-sounding numeric claims (salary, vacancy counts, notification
-     * months/dates) that have no tool backing — the exact shape of answer that produced
-     * fabricated "₹56k-2.5L" / "10-15 hazaar vacancies" style claims in testing.
-     */
-    static _hasUnverifiedNumericClaims(text) {
-        return /₹\s?\d/.test(text)
-            || /\d+\s*[-–]\s*\d+\s*(hazaar|lakh|thousand|k\b)/i.test(text)
-            || /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*[-–]\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(text)
-            || /\d+\s*[-–]\s*\d+\s*(posts|vacancies|seats)/i.test(text);
-    }
-
-    static _appendVerificationFooter(text, meta = {}, intent = 'GENERAL') {
-        if (!text || /Verification Sources|Official source abhi available|Numbers\/dates verified nahi/i.test(text)) return text;
-        if (/server\s+(busy|error)|connection error|phir puch|try again|try karein|jawab nahi mila/i.test(text)) return text;
-
-        const factualIntents = new Set([
-            'JOB_QUERY', 'JOB_SEARCH', 'JOB_DETAILS', 'FIELD_DETAILS', 'SCHOLARSHIP', 'GRANTS',
-            'RESULT_ADMIT_CARD', 'LOCAL_SCOUT', 'PART_TIME', 'ACADEMIC_AUDIT'
-        ]);
-
-        const evidence = Array.isArray(meta.evidence) ? meta.evidence : [];
-        if (evidence.length > 0) return text + Grounding.footer(evidence);
-
-        // No tool evidence at all. If the answer still contains specific-looking numbers,
-        // the generic "check before applying" caveat is too easy to miss — call it out directly.
-        if (this._hasUnverifiedNumericClaims(text)) {
-            return text + '\n\n⚠️ **Numbers/dates verified nahi hain** — yeh general andaza hai, live database se match nahi kiya gaya. Exact figures ke liye official notification hi check karo.';
-        }
-        if (factualIntents.has(intent)) return text + Grounding.footer([]);
-        return text;
     }
 }
 
