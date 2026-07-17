@@ -1,28 +1,56 @@
+const { getRedis } = require('../../../config/redis');
+
 /**
- * Simple In-Memory Cache for AI Advice
+ * AI Advice Cache - Redis-backed so a cache hit on one server instance is
+ * visible to every other instance behind the load balancer. With N instances
+ * and a purely in-memory cache, each instance recomputes (and re-pays the LLM
+ * cost for) the same key independently - hit rate effectively drops by ~N.
+ *
+ * Falls back to a local in-memory cache on any Redis error/unavailability,
+ * so a Redis blip degrades to "per-instance caching" instead of breaking.
  */
 class AIResultCache {
     constructor() {
-        this.cache = new Map();
-        this.TTL = 24 * 60 * 60 * 1000; // 24 hours
+        this.localCache = new Map();
+        this.TTL_SECONDS = 24 * 60 * 60; // 24 hours
     }
 
-    get(key) {
-        const entry = this.cache.get(key);
-        if (!entry) return null;
+    _redisKey(key) {
+        return `ai:advice:${key}`;
+    }
 
+    async get(key) {
+        const redis = getRedis();
+        if (redis) {
+            try {
+                const raw = await redis.get(this._redisKey(key));
+                return raw ? JSON.parse(raw) : null;
+            } catch (err) {
+                // Fall through to the local fallback below.
+            }
+        }
+
+        const entry = this.localCache.get(key);
+        if (!entry) return null;
         if (Date.now() > entry.expiry) {
-            this.cache.delete(key);
+            this.localCache.delete(key);
             return null;
         }
         return entry.data;
     }
 
-    set(key, data) {
-        this.cache.set(key, {
-            data,
-            expiry: Date.now() + this.TTL
-        });
+    async set(key, data) {
+        const redis = getRedis();
+        if (redis) {
+            try {
+                await redis.set(this._redisKey(key), JSON.stringify(data), { EX: this.TTL_SECONDS });
+                return;
+            } catch (err) {
+                // Fall through to the local fallback below.
+            }
+        }
+
+        this.localCache.set(key, { data, expiry: Date.now() + this.TTL_SECONDS * 1000 });
     }
 
     generateKey(jobId, user) {

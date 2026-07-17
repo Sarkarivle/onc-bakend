@@ -6,6 +6,20 @@ const { normalize } = require('../../utils/phoneUtils');
 const analytics = require('../../services/analyticsService');
 const { getRedis } = require('../../config/redis');
 
+// Online/offline status only matters to people who actually have a
+// conversation with this phone - broadcasting it to every connected socket
+// (as this used to do) means every presence change fans out to the entire
+// user base regardless of whether they've ever talked to this person.
+async function notifyStatusChange(io, phone, isOnline) {
+    try {
+        const partners = await Conversation.find({ partnerPhone: phone }).select('userPhone').lean();
+        const payload = { phone, isOnline };
+        partners.forEach(p => io.to(`user_${p.userPhone}`).emit('user_status_change', payload));
+    } catch (err) {
+        console.error('❌ Status Broadcast Error:', err.message);
+    }
+}
+
 module.exports = (io) => {
     io.on('connection', async (socket) => {
         const myPhone = socket.handshake.query.phone ? normalize(socket.handshake.query.phone) : null;
@@ -21,7 +35,7 @@ module.exports = (io) => {
                 try {
                     await redis.sAdd('online_users', myPhone);
                     // Notify others
-                    io.emit('user_status_change', { phone: myPhone, isOnline: true });
+                    notifyStatusChange(io, myPhone, true);
 
                     // Auto-deliver pending messages
                     const pending = await Message.find({ receiverPhone: myPhone, isDelivered: false });
@@ -45,7 +59,7 @@ module.exports = (io) => {
             socket.join(`user_${normalizedPhone}`);
             if (redis) {
                 await redis.sAdd('online_users', normalizedPhone);
-                io.emit('user_status_change', { phone: normalizedPhone, isOnline: true });
+                notifyStatusChange(io, normalizedPhone, true);
 
                 // Mark pending messages as delivered
                 const pending = await Message.find({ receiverPhone: normalizedPhone, isDelivered: false });
@@ -271,7 +285,7 @@ module.exports = (io) => {
                 if (redis) {
                     try {
                         await redis.sRem('online_users', socket.userPhone);
-                        io.emit('user_status_change', { phone: socket.userPhone, isOnline: false });
+                        notifyStatusChange(io, socket.userPhone, false);
                     } catch (err) {
                         console.error('❌ Redis Offline Error:', err);
                     }

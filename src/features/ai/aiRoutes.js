@@ -12,6 +12,7 @@ const router = express.Router();
 const User = require('../auth/userModel');
 const DashboardTool = require('./tools/dashboardTool');
 const { protect, restrictTo } = require('../../middlewares/authMiddleware');
+const JWT_SECRET = require('../../config/jwt');
 
 const adminOnly = [protect, restrictTo('admin')];
 
@@ -37,7 +38,7 @@ const optionalProtect = async (req, res, next) => {
         const header = req.headers.authorization || '';
         if (!header.startsWith('Bearer ')) return next();
         const token = header.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super-ultra-secret-key');
+        const decoded = jwt.verify(token, JWT_SECRET);
         const currentUser = await User.findById(decoded.id);
         if (currentUser) req.user = currentUser;
     } catch (_) {

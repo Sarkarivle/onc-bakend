@@ -13,4 +13,7 @@ const aiAdviceLogSchema = new mongoose.Schema({
     details: String,
 }, { timestamps: true });
 
+aiAdviceLogSchema.index({ userId: 1, jobId: 1 });
+aiAdviceLogSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('AiAdviceLog', aiAdviceLogSchema);

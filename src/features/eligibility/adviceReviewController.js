@@ -39,15 +39,26 @@ const listFeedback = async (req, res) => {
   }
 };
 
+const STATS_DEFAULT_WINDOW_DAYS = 90;
+
 const getStats = async (req, res) => {
   try {
+    // Bounded by a recent window (default 90d, override with ?days=) so this
+    // stays a fast indexed range scan instead of a full-collection join as
+    // feedback volume grows into the millions. total_advice_generated below
+    // is the one intentionally-unbounded lifetime counter.
+    const days = parseFloat(req.query.days) || STATS_DEFAULT_WINDOW_DAYS;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const dateMatch = { $match: { createdAt: { $gte: since } } };
+
     const [ratingBreakdown, reasonBreakdown, promptVersionBreakdown, totalLogs] = await Promise.all([
-      AiAdviceFeedback.aggregate([{ $group: { _id: '$rating', count: { $sum: 1 } } }]),
+      AiAdviceFeedback.aggregate([dateMatch, { $group: { _id: '$rating', count: { $sum: 1 } } }]),
       AiAdviceFeedback.aggregate([
-        { $match: { reason: { $exists: true, $ne: null } } },
+        { $match: { createdAt: { $gte: since }, reason: { $exists: true, $ne: null } } },
         { $group: { _id: '$reason', count: { $sum: 1 } } },
       ]),
       AiAdviceFeedback.aggregate([
+        dateMatch,
         { $lookup: { from: 'aiadvicelogs', localField: 'adviceLogId', foreignField: '_id', as: 'log' } },
         { $unwind: '$log' },
         { $group: { _id: { promptVersion: '$log.promptVersion', rating: '$rating' }, count: { $sum: 1 } } },
@@ -61,6 +72,7 @@ const getStats = async (req, res) => {
 
     res.status(200).json({
       status: 'success',
+      window_days: days,
       total_advice_generated: totalLogs,
       total_rated: totalRated,
       upvotes: up,

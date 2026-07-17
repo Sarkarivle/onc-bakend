@@ -65,6 +65,32 @@ class VectorService {
         ].filter(Boolean).join('. ');
     }
 
+    /**
+     * Computes and packages the searchVector fields for a job document, so
+     * search never has to embed job text live in the request path - it can
+     * just compare against what's already stored. Call this at job
+     * create/import/update time; returns {} (no-op) on any failure so a
+     * broken embedding never blocks saving the job itself.
+     */
+    static async embedJob(job) {
+        try {
+            const textToEmbed = this.createJobText(job);
+            const vector = await this.generate(textToEmbed);
+            if (!vector) return {};
+
+            const providerInfo = this.getProviderInfo();
+            return {
+                searchVector: vector,
+                searchVectorProvider: `${providerInfo.provider}:${providerInfo.model}`,
+                searchVectorGeneratedAt: new Date(),
+                searchVectorTextHash: this.textHash(textToEmbed)
+            };
+        } catch (error) {
+            logger.warn(`Job embedding failed: ${error.message}`);
+            return {};
+        }
+    }
+
     static cosineSimilarity(vecA, vecB) {
         if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) return 0;
         let dot = 0, mA = 0, mB = 0;

@@ -118,17 +118,7 @@ const importJob = async (req, res) => {
       fullData: result
     };
 
-    try {
-        const textToEmbed = VectorService.createJobText(jobObject);
-        const vector = await VectorService.generate(textToEmbed);
-        if (vector) {
-            const providerInfo = VectorService.getProviderInfo();
-            jobObject.searchVector = vector;
-            jobObject.searchVectorProvider = `${providerInfo.provider}:${providerInfo.model}`;
-            jobObject.searchVectorGeneratedAt = new Date();
-            jobObject.searchVectorTextHash = VectorService.textHash(textToEmbed);
-        }
-    } catch (vErr) { console.error("Vector Error:", vErr.message); }
+    Object.assign(jobObject, await VectorService.embedJob(jobObject));
 
     const newJob = await Job.create(jobObject);
     res.status(201).json({ status: 'success', data: newJob });
@@ -151,7 +141,7 @@ const getAiMatchAdvice = async (req, res) => {
 
     // 1. Check Cache
     const cacheKey = cache.generateKey(jobId, user);
-    const cachedAdvice = cache.get(cacheKey);
+    const cachedAdvice = await cache.get(cacheKey);
 
     let report;
     let llmCalled = false;
@@ -250,7 +240,7 @@ const getAiMatchAdviceStream = async (req, res) => {
         const cacheKey = cache.generateKey(jobId, user);
         // Format for consistent storage
         const adviceList = fullAdvice.split('\n').filter(l => l.trim().length > 0);
-        cache.set(cacheKey, { lines: adviceList, logId });
+        await cache.set(cacheKey, { lines: adviceList, logId });
         console.log(`[JobController] Stream result saved to cache for key: ${cacheKey}`);
     }
 
@@ -325,14 +315,22 @@ const getJob = async (req, res) => {
 
 const updateJob = async (req, res) => {
   try {
-    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Re-embed using the post-edit text so the stored searchVector doesn't go
+    // stale after a title/eligibility edit - otherwise search would keep
+    // scoring this job against its pre-edit content indefinitely.
+    const existing = await Job.findById(req.params.id).lean();
+    if (!existing) return res.status(404).json({ status: 'error', message: 'Job not found' });
+    const vectorFields = await VectorService.embedJob({ ...existing, ...req.body });
+
+    const job = await Job.findByIdAndUpdate(req.params.id, { ...req.body, ...vectorFields }, { new: true });
     res.status(200).json({ status: 'success', data: job });
   } catch (err) { res.status(500).json({ status: 'error', message: err.message }); }
 };
 
 const createJob = async (req, res) => {
   try {
-    const job = await Job.create(req.body);
+    const jobData = { ...req.body, ...(await VectorService.embedJob(req.body)) };
+    const job = await Job.create(jobData);
     res.status(201).json({ status: 'success', data: job });
   } catch (err) {
     res.status(400).json({ status: 'error', message: err.message });
@@ -357,10 +355,14 @@ const getMyMatches = async (req, res) => {
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
 
-    // Note: Since we evaluate eligibility in-memory, we fetch all active jobs
-    // but we can limit the processing or skip for pagination.
-    // For a real production app with thousands of jobs, this evaluation should be pre-computed.
-    const allJobs = await Job.find({ isActive: true }).sort({ createdAt: -1 }).lean();
+    // Eligibility is evaluated in-memory per job (age relaxation, category-based
+    // physical rules, etc. aren't simple field filters), so this can't be pushed
+    // into the Mongo query itself. Without a cap, this scan grows with the total
+    // number of active jobs forever - bound it to the most recent N so the cost
+    // per request stays constant. The real fix (precomputed match table refreshed
+    // by a background job) is a bigger change, tracked separately.
+    const MAX_JOBS_TO_EVALUATE = Number(process.env.MY_MATCHES_MAX_JOBS_SCANNED || 500);
+    const allJobs = await Job.find({ isActive: true }).sort({ createdAt: -1 }).limit(MAX_JOBS_TO_EVALUATE).lean();
     const matches = [];
 
     for (const job of allJobs) {

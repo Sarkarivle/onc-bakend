@@ -3,6 +3,7 @@ const http = require('http');
 const https = require('https');
 const Settings = require('../../../settings/settingsModel');
 const constants = require('../../../../config/constants');
+const { llmQueue, llmCircuitBreaker, backoffDelayMs } = require('../../utils/llmResilience');
 
 // Connection pooling for Turbo Speed
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50 });
@@ -202,6 +203,11 @@ class LLMProvider {
         this.callStats.logic++;
         this.callStats.total++;
 
+        if (llmCircuitBreaker.isOpen()) {
+            console.warn('⚠️ LLM circuit breaker open - failing fast on generateLogic (provider is unhealthy, cooling down).');
+            return null;
+        }
+
         for (let i = 0; i <= retries; i++) {
             try {
                 const fullUrl = await this.getBaseUrl();
@@ -225,12 +231,13 @@ class LLMProvider {
                 // that don't need deep reasoning, so cap the reasoning budget explicitly.
                 if (/^openai\/gpt-oss/i.test(model)) payload.reasoning_effort = 'low';
 
-                const response = await axios.post(fullUrl, payload, {
+                const response = await llmQueue.run(() => axios.post(fullUrl, payload, {
                     timeout: 45000,
                     headers: this.getHeaders(),
                     httpAgent,
                     httpsAgent
-                });
+                }));
+                llmCircuitBreaker.recordSuccess();
 
                 const duration = Date.now() - startTime;
                 let raw = "";
@@ -267,13 +274,14 @@ class LLMProvider {
                     try { return JSON.parse(cleanJson); } catch (e) { throw new Error("JSON Parse Final Failure"); }
                 }
             } catch (error) {
+                llmCircuitBreaker.recordFailure();
                 if (error.response) {
                     console.error("[LLMProvider] Logic Error status:", error.response.status);
                     console.error("[LLMProvider] Logic Error body:", JSON.stringify(error.response.data, null, 2));
                 }
                 console.warn(`⚠️ LLM Logic Attempt ${i + 1} failed: ${error.message}`);
                 if (i === retries) return null;
-                await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                await new Promise(r => setTimeout(r, backoffDelayMs(i, error)));
             }
         }
     }
@@ -282,6 +290,10 @@ class LLMProvider {
         const startTime = Date.now();
         this.callStats.chat++;
         this.callStats.total++;
+
+        if (llmCircuitBreaker.isOpen()) {
+            throw new Error('LLM circuit breaker open - provider is unhealthy, cooling down.');
+        }
 
         for (let i = 0; i <= retries; i++) {
             try {
@@ -313,12 +325,13 @@ class LLMProvider {
                     };
                 }
 
-                const response = await axios.post(fullUrl, payload, {
+                const response = await llmQueue.run(() => axios.post(fullUrl, payload, {
                     timeout: 90000,
                     headers: this.getHeaders(),
                     httpAgent,
                     httpsAgent
-                });
+                }));
+                llmCircuitBreaker.recordSuccess();
 
                 const duration = Date.now() - startTime;
                 let content = "";
@@ -337,13 +350,14 @@ class LLMProvider {
 
                 return { content };
             } catch (error) {
+                llmCircuitBreaker.recordFailure();
                 if (error.response) {
                     console.error("[LLMProvider] Chat Error status:", error.response.status);
                     console.error("[LLMProvider] Chat Error body:", JSON.stringify(error.response.data, null, 2));
                 }
                 console.warn(`⚠️ Personality Engine Attempt ${i + 1} failed: ${error.message}`);
                 if (i === retries) throw error;
-                await new Promise(r => setTimeout(r, 2000));
+                await new Promise(r => setTimeout(r, backoffDelayMs(i, error, { baseMs: 2000 })));
             }
         }
     }
@@ -352,6 +366,10 @@ class LLMProvider {
         const startTime = Date.now();
         this.callStats.stream++;
         this.callStats.total++;
+
+        if (llmCircuitBreaker.isOpen()) {
+            throw new Error('LLM circuit breaker open - provider is unhealthy, cooling down.');
+        }
 
         try {
             const fullUrl = await this.getBaseUrl();
@@ -386,13 +404,14 @@ class LLMProvider {
                 if (/^openai\/gpt-oss/i.test(model) && payload.max_tokens <= 1700) payload.reasoning_effort = 'low';
             }
 
-            const response = await axios.post(fullUrl, payload, {
+            const response = await llmQueue.run(() => axios.post(fullUrl, payload, {
                 responseType: 'stream',
                 timeout: 90000,
                 headers: this.getHeaders(),
                 httpAgent,
                 httpsAgent
-            });
+            }));
+            llmCircuitBreaker.recordSuccess();
 
             return new Promise((resolve, reject) => {
                 let buffer = '';
@@ -431,7 +450,7 @@ class LLMProvider {
                     }
                 });
 
-                response.data.on('error', (err) => reject(err));
+                response.data.on('error', (err) => { llmCircuitBreaker.recordFailure(); reject(err); });
                 response.data.on('end', () => {
                     if (buffer.trim()) {
                         try {
@@ -457,6 +476,7 @@ class LLMProvider {
                 });
             });
         } catch (error) {
+            llmCircuitBreaker.recordFailure();
             console.error(`❌ LLM Stream Connection Error:`, error.message);
             throw error;
         }

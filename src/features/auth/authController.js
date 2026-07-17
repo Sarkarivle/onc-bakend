@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('./userModel');
 const https = require('https');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-ultra-secret-key';
+const JWT_SECRET = require('../../config/jwt');
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '90d';
 
 const signToken = id => {
@@ -165,7 +165,16 @@ const login = async (req, res) => {
             return res.status(401).json({ status: 'fail', message: "Invalid OTP" });
         }
 
-        let user = await User.findOne({ phone: new RegExp(normalizedPhone + '$') });
+        // Exact match first - uses the unique index on `phone`, O(1) even at
+        // millions of users. OTP-registered users (the `phone: normalizedPhone`
+        // path below) always have this normalized form stored, so this covers
+        // the common case. Only users whose phone was stored in some other
+        // format (e.g. the legacy password-registration path, which stores
+        // whatever the client sent) fall through to the slow suffix-regex scan.
+        let user = await User.findOne({ phone: normalizedPhone });
+        if (!user) {
+            user = await User.findOne({ phone: new RegExp(normalizedPhone + '$') });
+        }
 
         if (!user) {
             // Auto-register logic like Gogo-app

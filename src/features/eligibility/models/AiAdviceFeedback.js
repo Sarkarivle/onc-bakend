@@ -8,4 +8,8 @@ const aiAdviceFeedbackSchema = new mongoose.Schema({
     comment: String,
 }, { timestamps: true });
 
+aiAdviceFeedbackSchema.index({ adviceLogId: 1 });
+aiAdviceFeedbackSchema.index({ rating: 1, createdAt: -1 });
+aiAdviceFeedbackSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('AiAdviceFeedback', aiAdviceFeedbackSchema);
