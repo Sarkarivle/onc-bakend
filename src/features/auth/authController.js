@@ -23,6 +23,70 @@ const refreshPremiumStatus = async (user) => {
   return user;
 };
 
+// MSG91's widget endpoints (sendOtpMobile/verifyOtp) reply with an HTTP 302
+// pointing at otpwidget.msg91.com with the actual result - a plain https
+// request that doesn't follow that redirect gets the empty/non-JSON redirect
+// body instead of the real response. Follows up to 5 redirects.
+function requestMsg91Json({ path, method = 'POST', body, redirectCount = 0 }) {
+    return new Promise((resolve) => {
+        if (redirectCount > 5) {
+            resolve({ type: 'error', message: 'Too many OTP provider redirects' });
+            return;
+        }
+
+        const payload = body ? JSON.stringify(body) : null;
+        const targetUrl = path.startsWith('http') ? new URL(path) : new URL(`https://control.msg91.com${path}`);
+
+        const options = {
+            hostname: targetUrl.hostname,
+            path: `${targetUrl.pathname}${targetUrl.search}`,
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000
+        };
+
+        let settled = false;
+        const reqMsg = https.request(options, (resMsg) => {
+            const location = resMsg.headers.location;
+            if (resMsg.statusCode >= 300 && resMsg.statusCode < 400 && location) {
+                resMsg.resume();
+                settled = true;
+                requestMsg91Json({ path: location, method: 'GET', body: null, redirectCount: redirectCount + 1 })
+                    .then(resolve);
+                return;
+            }
+
+            let data = '';
+            resMsg.on('data', (chunk) => { data += chunk; });
+            resMsg.on('end', () => {
+                if (settled) return;
+                settled = true;
+                if (!data || !data.trim()) {
+                    resolve({ type: 'error', message: `Empty OTP provider response (${resMsg.statusCode || 'no status'})` });
+                    return;
+                }
+                try {
+                    resolve(JSON.parse(data));
+                } catch (e) {
+                    resolve({ type: 'error', message: 'Invalid OTP provider response' });
+                }
+            });
+        });
+
+        reqMsg.on('timeout', () => reqMsg.destroy(new Error('OTP provider timeout')));
+        reqMsg.on('error', (e) => {
+            if (settled) return;
+            settled = true;
+            resolve({ type: 'error', message: e.message });
+        });
+        if (payload) reqMsg.write(payload);
+        reqMsg.end();
+    });
+}
+
+const isMsg91Success = (result) =>
+    result.type === 'success' || result.status === 'success' || result.message === 'OTP verified successfully';
+
 /**
  * Send OTP via MSG91 Widget API
  */
@@ -43,57 +107,19 @@ const sendOTP = async (req, res) => {
             return res.json({ status: 'success', message: "OTP Sent (Bypass)", reqId: "DEV_MODE" });
         }
 
-        // MSG91's Widget API authenticates with the widget's own tokenAuth in
-        // the request body, not the account-level authkey header - sending the
-        // account authkey here is what produces "Web requests are not allowed
-        // for this widget".
-        const postData = JSON.stringify({
-            widgetId: widgetId,
-            tokenAuth: tokenAuth,
-            identifier: '91' + normalizedPhone
-        });
-
-        const options = {
-            hostname: 'control.msg91.com',
-            // Not /sendOtp - MSG91's widget-based send endpoint is /sendOtpMobile
-            // (/sendOtp exists but rejects server-side calls with "Web requests
-            // are not allowed for this widget").
+        // Not /sendOtp - MSG91's widget-based send endpoint is /sendOtpMobile
+        // (/sendOtp exists but rejects server-side calls with "Web requests
+        // are not allowed for this widget").
+        const result = await requestMsg91Json({
             path: '/api/v5/widget/sendOtpMobile',
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000
-        };
-
-        let responded = false;
-        const reqMsg = https.request(options, (resMsg) => {
-            let data = '';
-            resMsg.on('data', (chunk) => { data += chunk; });
-            resMsg.on('end', () => {
-                if (responded) return;
-                responded = true;
-                try {
-                    const result = JSON.parse(data);
-                    if (result.type === 'success' || result.status === 'success') {
-                        res.json({ status: 'success', message: "OTP Sent", reqId: result.message });
-                    } else {
-                        res.status(400).json({ status: 'fail', message: result.message || "Failed to send" });
-                    }
-                } catch (e) {
-                    res.status(500).json({ status: 'error', message: "OTP parsing error" });
-                }
-            });
+            body: { widgetId, tokenAuth, identifier: '91' + normalizedPhone }
         });
 
-        reqMsg.on('timeout', () => reqMsg.destroy(new Error('OTP provider timeout')));
-        reqMsg.on('error', (e) => {
-            if (responded) return;
-            responded = true;
-            res.status(504).json({ status: 'error', message: 'OTP provider unreachable: ' + e.message });
-        });
-        reqMsg.write(postData);
-        reqMsg.end();
+        if (isMsg91Success(result)) {
+            return res.json({ status: 'success', message: "OTP Sent", reqId: result.message || result.reqId });
+        }
+        return res.status(400).json({ status: 'fail', message: result.message || "Failed to send" });
     } catch (e) {
         res.status(500).json({ status: 'error', message: e.message });
     }
@@ -106,45 +132,17 @@ async function verifyOTP(phone, otp, reqId) {
     if (otp === '1234') return true; // Default dev OTP
     if (!reqId || reqId === 'DEV_MODE') return otp === '1234';
 
-    return new Promise((resolve) => {
-        const widgetId = process.env.MSG91_WIDGET_ID;
-        const tokenAuth = process.env.MSG91_WIDGET_AUTH_TOKEN;
-        const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+    const widgetId = process.env.MSG91_WIDGET_ID;
+    const tokenAuth = process.env.MSG91_WIDGET_AUTH_TOKEN;
+    const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
 
-        const postData = JSON.stringify({
-            widgetId: widgetId,
-            tokenAuth: tokenAuth,
-            reqId: reqId,
-            otp: otp,
-            identifier: '91' + normalizedPhone
-        });
-
-        const options = {
-            hostname: 'control.msg91.com',
-            path: '/api/v5/widget/verifyOtp',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        };
-
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-                try {
-                    const result = JSON.parse(data);
-                    resolve(result.type === 'success' || result.message === 'OTP verified successfully' || result.status === 'success');
-                } catch (e) {
-                    resolve(false);
-                }
-            });
-        });
-
-        req.on('error', () => resolve(false));
-        req.write(postData);
-        req.end();
+    const result = await requestMsg91Json({
+        path: '/api/v5/widget/verifyOtp',
+        method: 'POST',
+        body: { widgetId, tokenAuth, reqId, otp, identifier: '91' + normalizedPhone }
     });
+
+    return isMsg91Success(result);
 }
 
 const signup = async (req, res) => {
