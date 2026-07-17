@@ -65,6 +65,25 @@ class AgentLoop {
         return /\b(earning|income|paise|paisa|part[ -]?time|internship|freelance|work from home|job chahiye|kamai)\b/i.test(userMessage || "");
     }
 
+    /**
+     * "abhi kaun si job chal rahi hai" style queries ask for LIVE vacancy status — answering
+     * these from parametric memory is exactly how fabricated vacancy counts/dates get produced.
+     * Force a real search_jobs call for this specific shape instead of leaving it to "auto".
+     */
+    static _shouldForceJobSearch(userMessage, intents = [], providerTools = []) {
+        const hasSearchJobsTool = providerTools.some(t => t?.function?.name === 'search_jobs');
+        if (!hasSearchJobsTool) return false;
+
+        const upper = (intents || []).map(i => String(i).toUpperCase());
+        const jobIntent = upper.some(i => ['JOB_SEARCH', 'SSC', 'POLICE', 'BANKING', 'RAILWAY', 'UPSC', 'TEACHER'].includes(i));
+        if (!jobIntent) return false;
+
+        const q = String(userMessage || '');
+        return /\b(abhi|currently|is waqt|right now|chal rahi|chal rahe|running now|open now|live)\b.*\b(job|jobs|vacancy|vacancies|bharti|naukri|recruitment)\b/i.test(q)
+            || /\b(job|jobs|vacancy|vacancies|bharti|naukri|recruitment)\b.*\b(abhi|currently|is waqt|right now|chal rahi|chal rahe|running now|open now|live)\b/i.test(q)
+            || /kaun\s*si\s*job|which\s*job.*(open|active|running)/i.test(q);
+    }
+
     static _buildOutputContract(depth, intents = [], profile = {}, userMessage = '') {
         const upper = (intents || []).map(i => String(i).toUpperCase());
         const completion = this._profileCompleteness(profile);
@@ -380,7 +399,16 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                     max_tokens: maxTokens
                 };
                 const allowToolsThisTurn = providerTools.length > 0 && !context.image_url && (!onToken || iterations === 1);
-                if (allowToolsThisTurn) payload.tools = providerTools;
+                if (allowToolsThisTurn) {
+                    payload.tools = providerTools;
+                    // "auto" tool_choice lets the model skip search_jobs entirely and answer
+                    // a live-status question ("abhi kaun si job chal rahi hai") from memory,
+                    // which is exactly how fabricated vacancy counts/dates get produced. Force
+                    // the call on the first iteration for this specific query shape.
+                    if (iterations === 1 && this._shouldForceJobSearch(userMessage, intents, providerTools)) {
+                        payload.tool_choice = { type: 'function', function: { name: 'search_jobs' } };
+                    }
+                }
 
                 let assistantMessage;
 
