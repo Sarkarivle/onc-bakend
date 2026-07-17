@@ -217,6 +217,13 @@ class LLMProvider {
                     frequency_penalty: 0.3,
                     stream: false
                 };
+                // gpt-oss reasoning models can spend the entire max_tokens budget on their
+                // internal "analysis" channel before ever emitting the final JSON answer,
+                // which comes back as a genuinely empty message.content (not a network error,
+                // so retries alone don't help — same prompt fails the same way every time).
+                // These logic/rerank/classification calls are simple structured-output tasks
+                // that don't need deep reasoning, so cap the reasoning budget explicitly.
+                if (/^openai\/gpt-oss/i.test(model)) payload.reasoning_effort = 'low';
 
                 const response = await axios.post(fullUrl, payload, {
                     timeout: 45000,
@@ -371,6 +378,12 @@ class LLMProvider {
                     stream: true,
                     stream_options: { include_usage: true }
                 };
+                // Same empty-response risk as generateLogic() for tight token budgets (e.g.
+                // 'tiny'/'standard' depth's 500-1700 tokens) — cap internal reasoning so the
+                // model reaches its actual answer instead of spending the whole budget on
+                // hidden analysis. Leave 'deep' (larger budget, genuinely complex questions)
+                // at the default reasoning effort so answer quality isn't capped there too.
+                if (/^openai\/gpt-oss/i.test(model) && payload.max_tokens <= 1700) payload.reasoning_effort = 'low';
             }
 
             const response = await axios.post(fullUrl, payload, {

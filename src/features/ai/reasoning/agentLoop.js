@@ -35,12 +35,17 @@ class AgentLoop {
     }
 
     static _profileCompleteness(profile = {}) {
+        // Field names must match what UserProfile.get() actually returns (context/userProfile.js)
+        // — this previously checked profile.location/skills/interests, none of which exist on
+        // that object (it returns `state`, not `location`, and has no skills/interests at all),
+        // so completeness was always undercounted and the model kept re-asking for details
+        // (like qualification) that were already known and already used for eligibility filtering.
         const fields = [
             profile.name,
             profile.qualification,
-            profile.location,
-            Array.isArray(profile.skills) ? profile.skills.filter(Boolean).join(',') : profile.skills,
-            Array.isArray(profile.interests) ? profile.interests.filter(Boolean).join(',') : profile.interests
+            profile.state,
+            profile.dob,
+            profile.category
         ];
         const known = fields.filter(value => String(value || '').trim()).length;
         return Math.round((known / fields.length) * 100);
@@ -413,6 +418,11 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                     temperature: depth === 'deep' ? 0.35 : 0.2,
                     max_tokens: maxTokens
                 };
+                // Guard against gpt-oss reasoning models exhausting a tight token budget on
+                // hidden "analysis" before ever emitting content (same fix as LLMProvider's
+                // logic/stream calls) — only for tiny/standard depth, so 'deep' answers keep
+                // full reasoning quality where the larger budget already has headroom for it.
+                if (/^openai\/gpt-oss/i.test(model) && depth !== 'deep') payload.reasoning_effort = 'low';
                 const allowToolsThisTurn = providerTools.length > 0 && !context.image_url && (!onToken || iterations === 1);
                 if (allowToolsThisTurn) {
                     payload.tools = providerTools;
@@ -481,12 +491,14 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                             }
 
                             const fallbackMessages = LLMProvider.sanitizeMessages(messages);
-                            response = await axios.post(await LLMProvider.getBaseUrl(), {
+                            const fallbackPayload = {
                                 model,
                                 messages: fallbackMessages,
                                 temperature: depth === 'deep' ? 0.35 : 0.2,
                                 max_tokens: maxTokens
-                            }, {
+                            };
+                            if (/^openai\/gpt-oss/i.test(model) && depth !== 'deep') fallbackPayload.reasoning_effort = 'low';
+                            response = await axios.post(await LLMProvider.getBaseUrl(), fallbackPayload, {
                                 headers: LLMProvider.getHeaders(),
                                 timeout: 60000
                             });
