@@ -484,9 +484,15 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                                     });
                                 }
                             } else {
+                                // The forced tool_choice itself is what the provider rejected
+                                // ("Tool choice is required, but model did not call a tool") -
+                                // dropping tools here would leave the model unable to ground a
+                                // jobs/exams answer in real data at all. Retry with tools still
+                                // available but unforced, so the model can still choose to call
+                                // search_jobs voluntarily instead of falling back to memory.
                                 messages.push({
                                     role: 'system',
-                                    content: 'Tool calling was rejected by the model provider for this request. Answer without tools, state uncertainty for live jobs/dates, and do not say server busy.'
+                                    content: 'The forced tool call was rejected by the model provider for this request. You may still call a tool voluntarily if it would ground your answer in real data - otherwise answer directly, state uncertainty for live jobs/dates, and do not say server busy.'
                                 });
                             }
 
@@ -497,6 +503,10 @@ ${this._buildOutputContract(depth, intents, profile, userMessage)}
                                 temperature: depth === 'deep' ? 0.35 : 0.2,
                                 max_tokens: maxTokens
                             };
+                            if (!recovered && providerTools.length > 0) {
+                                fallbackPayload.tools = providerTools;
+                                fallbackPayload.tool_choice = 'auto';
+                            }
                             if (/^openai\/gpt-oss/i.test(model) && depth !== 'deep') fallbackPayload.reasoning_effort = 'low';
                             response = await axios.post(await LLMProvider.getBaseUrl(), fallbackPayload, {
                                 headers: LLMProvider.getHeaders(),
