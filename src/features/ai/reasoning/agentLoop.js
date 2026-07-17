@@ -66,9 +66,15 @@ class AgentLoop {
     }
 
     /**
-     * "abhi kaun si job chal rahi hai" style queries ask for LIVE vacancy status — answering
-     * these from parametric memory is exactly how fabricated vacancy counts/dates get produced.
-     * Force a real search_jobs call for this specific shape instead of leaving it to "auto".
+     * Job-listing questions ("top 5 jobs aayi h kya", "abhi kaun si job chal rahi hai", "12th
+     * pass koi vacancy") answered from the model's own memory are exactly how fabricated
+     * vacancy counts/dates/salaries get produced — trying to whitelist every possible phrasing
+     * ("abhi", "aayi h kya", "naya kya hai", ...) is a losing game in Hinglish. Instead, force
+     * a real search_jobs call by default whenever a job-family intent is tagged, and only skip
+     * it for the narrow case of a purely conceptual/definitional question that isn't actually
+     * asking to see listings (e.g. "IAS aur IPS mein farak kya hai", "SSC CGL kaise bane").
+     * RetrievalEngine.searchJobs already falls back to real recent-active-job records even for
+     * vague keywords, so forcing this is safe — worst case is a graceful EMPTY_RESULT.
      */
     static _shouldForceJobSearch(userMessage, intents = [], providerTools = []) {
         const hasSearchJobsTool = providerTools.some(t => t?.function?.name === 'search_jobs');
@@ -79,9 +85,9 @@ class AgentLoop {
         if (!jobIntent) return false;
 
         const q = String(userMessage || '');
-        return /\b(abhi|currently|is waqt|right now|chal rahi|chal rahe|running now|open now|live)\b.*\b(job|jobs|vacancy|vacancies|bharti|naukri|recruitment)\b/i.test(q)
-            || /\b(job|jobs|vacancy|vacancies|bharti|naukri|recruitment)\b.*\b(abhi|currently|is waqt|right now|chal rahi|chal rahe|running now|open now|live)\b/i.test(q)
-            || /kaun\s*si\s*job|which\s*job.*(open|active|running)/i.test(q);
+        const isPureConceptual = /\b(farak|difference between|vs\.?\b|kaise bane|banne ke liye kya|kya hota hai|process kya hai|kya hoti hai)\b/i.test(q);
+
+        return !isPureConceptual;
     }
 
     static _buildOutputContract(depth, intents = [], profile = {}, userMessage = '') {
