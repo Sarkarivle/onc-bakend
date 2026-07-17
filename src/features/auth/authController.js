@@ -34,17 +34,22 @@ const sendOTP = async (req, res) => {
         // Simple normalization: take last 10 digits
         const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
 
-        const authKey = process.env.MSG91_AUTH_KEY;
-        const widgetId = process.env.MSG91_TEMPLATE_ID;
+        const widgetId = process.env.MSG91_WIDGET_ID;
+        const tokenAuth = process.env.MSG91_WIDGET_AUTH_TOKEN;
 
         // Bypass for development or if keys are missing
-        if (process.env.NODE_ENV === 'development' || !authKey) {
+        if (process.env.NODE_ENV === 'development' || !widgetId || !tokenAuth) {
             console.log(`[Auth] OTP Sent (Bypass) to ${normalizedPhone}`);
             return res.json({ status: 'success', message: "OTP Sent (Bypass)", reqId: "DEV_MODE" });
         }
 
+        // MSG91's Widget API authenticates with the widget's own tokenAuth in
+        // the request body, not the account-level authkey header - sending the
+        // account authkey here is what produces "Web requests are not allowed
+        // for this widget".
         const postData = JSON.stringify({
             widgetId: widgetId,
+            tokenAuth: tokenAuth,
             identifier: '91' + normalizedPhone
         });
 
@@ -53,8 +58,7 @@ const sendOTP = async (req, res) => {
             path: '/api/v5/widget/sendOtp',
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'authkey': authKey
+                'Content-Type': 'application/json'
             }
         };
 
@@ -91,12 +95,13 @@ async function verifyOTP(phone, otp, reqId) {
     if (!reqId || reqId === 'DEV_MODE') return otp === '1234';
 
     return new Promise((resolve) => {
-        const authKey = process.env.MSG91_AUTH_KEY;
-        const widgetId = process.env.MSG91_TEMPLATE_ID;
+        const widgetId = process.env.MSG91_WIDGET_ID;
+        const tokenAuth = process.env.MSG91_WIDGET_AUTH_TOKEN;
         const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
 
         const postData = JSON.stringify({
             widgetId: widgetId,
+            tokenAuth: tokenAuth,
             reqId: reqId,
             otp: otp,
             identifier: '91' + normalizedPhone
@@ -107,8 +112,7 @@ async function verifyOTP(phone, otp, reqId) {
             path: '/api/v5/widget/verifyOtp',
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'authkey': authKey
+                'Content-Type': 'application/json'
             }
         };
 
