@@ -62,13 +62,17 @@ const sendOTP = async (req, res) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000
         };
 
+        let responded = false;
         const reqMsg = https.request(options, (resMsg) => {
             let data = '';
             resMsg.on('data', (chunk) => { data += chunk; });
             resMsg.on('end', () => {
+                if (responded) return;
+                responded = true;
                 try {
                     const result = JSON.parse(data);
                     if (result.type === 'success' || result.status === 'success') {
@@ -82,7 +86,12 @@ const sendOTP = async (req, res) => {
             });
         });
 
-        reqMsg.on('error', (e) => res.status(500).json({ status: 'error', message: e.message }));
+        reqMsg.on('timeout', () => reqMsg.destroy(new Error('OTP provider timeout')));
+        reqMsg.on('error', (e) => {
+            if (responded) return;
+            responded = true;
+            res.status(504).json({ status: 'error', message: 'OTP provider unreachable: ' + e.message });
+        });
         reqMsg.write(postData);
         reqMsg.end();
     } catch (e) {
