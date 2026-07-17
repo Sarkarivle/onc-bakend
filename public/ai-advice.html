@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONC Admin | AI Advice Feedback</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<script>
+    if (!localStorage.getItem('admin_token')) window.location.href = '/admin/login';
+</script>
+<body class="bg-[#F8F9FA]">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-[#1A237E] min-h-screen p-6 text-white hidden md:block">
+            <h2 class="text-2xl font-black mb-10">ONC Panel</h2>
+            <nav class="space-y-4">
+                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏠 Dashboard</span>
+                </a>
+                <a href="/admin/planner-logs" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🧠 AI Planner Logs</span>
+                </a>
+                <a href="/admin/ai-advice" class="flex items-center space-x-3 bg-white/10 p-3 rounded-xl">
+                    <span>🤖 AI Advice Feedback</span>
+                </a>
+                <a href="/admin/jansewa" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>🏢 Jansewa Kendras</span>
+                </a>
+                <a href="/admin/jobs" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>💼 Manage Jobs</span>
+                </a>
+                <a href="/admin/settings" class="flex items-center space-x-3 p-3 hover:bg-white/5 rounded-xl transition">
+                    <span>⚙️ Settings</span>
+                </a>
+                <div class="pt-10">
+                    <button onclick="logout()" class="flex items-center space-x-3 p-3 text-red-300 hover:bg-red-500/10 w-full rounded-xl transition">
+                        <span>🚪 Logout</span>
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 min-h-screen">
+            <header class="bg-white border-b border-gray-100 p-6 flex justify-between items-center sticky top-0 z-10">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">AI Advice Feedback (Jobo AI)</h1>
+                    <p class="text-xs text-gray-500">Thumbs up/down real users gave on the job-eligibility AI analysis.</p>
+                </div>
+                <button onclick="loadAll()" class="bg-[#1A237E] text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-[#1A237E]/90 transition">
+                    🔄 Refresh
+                </button>
+            </header>
+
+            <main class="p-8 space-y-8">
+                <!-- Stat Cards -->
+                <div id="statsCards" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-400 font-bold uppercase">Total Generated</div>
+                        <div id="statTotalGenerated" class="text-2xl font-black text-gray-800 mt-1">-</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-400 font-bold uppercase">Total Rated</div>
+                        <div id="statTotalRated" class="text-2xl font-black text-gray-800 mt-1">-</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-green-100 shadow-sm">
+                        <div class="text-xs text-green-500 font-bold uppercase">👍 Upvotes</div>
+                        <div id="statUp" class="text-2xl font-black text-green-600 mt-1">-</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-red-100 shadow-sm">
+                        <div class="text-xs text-red-500 font-bold uppercase">👎 Downvotes</div>
+                        <div id="statDown" class="text-2xl font-black text-red-600 mt-1">-</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-400 font-bold uppercase">Downvote Rate</div>
+                        <div id="statRate" class="text-2xl font-black text-gray-800 mt-1">-</div>
+                    </div>
+                </div>
+
+                <!-- Alert Check -->
+                <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Window (days)</label>
+                            <input id="windowDays" type="number" value="7" min="1" class="w-28 border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Threshold (%)</label>
+                            <input id="thresholdPct" type="number" value="15" min="1" class="w-28 border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                        </div>
+                        <button onclick="checkAlert()" class="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-amber-600 transition">
+                            🔔 Check Alert
+                        </button>
+                        <div id="alertResult" class="flex-1 text-sm font-semibold"></div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="setFilter('')" id="filterAll" class="px-4 py-2 rounded-xl text-sm font-bold bg-[#1A237E] text-white">All</button>
+                    <button onclick="setFilter('down')" id="filterDown" class="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-600">👎 Downvoted</button>
+                    <button onclick="setFilter('up')" id="filterUp" class="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-600">👍 Upvoted</button>
+                </div>
+
+                <!-- Feedback List -->
+                <div id="feedbackContainer" class="space-y-4">
+                    <div class="flex justify-center p-20">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A237E]"></div>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="flex justify-center items-center space-x-4 pb-10">
+                    <button onclick="prevPage()" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold hover:bg-gray-50">◀ Prev</button>
+                    <span id="pageInfo" class="text-sm text-gray-500 font-semibold">Page 1</span>
+                    <button onclick="nextPage()" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold hover:bg-gray-50">Next ▶</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let currentFilter = '';
+
+        function authHeaders() {
+            const token = localStorage.getItem('admin_token');
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        function logout() {
+            localStorage.removeItem('admin_token');
+            window.location.href = '/admin/login';
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/v1/admin/ai-advice/stats', { headers: authHeaders() });
+                const data = await res.json();
+                if (data.status !== 'success') return;
+                document.getElementById('statTotalGenerated').textContent = data.total_advice_generated;
+                document.getElementById('statTotalRated').textContent = data.total_rated;
+                document.getElementById('statUp').textContent = data.upvotes;
+                document.getElementById('statDown').textContent = data.downvotes;
+                document.getElementById('statRate').textContent = data.downvote_rate + '%';
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        async function checkAlert() {
+            const windowDays = document.getElementById('windowDays').value || 7;
+            const threshold = document.getElementById('thresholdPct').value || 15;
+            const resultEl = document.getElementById('alertResult');
+            resultEl.textContent = 'Checking...';
+            resultEl.className = 'flex-1 text-sm font-semibold text-gray-400';
+            try {
+                const res = await fetch(`/api/v1/admin/ai-advice/alert-check?windowDays=${windowDays}&threshold=${threshold}`, { headers: authHeaders() });
+                const data = await res.json();
+                if (data.status !== 'success') throw new Error(data.message);
+                resultEl.textContent = (data.alert_triggered ? '⚠️ ' : '✅ ') + data.message;
+                resultEl.className = 'flex-1 text-sm font-semibold ' + (data.alert_triggered ? 'text-red-600' : 'text-green-600');
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err.message;
+                resultEl.className = 'flex-1 text-sm font-semibold text-red-600';
+            }
+        }
+
+        function setFilter(rating) {
+            currentFilter = rating;
+            currentPage = 1;
+            ['filterAll', 'filterDown', 'filterUp'].forEach(id => {
+                document.getElementById(id).className = 'px-4 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 text-gray-600';
+            });
+            const activeId = rating === 'down' ? 'filterDown' : rating === 'up' ? 'filterUp' : 'filterAll';
+            document.getElementById(activeId).className = 'px-4 py-2 rounded-xl text-sm font-bold bg-[#1A237E] text-white';
+            loadFeedback();
+        }
+
+        function prevPage() {
+            if (currentPage > 1) { currentPage--; loadFeedback(); }
+        }
+        function nextPage() {
+            currentPage++; loadFeedback();
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        async function loadFeedback() {
+            const container = document.getElementById('feedbackContainer');
+            container.innerHTML = `<div class="flex justify-center p-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A237E]"></div></div>`;
+            try {
+                const qs = new URLSearchParams({ page: currentPage, limit: 20 });
+                if (currentFilter) qs.set('rating', currentFilter);
+                const res = await fetch(`/api/v1/admin/ai-advice?${qs}`, { headers: authHeaders() });
+                const data = await res.json();
+                if (data.status !== 'success') throw new Error(data.message);
+                renderFeedback(data.entries);
+                document.getElementById('pageInfo').textContent = `Page ${data.page} of ${data.totalPages || 1} (${data.total} total)`;
+            } catch (err) {
+                container.innerHTML = `<div class="text-center p-20 text-red-500 font-bold">Failed to load: ${err.message}</div>`;
+            }
+        }
+
+        function renderFeedback(entries) {
+            const container = document.getElementById('feedbackContainer');
+            if (!entries || entries.length === 0) {
+                container.innerHTML = '<div class="text-center p-20 text-gray-400">No feedback yet.</div>';
+                return;
+            }
+            container.innerHTML = entries.map(f => {
+                const log = f.adviceLogId || {};
+                const isUp = f.rating === 'up';
+                return `
+                <div class="bg-white p-6 rounded-3xl shadow-sm border ${isUp ? 'border-green-100' : 'border-red-100'}">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-black px-3 py-1 rounded-full ${isUp ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}">
+                                ${isUp ? '👍 UPVOTE' : '👎 DOWNVOTE'}
+                            </span>
+                            <span class="text-xs text-gray-400">${new Date(f.createdAt).toLocaleString()}</span>
+                            ${log.promptVersion ? `<span class="text-xs text-gray-300">v: ${escapeHtml(log.promptVersion)}</span>` : ''}
+                        </div>
+                        <span class="text-xs font-bold text-gray-500">${escapeHtml(f.userId?.name || 'Unknown User')}</span>
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-800 mb-2">${escapeHtml(log.jobTitle || 'Unknown Job')}</h3>
+                    <div class="bg-gray-50 p-4 rounded-2xl text-xs text-gray-600 mb-2">${escapeHtml(log.userProfileSnapshot || '')}</div>
+                    <div class="bg-indigo-50/50 p-4 rounded-2xl text-sm text-gray-700 whitespace-pre-line">${escapeHtml(log.details || '')}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function loadAll() {
+            loadStats();
+            loadFeedback();
+        }
+
+        loadAll();
+    </script>
+</body>
+</html>
