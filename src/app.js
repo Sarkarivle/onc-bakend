@@ -20,6 +20,7 @@ const aiRoutes = require('./features/ai/aiRoutes');
 const feedRoutes = require('./features/feed/feedRoutes');
 const chatRoutes = require('./features/chat/chatRoutes');
 const sourceRoutes = require('./features/sources/sourceRoutes');
+const adviceReviewRoutes = require('./features/eligibility/adviceReviewRoutes');
 
 const app = express();
 console.log('##############################################');
@@ -107,6 +108,7 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/feed', feedRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/sources', sourceRoutes);
+app.use('/api/v1/admin/ai-advice', adviceReviewRoutes);
 
 // Web Admin Pages
 app.get('/admin/config.js', (req, res) => {

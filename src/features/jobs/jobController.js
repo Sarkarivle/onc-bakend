@@ -11,6 +11,7 @@ const VectorService = require('../ai/knowledge/vectorService');
 const DateTool = require('../ai/tools/dateTool');
 const cache = require('../ai/utils/cache');
 const HumanExpertEngine = require('../eligibility/HumanExpertEngine');
+const AiAdviceFeedback = require('../eligibility/models/AiAdviceFeedback');
 
 const calculateAge = (dob) => {
   if (!dob) return 24;
@@ -158,10 +159,11 @@ const getAiMatchAdvice = async (req, res) => {
     if (cachedAdvice) {
         console.log(`[JobController] cache_hit true | key: ${cacheKey}`);
         report = await EligibilityEngine.evaluate(user, job, { skipLLM: true });
-        report.dost_advice = cachedAdvice;
-        report.ai_tip = cachedAdvice[0];
+        report.dost_advice = cachedAdvice.lines;
+        report.ai_tip = cachedAdvice.lines[0];
         // Ensure dost_advice_raw is populated for the Flutter cache check
-        report.dost_advice_raw = cachedAdvice.join('\n');
+        report.dost_advice_raw = cachedAdvice.lines.join('\n');
+        report.advice_log_id = cachedAdvice.logId;
     } else {
         console.log(`[JobController] cache_hit false | key: ${cacheKey}`);
         // 2. Generate Instant Response (No background LLM here to save tokens)
@@ -238,7 +240,7 @@ const getAiMatchAdviceStream = async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
 
     let fullAdvice = "";
-    await HumanExpertEngine.streamDostAdvice(user, report, job.title, job, (chunk) => {
+    const logId = await HumanExpertEngine.streamDostAdvice(user, report, job.title, job, (chunk) => {
         fullAdvice += chunk;
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
     });
@@ -248,8 +250,12 @@ const getAiMatchAdviceStream = async (req, res) => {
         const cacheKey = cache.generateKey(jobId, user);
         // Format for consistent storage
         const adviceList = fullAdvice.split('\n').filter(l => l.trim().length > 0);
-        cache.set(cacheKey, adviceList);
+        cache.set(cacheKey, { lines: adviceList, logId });
         console.log(`[JobController] Stream result saved to cache for key: ${cacheKey}`);
+    }
+
+    if (logId) {
+        res.write(`data: ${JSON.stringify({ advice_log_id: logId })}\n\n`);
     }
 
     res.write('data: [DONE]\n\n');
@@ -257,6 +263,30 @@ const getAiMatchAdviceStream = async (req, res) => {
   } catch (err) {
     console.error("Stream Error:", err);
     res.end();
+  }
+};
+
+const submitAdviceFeedback = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+
+    const { adviceLogId, rating, reason, comment } = req.body;
+    if (!adviceLogId || !['up', 'down'].includes(rating)) {
+      return res.status(400).json({ status: 'error', message: 'adviceLogId and a valid rating (up/down) are required' });
+    }
+
+    await AiAdviceFeedback.create({
+      adviceLogId,
+      userId: req.user.id,
+      rating,
+      reason,
+      comment,
+    });
+
+    res.status(201).json({ status: 'success' });
+  } catch (err) {
+    console.error("Advice Feedback Error:", err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 };
 
@@ -359,4 +389,4 @@ const getMyMatches = async (req, res) => {
   }
 };
 
-module.exports = { getAllJobs, getJob, getAiMatchAdvice, getAiMatchAdviceStream, importJob, discoverNewJobs, updateJob, deleteJob, createJob, getMyMatches };
+module.exports = { getAllJobs, getJob, getAiMatchAdvice, getAiMatchAdviceStream, submitAdviceFeedback, importJob, discoverNewJobs, updateJob, deleteJob, createJob, getMyMatches };

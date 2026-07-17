@@ -1,10 +1,36 @@
 const LLMProvider = require('../ai/generation/core_engine/llmProvider');
 const expertPrompt = require('./prompts/expert_reasoning');
 const UnitConverter = require('./utils/UnitConverter');
+const AiAdviceLog = require('./models/AiAdviceLog');
 
 // Modules whose failure is a hard/absolute disqualifier for this specific job
 // (as opposed to DOMICILE/LANGUAGE/SKILL gaps, which are softer/preference-like).
 const HARD_FAIL_MODULES = ['AGE', 'EDUCATION', 'GENDER', 'PHYSICAL'];
+
+// Bump this whenever expert_reasoning.js changes meaningfully, so feedback
+// can be compared/A-B'd across prompt versions instead of lumped together.
+const PROMPT_VERSION = 'v2-hard-soft-split';
+
+// Persists a generated advice for later feedback/review. Never throws -
+// a logging failure must not break the advice the user is waiting on.
+async function persistAdviceLog({ user, jobId, jobTitle, profileStr, facts, banner, details }) {
+    try {
+        const log = await AiAdviceLog.create({
+            userId: user._id || user.id,
+            jobId,
+            jobTitle,
+            promptVersion: PROMPT_VERSION,
+            userProfileSnapshot: profileStr,
+            engineFacts: facts,
+            banner,
+            details,
+        });
+        return log._id;
+    } catch (err) {
+        console.error('AiAdviceLog persist error:', err.message);
+        return null;
+    }
+}
 
 class HumanExpertEngine {
     /**
@@ -64,17 +90,16 @@ class HumanExpertEngine {
                 response = response.replace(/^<AGENT_THOUGHT>[\s\S]*?<\/AGENT_THOUGHT>/i, '').trim();
 
                 const parts = response.split('[SEP]');
-                if (parts.length === 2) {
-                    return {
-                        banner: parts[0].trim(),
-                        details: parts[1].trim()
-                    };
-                }
+                const result = parts.length === 2
+                    ? { banner: parts[0].trim(), details: parts[1].trim() }
+                    : { banner: "Details check kar le bhai.", details: response.replace('[SEP]', '').trim() };
 
-                return {
-                    banner: "Details check kar le bhai.",
-                    details: response.replace('[SEP]', '').trim()
-                };
+                result.logId = await persistAdviceLog({
+                    user, jobId: notification._id || notification.id, jobTitle, profileStr, facts,
+                    banner: result.banner, details: result.details,
+                });
+
+                return result;
             }
 
             return { banner: "Error", details: "Bhai, jankari process nahi ho paayi." };
@@ -188,11 +213,22 @@ class HumanExpertEngine {
                 fullResponse += chunk;
                 onChunk(chunk);
             }, { temperature: 0.1 });
+
+            const parts = fullResponse.split('[SEP]');
+            const banner = parts.length === 2 ? parts[0].trim() : null;
+            const details = (parts.length === 2 ? parts[1] : fullResponse).trim();
+
+            return await persistAdviceLog({
+                user, jobId: notification._id || notification.id, jobTitle, profileStr, facts, banner, details,
+            });
         } catch (error) {
             console.error("StreamDostAdvice Error:", error.message);
             onChunk("Bhai, thoda system load le raha hai, par tu check karte reh!");
+            return null;
         }
     }
 }
+
+HumanExpertEngine.PROMPT_VERSION = PROMPT_VERSION;
 
 module.exports = HumanExpertEngine;
