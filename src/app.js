@@ -72,9 +72,23 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: new RedisRateLimitStore('rl:api:'),
+  // Admin dashboard traffic (already behind login + restrictTo('admin')) is a
+  // handful of people, not end users - it shouldn't share the same 100/hr
+  // budget meant to rate-limit anonymous/public API abuse. See adminLimiter below.
+  skip: (req) => req.originalUrl.startsWith('/api/v1/admin'),
   message: { success: false, message: 'Too many requests, try again in an hour' }
 });
 app.use('/api', limiter);
+
+const adminLimiter = rateLimit({
+  max: Number(process.env.ADMIN_RATE_LIMIT_PER_HOUR || 2000),
+  windowMs: 60 * 60 * 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new RedisRateLimitStore('rl:admin:'),
+  message: { success: false, message: 'Too many admin requests, try again shortly.' }
+});
+app.use('/api/v1/admin', adminLimiter);
 
 app.use('/api', (req, res, next) => {
   if (mongoose.connection.readyState === 1) return next();
