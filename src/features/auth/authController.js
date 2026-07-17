@@ -55,7 +55,10 @@ const sendOTP = async (req, res) => {
 
         const options = {
             hostname: 'control.msg91.com',
-            path: '/api/v5/widget/sendOtp',
+            // Not /sendOtp - MSG91's widget-based send endpoint is /sendOtpMobile
+            // (/sendOtp exists but rejects server-side calls with "Web requests
+            // are not allowed for this widget").
+            path: '/api/v5/widget/sendOtpMobile',
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
