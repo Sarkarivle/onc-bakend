@@ -2,6 +2,10 @@ const LLMProvider = require('../ai/generation/core_engine/llmProvider');
 const expertPrompt = require('./prompts/expert_reasoning');
 const UnitConverter = require('./utils/UnitConverter');
 
+// Modules whose failure is a hard/absolute disqualifier for this specific job
+// (as opposed to DOMICILE/LANGUAGE/SKILL gaps, which are softer/preference-like).
+const HARD_FAIL_MODULES = ['AGE', 'EDUCATION', 'GENDER', 'PHYSICAL'];
+
 class HumanExpertEngine {
     /**
      * Converts raw eligibility data into a friendly "Dost" conversation.
@@ -39,7 +43,8 @@ class HumanExpertEngine {
                 overall_status: report.status,
                 user_age: ageStr,
                 age_limit: report.age_analysis?.effective_max_age,
-                reasons: report.failed_rules.map(r => r.message),
+                hard_blockers: report.failed_rules.filter(r => HARD_FAIL_MODULES.includes(r.module)).map(r => r.message),
+                soft_gaps: report.failed_rules.filter(r => !HARD_FAIL_MODULES.includes(r.module)).map(r => r.message),
                 highlights: report.applied_rules.filter(r => r.module !== 'CORE').map(r => r.message),
                 missing: report.missing_data.map(r => r.message),
                 extra_info: report.extra_notes || []
@@ -165,7 +170,8 @@ class HumanExpertEngine {
                 overall_status: report.status,
                 user_age: ageStr,
                 age_limit: report.age_analysis?.effective_max_age,
-                reasons: report.failed_rules.map(r => r.message),
+                hard_blockers: report.failed_rules.filter(r => HARD_FAIL_MODULES.includes(r.module)).map(r => r.message),
+                soft_gaps: report.failed_rules.filter(r => !HARD_FAIL_MODULES.includes(r.module)).map(r => r.message),
                 highlights: report.applied_rules.filter(r => r.module !== 'CORE').map(r => r.message),
                 missing: report.missing_data.map(r => r.message),
                 extra_info: report.extra_notes || []
